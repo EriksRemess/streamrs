@@ -4,7 +4,7 @@ use image::imageops::FilterType::Lanczos3;
 use image::imageops::{crop_imm, resize, rotate180};
 use image::{load_from_memory, GenericImageView};
 use std::cmp::min;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -17,13 +17,13 @@ const ACTIONS: [&str; 15] = [
     "xdg-open https://www.twitter.com",
     "xdg-open https://www.instagram.com",
     "xdg-open https://www.facebook.com",
-    "xdg-open https://www.amazon.com",
+    "xdg-open https://chatgpt.com/",
     "desklight",
     "xdg-open https://www.netflix.com",
-    "/opt/microsoft/msedge/microsoft-edge --profile-directory=Default --app-id=cinhimbnkkaeohfgghhklpknlkffjgod '--app-url=https://music.youtube.com/?source=pwa'",
+    "xdg-open https://discord.com/channels/@me",
     "xdg-open https://www.twitch.com",
-    "/opt/microsoft/msedge/microsoft-edge --profile-directory=Default --app-id=cifhbcnohmdccbgoicgdjpfamggdegmo '--app-url=https://teams.microsoft.com/v2/?clientType=pwa'",
-    "flatpak run com.raggesilver.BlackBox",
+    "slack",
+    "ghostty",
 ];
 
 const ACTION_ICONS: [&[u8]; 15] = [
@@ -35,12 +35,12 @@ const ACTION_ICONS: [&[u8]; 15] = [
     include_bytes!("../images/twitter.png"),
     include_bytes!("../images/instagram.png"),
     include_bytes!("../images/facebook.png"),
-    include_bytes!("../images/amazon.png"),
+    include_bytes!("../images/chatgpt.png"),
     include_bytes!("../images/floor-lamp.png"),
     include_bytes!("../images/netflix.png"),
-    include_bytes!("../images/youtube-music.png"),
+    include_bytes!("../images/discord.png"),
     include_bytes!("../images/twitch.png"),
-    include_bytes!("../images/teams.png"),
+    include_bytes!("../images/slack.png"),
     include_bytes!("../images/terminal.png"),
 ];
 
@@ -69,25 +69,34 @@ fn set_brightness(device: &HidDevice, percentage: usize) {
     device.send_feature_report(&mut buf).unwrap();
 }
 
-fn launch_app(action: &str) {
+fn launch_app(action: &str, debug: bool) {
     let path: Vec<&str> = action.split_whitespace().collect();
-    let child = Command::new(&path[0]).args(&path[1..]).spawn();
+    let mut cmd = Command::new(&path[0]);
+    cmd.args(&path[1..]).stdin(Stdio::null());
+
+    if debug {
+        cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+    } else {
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+    }
+
+    let child = cmd.spawn();
     if let Err(e) = child {
         eprintln!("Error: {:?}", e);
     }
 }
 
-fn get_pressed_button(buf: &[u8]) {
+fn get_pressed_button(buf: &[u8], debug: bool) {
     if let Some(index) = buf.iter().position(|&x| x == 1) {
-        launch_app(ACTIONS[index as usize]);
+        launch_app(ACTIONS[index as usize], debug);
     }
 }
 
-fn read_states(device: &HidDevice) {
+fn read_states(device: &HidDevice, debug: bool) {
     let mut buf = [0u8; 32];
     buf[0] = 19;
     if let Ok(_size) = device.read(&mut buf) {
-        get_pressed_button(&buf[4..19]);
+        get_pressed_button(&buf[4..19], debug);
     }
 }
 
@@ -135,13 +144,14 @@ fn get_image_data(img_data: &[u8]) -> Vec<u8> {
 }
 
 fn main() {
+    let debug = std::env::args().any(|arg| arg == "--debug");
     if let Some(device) = get_device(0x0fd9, 0x0080, 0x0001, 0x000c) {
         set_brightness(&device, 60);
         for i in 0..15 {
             set_key_image(&device, i);
         }
         loop {
-            read_states(&device);
+            read_states(&device, debug);
             sleep(Duration::from_millis(100));
         }
     };
