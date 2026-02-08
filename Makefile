@@ -34,7 +34,12 @@ install-systemd: install-bin
 	mkdir -p "$(SYSTEMD_USER_DIR)"
 	install -m 0644 "$(SERVICE_TEMPLATE)" "$(SERVICE_FILE)"
 	systemctl --user daemon-reload
-	systemctl --user enable --now "$(SERVICE_NAME).service"
+	systemctl --user enable "$(SERVICE_NAME).service"
+	if systemctl --user is-active --quiet "$(SERVICE_NAME).service"; then \
+		systemctl --user restart "$(SERVICE_NAME).service"; \
+	else \
+		systemctl --user start "$(SERVICE_NAME).service"; \
+	fi
 
 install: install-bin install-assets install-systemd
 

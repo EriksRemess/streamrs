@@ -5,8 +5,8 @@ usage_page = 12
 brightness = 60
 
 [[keys]]
-action = "open https://www.duckduckgo.com"
-icon = "duckduckgo.png"
+action = "open https://example.com"
+icon = "clock.svg"
 
 [[keys]]
 action = "open https://www.youtube.com"
@@ -22,7 +22,11 @@ icon = "github.png"
 
 [[keys]]
 action = "amixer set Capture toggle"
-icon = "zoom-unmute.png"
+icon = "zoom-mute.png"
+icon_on = "zoom-mute.png"
+icon_off = "zoom-unmute.png"
+status = "amixer get Capture | grep -q '\\[on\\]'"
+status_interval_ms = 500
 
 [[keys]]
 action = "open https://www.twitter.com"
@@ -43,6 +47,10 @@ icon = "chatgpt.png"
 [[keys]]
 action = "hass-cli service call switch.toggle --arguments entity_id=switch.chuangmi_plug_hmi206"
 icon = "floor-lamp.png"
+icon_on = "floor-lamp.png"
+icon_off = "floor-lamp-off.png"
+status = "hass-cli state get switch.chuangmi_plug_hmi206 | grep -q 'on'"
+status_interval_ms = 1000
 
 [[keys]]
 action = "open https://www.twitch.com"
