@@ -71,6 +71,25 @@ Pagination:
 - `stream-deck-next-page.png` appears on bottom-right when a next page exists.
 - `stream-deck-previous-page.png` appears in the bottom-right area when a previous page exists.
 
+## Preview
+
+Generate the mock image used at the top of this README:
+
+```bash
+make mock
+```
+
+Or run the preview binary directly:
+
+```bash
+streamrs-preview --output mock.png
+```
+
+Notes:
+- `streamrs-preview` only supports `--output`.
+- Default output is `mock.png` if `--output` is omitted.
+- Preview rendering uses built-in defaults for template, config/image discovery, and size (`780x554`).
+
 ## Systemd
 
 Manual service commands:

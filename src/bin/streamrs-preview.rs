@@ -4,6 +4,7 @@ use image::{DynamicImage, GrayImage, Luma, Rgba, RgbaImage, load_from_memory};
 use resvg::tiny_skia;
 use resvg::usvg;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,24 +22,25 @@ const CLOCK_COLON_WIDTH: i32 = 4;
 const CLOCK_CHAR_GAP: i32 = 2;
 const TEMPLATE_RENDER_WIDTH: u32 = 1560;
 const TEMPLATE_RENDER_HEIGHT: u32 = 1108;
+const EMBEDDED_BLANK_LABEL: &str = "embedded:scripts/streamdeck.svg";
+const EMBEDDED_BLANK_SVG: &[u8] = include_bytes!("../../scripts/streamdeck.svg");
+const PREVIEW_WIDTH: u32 = 780;
+const PREVIEW_HEIGHT: u32 = 554;
+const ICON_INSET: i32 = 8;
+const BOTTOM_ROW_Y_OFFSET: i32 = 0;
+const BOTTOM_ROW_EXTRA_INSET: i32 = 1;
+const ICON_CONTENT_SHRINK_X: i32 = 13;
+const ICON_CONTENT_SHRINK_Y: i32 = 13;
+const ICON_MASK_EXPAND: i32 = 10;
+const ICON_PAYLOAD_OFFSET_X: i32 = 0;
+const ICON_PAYLOAD_OFFSET_Y: i32 = 0;
+const EVALUATE_STATUS: bool = false;
 
 #[derive(Debug)]
 struct CliArgs {
-    blank_svg: PathBuf,
     config: PathBuf,
     image_dir: PathBuf,
     output: PathBuf,
-    width: u32,
-    height: u32,
-    icon_inset: i32,
-    bottom_row_y_offset: i32,
-    bottom_row_extra_inset: i32,
-    icon_content_shrink_x: i32,
-    icon_content_shrink_y: i32,
-    icon_mask_expand: i32,
-    icon_payload_offset_x: i32,
-    icon_payload_offset_y: i32,
-    evaluate_status: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,13 +70,7 @@ struct Slot {
 }
 
 fn print_usage(program: &str) {
-    eprintln!(
-        "Usage: {program} [--blank-svg <path>] [--config <path>] [--image-dir <path>] [--output <path>]
-                 [--width <px>] [--height <px>] [--icon-inset <n>] [--bottom-row-y-offset <n>]
-                 [--bottom-row-extra-inset <n>] [--icon-content-shrink-x <n>] [--icon-content-shrink-y <n>]
-                 [--icon-mask-expand <n>] [--icon-payload-offset-x <n>] [--icon-payload-offset-y <n>]
-                 [--evaluate-status]"
-    );
+    eprintln!("Usage: {program} [--output <path>]");
 }
 
 fn home_dir() -> Result<PathBuf, String> {
@@ -83,136 +79,59 @@ fn home_dir() -> Result<PathBuf, String> {
         .ok_or_else(|| "HOME is not set".to_string())
 }
 
-fn parse_i32(value: &str, name: &str) -> Result<i32, String> {
-    value
-        .parse::<i32>()
-        .map_err(|e| format!("Invalid value for {name}: {e}"))
+fn first_readable_file(candidates: &[PathBuf]) -> Option<PathBuf> {
+    candidates
+        .iter()
+        .find(|path| path.is_file() && fs::File::open(path).is_ok())
+        .cloned()
 }
 
-fn parse_u32(value: &str, name: &str) -> Result<u32, String> {
-    value
-        .parse::<u32>()
-        .map_err(|e| format!("Invalid value for {name}: {e}"))
+fn first_readable_dir(candidates: &[PathBuf]) -> Option<PathBuf> {
+    candidates
+        .iter()
+        .find(|path| path.is_dir() && fs::read_dir(path).is_ok())
+        .cloned()
+}
+
+fn default_config_path(home: &Path) -> PathBuf {
+    let home_default = home.join(".config/streamrs/default.toml");
+    let candidates = [
+        home_default.clone(),
+        PathBuf::from("/usr/share/streamrs/default/default.toml"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("config")
+            .join("default.toml"),
+    ];
+    first_readable_file(&candidates).unwrap_or(home_default)
+}
+
+fn default_image_dir(home: &Path) -> PathBuf {
+    let home_default = home.join(".local/share/streamrs/default");
+    let candidates = [
+        home_default.clone(),
+        PathBuf::from("/usr/share/streamrs/default"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("all_images"),
+    ];
+    first_readable_dir(&candidates).unwrap_or(home_default)
 }
 
 fn parse_args() -> Result<CliArgs, String> {
     let home = home_dir()?;
     let mut args = CliArgs {
-        blank_svg: PathBuf::from("scripts/streamdeck.svg"),
-        config: home.join(".config/streamrs/default.toml"),
-        image_dir: home.join(".local/share/streamrs/default"),
-        output: PathBuf::from("dist/mock-current-config.png"),
-        width: 512,
-        height: 364,
-        icon_inset: 8,
-        bottom_row_y_offset: 0,
-        bottom_row_extra_inset: 1,
-        icon_content_shrink_x: 13,
-        icon_content_shrink_y: 13,
-        icon_mask_expand: 10,
-        icon_payload_offset_x: 0,
-        icon_payload_offset_y: 0,
-        evaluate_status: false,
+        config: default_config_path(&home),
+        image_dir: default_image_dir(&home),
+        output: PathBuf::from("mock.png"),
     };
 
     let mut it = env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
-            "--blank-svg" => {
-                args.blank_svg = PathBuf::from(
-                    it.next()
-                        .ok_or_else(|| "Missing value for --blank-svg".to_string())?,
-                )
-            }
-            "--config" => {
-                args.config = PathBuf::from(
-                    it.next()
-                        .ok_or_else(|| "Missing value for --config".to_string())?,
-                )
-            }
-            "--image-dir" => {
-                args.image_dir = PathBuf::from(
-                    it.next()
-                        .ok_or_else(|| "Missing value for --image-dir".to_string())?,
-                )
-            }
             "--output" => {
                 args.output = PathBuf::from(
                     it.next()
                         .ok_or_else(|| "Missing value for --output".to_string())?,
                 )
             }
-            "--width" => {
-                args.width = parse_u32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --width".to_string())?,
-                    "--width",
-                )?
-            }
-            "--height" => {
-                args.height = parse_u32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --height".to_string())?,
-                    "--height",
-                )?
-            }
-            "--icon-inset" => {
-                args.icon_inset = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --icon-inset".to_string())?,
-                    "--icon-inset",
-                )?
-            }
-            "--bottom-row-y-offset" => {
-                args.bottom_row_y_offset = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --bottom-row-y-offset".to_string())?,
-                    "--bottom-row-y-offset",
-                )?
-            }
-            "--bottom-row-extra-inset" => {
-                args.bottom_row_extra_inset = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --bottom-row-extra-inset".to_string())?,
-                    "--bottom-row-extra-inset",
-                )?
-            }
-            "--icon-content-shrink-x" => {
-                args.icon_content_shrink_x = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --icon-content-shrink-x".to_string())?,
-                    "--icon-content-shrink-x",
-                )?
-            }
-            "--icon-content-shrink-y" => {
-                args.icon_content_shrink_y = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --icon-content-shrink-y".to_string())?,
-                    "--icon-content-shrink-y",
-                )?
-            }
-            "--icon-mask-expand" => {
-                args.icon_mask_expand = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --icon-mask-expand".to_string())?,
-                    "--icon-mask-expand",
-                )?
-            }
-            "--icon-payload-offset-x" => {
-                args.icon_payload_offset_x = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --icon-payload-offset-x".to_string())?,
-                    "--icon-payload-offset-x",
-                )?
-            }
-            "--icon-payload-offset-y" => {
-                args.icon_payload_offset_y = parse_i32(
-                    &it.next()
-                        .ok_or_else(|| "Missing value for --icon-payload-offset-y".to_string())?,
-                    "--icon-payload-offset-y",
-                )?
-            }
-            "--evaluate-status" => args.evaluate_status = true,
             "--help" | "-h" => {
                 print_usage(&env::args().next().unwrap_or_else(|| "streamrs-preview".to_string()));
                 std::process::exit(0);
@@ -355,20 +274,18 @@ fn load_svg_data(
     Ok(DynamicImage::ImageRgba8(rgba))
 }
 
-fn render_blank_base(path: &Path, width: u32, height: u32) -> Result<RgbaImage, String> {
-    let data =
-        fs::read(path).map_err(|e| format!("Failed to read blank SVG '{}': {e}", path.display()))?;
+fn render_blank_base(
+    label: &str,
+    svg_data: &[u8],
+    resources_dir: Option<&Path>,
+    width: u32,
+    height: u32,
+) -> Result<RgbaImage, String> {
     // Render at least at template resolution, then downscale with high-quality filtering.
     // This avoids visibly blocky sampling from embedded raster textures in the SVG.
     let render_w = width.max(TEMPLATE_RENDER_WIDTH);
     let render_h = height.max(TEMPLATE_RENDER_HEIGHT);
-    let img = load_svg_data(
-        &path.display().to_string(),
-        &data,
-        path.parent(),
-        render_w,
-        render_h,
-    )?;
+    let img = load_svg_data(label, svg_data, resources_dir, render_w, render_h)?;
     let rendered = img.to_rgba8();
     if render_w == width && render_h == height {
         return Ok(rendered);
@@ -659,43 +576,67 @@ fn apply_mask_to_alpha(img: &mut RgbaImage, mask: &GrayImage) {
 }
 
 fn compose_preview(args: &CliArgs) -> Result<(), String> {
+    let width = PREVIEW_WIDTH;
+    let height = PREVIEW_HEIGHT;
     let raw = fs::read_to_string(&args.config)
         .map_err(|e| format!("Failed to read config '{}': {e}", args.config.display()))?;
     let config: Config = toml::from_str(&raw)
         .map_err(|e| format!("Failed to parse config '{}': {e}", args.config.display()))?;
-    let mut base = render_blank_base(&args.blank_svg, args.width, args.height)?;
-    let template_base = render_blank_base(&args.blank_svg, TEMPLATE_RENDER_WIDTH, TEMPLATE_RENDER_HEIGHT)?;
+    let mut base = render_blank_base(
+        EMBEDDED_BLANK_LABEL,
+        EMBEDDED_BLANK_SVG,
+        None,
+        width,
+        height,
+    )?;
+    let template_base = render_blank_base(
+        EMBEDDED_BLANK_LABEL,
+        EMBEDDED_BLANK_SVG,
+        None,
+        TEMPLATE_RENDER_WIDTH,
+        TEMPLATE_RENDER_HEIGHT,
+    )?;
     let template_slots = detect_key_slots(&template_base, false)?;
-    let slots = scale_slots(&template_slots, args.width, args.height);
+    let slots = scale_slots(&template_slots, width, height);
+    let mut warned_icon_errors = HashSet::<String>::new();
 
     for (idx, slot) in slots.iter().enumerate() {
         if idx >= config.keys.len() {
             continue;
         }
-        let icon_name = choose_icon_name(&config.keys[idx], args.evaluate_status);
-        let icon = load_icon_image(&icon_name, &args.image_dir).unwrap_or_else(|_| {
-            let mut img = RgbaImage::new(CLOCK_RENDER_SIZE, CLOCK_RENDER_SIZE);
-            for p in img.pixels_mut() {
-                *p = Rgba([0x20, 0x20, 0x20, 0xFF]);
+        let icon_name = choose_icon_name(&config.keys[idx], EVALUATE_STATUS);
+        let icon = match load_icon_image(&icon_name, &args.image_dir) {
+            Ok(img) => img,
+            Err(err) => {
+                if warned_icon_errors.insert(icon_name.clone()) {
+                    eprintln!(
+                        "Warning: {err}. Using fallback tile for icon '{}'",
+                        icon_name
+                    );
+                }
+                let mut img = RgbaImage::new(CLOCK_RENDER_SIZE, CLOCK_RENDER_SIZE);
+                for p in img.pixels_mut() {
+                    *p = Rgba([0x20, 0x20, 0x20, 0xFF]);
+                }
+                img
             }
-            img
-        });
+        };
 
         let row_index = (idx / 5) as i32;
         let row_icon_inset =
-            args.icon_inset + if row_index == 2 { args.bottom_row_extra_inset } else { 0 };
+            ICON_INSET + if row_index == 2 { BOTTOM_ROW_EXTRA_INSET } else { 0 };
         let slot_min = slot.width.min(slot.height) as i32;
         let mut inset_px = ((row_icon_inset as f32 / 72.0) * slot_min as f32).round() as i32;
         inset_px = inset_px.clamp(0, slot_min / 2 - 1);
 
         let inner_w = (slot.width as i32 - inset_px * 2).max(1);
         let inner_h = (slot.height as i32 - inset_px * 2).max(1);
-        let expand_px = args.icon_mask_expand.max(0);
+        let expand_px = ICON_MASK_EXPAND.max(0);
         let box_w = (inner_w + expand_px * 2).min(slot.width as i32).max(1);
         let box_h = (inner_h + expand_px * 2).min(slot.height as i32).max(1);
 
-        let content_w = (box_w - args.icon_content_shrink_x.max(0)).max(1);
-        let content_h = (box_h - args.icon_content_shrink_y.max(0)).max(1);
+        let content_w = (box_w - ICON_CONTENT_SHRINK_X.max(0)).max(1);
+        let content_h = (box_h - ICON_CONTENT_SHRINK_Y.max(0)).max(1);
 
         let mut fitted_inner = resize(&icon, content_w as u32, content_h as u32, Lanczos3);
         let content_radius = ((content_w.min(content_h) as f32) * 0.16).round().max(2.0) as u32;
@@ -729,16 +670,16 @@ fn compose_preview(args: &CliArgs) -> Result<(), String> {
         let final_mask = multiply_gray(&slot_mask, &rounded_slot);
         apply_mask_to_alpha(&mut fitted, &final_mask);
 
-        let mut x_target = slot.x0 as i32 + args.icon_payload_offset_x;
+        let mut x_target = slot.x0 as i32 + ICON_PAYLOAD_OFFSET_X;
         let mut y_target = slot.y0 as i32
             + if row_index == 2 {
-                args.bottom_row_y_offset
+                BOTTOM_ROW_Y_OFFSET
             } else {
                 0
             }
-            + args.icon_payload_offset_y;
-        x_target = x_target.clamp(0, args.width as i32 - slot.width as i32);
-        y_target = y_target.clamp(0, args.height as i32 - slot.height as i32);
+            + ICON_PAYLOAD_OFFSET_Y;
+        x_target = x_target.clamp(0, width as i32 - slot.width as i32);
+        y_target = y_target.clamp(0, height as i32 - slot.height as i32);
         overlay(&mut base, &fitted, x_target as i64, y_target as i64);
     }
 

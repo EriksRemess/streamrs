@@ -7,19 +7,16 @@
 ## `streamrs-preview` (Rust binary)
 - Generates a mock Stream Deck preview image from config + icons.
 - Source: `src/bin/streamrs-preview.rs`
-- Default template: `scripts/streamdeck.svg`.
+- Template is embedded in the binary from `scripts/streamdeck.svg` at build time.
 
 Example:
 
 ```bash
-cargo run --bin streamrs-preview -- \
-  --config ~/.config/streamrs/default.toml \
-  --image-dir ~/.local/share/streamrs/default \
-  --output dist/mock-current-config.png
+cargo run --bin streamrs-preview -- --output mock.png
 ```
 
 Notes:
-- Status commands are disabled by default for safety. Add `--evaluate-status` to enable.
+- The preview uses built-in defaults for config/image directories and rendering parameters.
 
 ## `streamdeck.svg`
 - Mock Stream Deck face/template used by `streamrs-preview`.

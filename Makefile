@@ -64,8 +64,7 @@ uninstall-assets: uninstall-config uninstall-images
 uninstall: uninstall-systemd uninstall-assets uninstall-bin
 
 mock:
-	cargo run --quiet --bin streamrs-preview -- \
-		--width 780 --height 554 --output "$(MOCK_OUTPUT)"
+	cargo run --quiet --bin streamrs-preview -- --output "$(MOCK_OUTPUT)"
 
 clean:
 	cargo clean
