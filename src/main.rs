@@ -2,7 +2,7 @@ use hidapi::{HidApi, HidDevice};
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType::Lanczos3;
 use image::imageops::{crop_imm, resize, rotate180};
-use image::{GenericImageView, load_from_memory};
+use image::{GenericImageView, RgbImage, load_from_memory};
 use serde::Deserialize;
 use std::cmp::min;
 use std::env;
@@ -13,6 +13,19 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 const KEY_COUNT: usize = 15;
+const EDGE_PAGE_ACTION_KEY_COUNT: usize = 14;
+const PAGED_ACTION_KEY_COUNT: usize = 13;
+const PREVIOUS_PAGE_KEY: usize = 13;
+const NEXT_PAGE_KEY: usize = 14;
+const NEXT_PAGE_ICON: &str = "stream-deck-next-page.png";
+const PREVIOUS_PAGE_ICON: &str = "stream-deck-previous-page.png";
+
+#[derive(Clone)]
+enum ButtonAction {
+    Launch(String),
+    PreviousPage,
+    NextPage,
+}
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -196,31 +209,26 @@ fn launch_app(action: &str, debug: bool) {
     }
 }
 
-fn get_pressed_button(buf: &[u8], actions: &[String], debug: bool) {
-    if let Some(index) = buf.iter().position(|&x| x == 1)
-        && let Some(action) = actions.get(index)
-    {
-        launch_app(action, debug);
-    }
+fn get_pressed_button(buf: &[u8]) -> Option<usize> {
+    buf.iter().position(|&x| x == 1)
 }
 
-fn read_states(device: &HidDevice, actions: &[String], debug: bool) {
+fn read_states(device: &HidDevice) -> Option<usize> {
     let mut buf = [0u8; 32];
     buf[0] = 19;
     match device.read_timeout(&mut buf, 100) {
-        Ok(size) if size > 0 => get_pressed_button(&buf[4..19], actions, debug),
-        Ok(_) => {}
-        Err(err) => eprintln!("Failed to read key state: {err}"),
+        Ok(size) if size > 0 => get_pressed_button(&buf[4..19]),
+        Ok(_) => None,
+        Err(err) => {
+            eprintln!("Failed to read key state: {err}");
+            None
+        }
     }
 }
 
-fn set_key_image(device: &HidDevice, key: u8, icon_path: &Path) -> Result<(), String> {
-    let img_data = fs::read(icon_path)
-        .map_err(|err| format!("Failed to read icon '{}': {err}", icon_path.display()))?;
-    let img = get_image_data(&img_data)?;
-
+fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<(), String> {
     let mut page_number = 0;
-    let mut bytes_remaining = img.len();
+    let mut bytes_remaining = data.len();
     while bytes_remaining > 0 {
         let this_length = min(bytes_remaining, 1024 - 8);
         let bytes_sent = page_number * (1024 - 8);
@@ -237,7 +245,7 @@ fn set_key_image(device: &HidDevice, key: u8, icon_path: &Path) -> Result<(), St
 
         let mut payload = Vec::with_capacity(1024);
         payload.extend_from_slice(&header);
-        payload.extend_from_slice(&img[bytes_sent..bytes_sent + this_length]);
+        payload.extend_from_slice(&data[bytes_sent..bytes_sent + this_length]);
         payload.resize(1024, 0);
         device
             .write(&payload)
@@ -248,6 +256,13 @@ fn set_key_image(device: &HidDevice, key: u8, icon_path: &Path) -> Result<(), St
     }
 
     Ok(())
+}
+
+fn set_key_image(device: &HidDevice, key: u8, icon_path: &Path) -> Result<(), String> {
+    let img_data = fs::read(icon_path)
+        .map_err(|err| format!("Failed to read icon '{}': {err}", icon_path.display()))?;
+    let img = get_image_data(&img_data)?;
+    set_key_image_data(device, key, &img)
 }
 
 fn get_image_data(img_data: &[u8]) -> Result<Vec<u8>, String> {
@@ -266,40 +281,98 @@ fn get_image_data(img_data: &[u8]) -> Result<Vec<u8>, String> {
     Ok(data)
 }
 
-fn warn_key_count(config: &Config) {
-    if config.keys.len() < KEY_COUNT {
-        eprintln!(
-            "Warning: config has {} keys, expected {}",
-            config.keys.len(),
-            KEY_COUNT
-        );
-    } else if config.keys.len() > KEY_COUNT {
-        eprintln!(
-            "Warning: config has {} keys, only first {} will be used",
-            config.keys.len(),
-            KEY_COUNT
-        );
+fn blank_image_data() -> Result<Vec<u8>, String> {
+    let img = RgbImage::new(72, 72);
+    let mut data = Vec::new();
+    JpegEncoder::new_with_quality(&mut data, 100)
+        .encode_image(&img)
+        .map_err(|err| format!("Failed to encode blank key image: {err}"))?;
+    Ok(data)
+}
+
+fn page_count(key_count: usize) -> usize {
+    if key_count <= KEY_COUNT {
+        1
+    } else if key_count <= EDGE_PAGE_ACTION_KEY_COUNT * 2 {
+        2
+    } else {
+        2 + (key_count - (EDGE_PAGE_ACTION_KEY_COUNT * 2) + PAGED_ACTION_KEY_COUNT - 1)
+            / PAGED_ACTION_KEY_COUNT
     }
 }
 
-fn apply_config(device: &HidDevice, config: &Config, image_dir: &Path) -> Vec<String> {
-    if let Err(err) = set_brightness(device, config.brightness.clamp(0, 100)) {
-        eprintln!("{err}");
+fn page_capacity(page: usize, total_pages: usize) -> usize {
+    if total_pages == 1 {
+        KEY_COUNT
+    } else if page == 0 || page + 1 == total_pages {
+        EDGE_PAGE_ACTION_KEY_COUNT
+    } else {
+        PAGED_ACTION_KEY_COUNT
     }
+}
 
-    for (index, key) in config.keys.iter().take(KEY_COUNT).enumerate() {
-        let icon_path = image_dir.join(&key.icon);
-        if let Err(err) = set_key_image(device, index as u8, &icon_path) {
+fn set_page(
+    device: &HidDevice,
+    config: &Config,
+    image_dir: &Path,
+    page: usize,
+    blank_image: &[u8],
+) -> [Option<ButtonAction>; KEY_COUNT] {
+    let mut button_actions: [Option<ButtonAction>; KEY_COUNT] = std::array::from_fn(|_| None);
+
+    for key in 0..KEY_COUNT {
+        if let Err(err) = set_key_image_data(device, key as u8, blank_image) {
             eprintln!("{err}");
         }
     }
 
-    config
+    let total_pages = page_count(config.keys.len());
+    let page = min(page, total_pages.saturating_sub(1));
+    let keys_per_page = page_capacity(page, total_pages);
+    let offset = (0..page)
+        .map(|page_index| page_capacity(page_index, total_pages))
+        .sum::<usize>();
+    for (index, key) in config
         .keys
         .iter()
-        .take(KEY_COUNT)
-        .map(|key| key.action.clone())
-        .collect()
+        .skip(offset)
+        .take(keys_per_page)
+        .enumerate()
+    {
+        let icon_path = image_dir.join(&key.icon);
+        if let Err(err) = set_key_image(device, index as u8, &icon_path) {
+            eprintln!("{err}");
+        }
+        button_actions[index] = Some(ButtonAction::Launch(key.action.clone()));
+    }
+
+    if total_pages > 1 {
+        let has_prev = page > 0;
+        let has_next = page + 1 < total_pages;
+
+        if has_prev {
+            let key = if has_next {
+                PREVIOUS_PAGE_KEY
+            } else {
+                NEXT_PAGE_KEY
+            };
+            let icon_path = image_dir.join(PREVIOUS_PAGE_ICON);
+            if let Err(err) = set_key_image(device, key as u8, &icon_path) {
+                eprintln!("{err}");
+            }
+            button_actions[key] = Some(ButtonAction::PreviousPage);
+        }
+
+        if has_next {
+            let icon_path = image_dir.join(NEXT_PAGE_ICON);
+            if let Err(err) = set_key_image(device, NEXT_PAGE_KEY as u8, &icon_path) {
+                eprintln!("{err}");
+            }
+            button_actions[NEXT_PAGE_KEY] = Some(ButtonAction::NextPage);
+        }
+    }
+
+    button_actions
 }
 
 fn main() {
@@ -348,7 +421,13 @@ fn main() {
         }
     };
 
-    warn_key_count(&config);
+    let blank_image = match blank_image_data() {
+        Ok(data) => data,
+        Err(err) => {
+            eprintln!("{err}");
+            return;
+        }
+    };
 
     if let Some(device) = get_device(
         config.vendor_id,
@@ -356,11 +435,53 @@ fn main() {
         config.usage,
         config.usage_page,
     ) {
-        let mut actions = apply_config(&device, &config, &image_dir);
+        if let Err(err) = set_brightness(&device, config.brightness.clamp(0, 100)) {
+            eprintln!("{err}");
+        }
+
+        let mut current_page = 0usize;
+        let mut total_pages = page_count(config.keys.len());
+        let mut button_actions = set_page(&device, &config, &image_dir, current_page, &blank_image);
         let mut last_reload_check = Instant::now();
+        let mut last_pressed_button = None;
 
         loop {
-            read_states(&device, &actions, args.debug);
+            let pressed_button = read_states(&device);
+            if pressed_button != last_pressed_button {
+                if let Some(index) = pressed_button
+                    && let Some(action) = button_actions[index].clone()
+                {
+                    match action {
+                        ButtonAction::Launch(action) => launch_app(&action, args.debug),
+                        ButtonAction::PreviousPage => {
+                            if current_page > 0 {
+                                current_page -= 1;
+                                button_actions = set_page(
+                                    &device,
+                                    &config,
+                                    &image_dir,
+                                    current_page,
+                                    &blank_image,
+                                );
+                            }
+                        }
+                        ButtonAction::NextPage => {
+                            if current_page + 1 < total_pages {
+                                current_page += 1;
+                                button_actions = set_page(
+                                    &device,
+                                    &config,
+                                    &image_dir,
+                                    current_page,
+                                    &blank_image,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                last_pressed_button = pressed_button;
+            }
 
             if last_reload_check.elapsed() >= Duration::from_secs(10) {
                 last_reload_check = Instant::now();
@@ -386,8 +507,22 @@ fn main() {
                                         );
                                     }
 
-                                    warn_key_count(&new_config);
-                                    actions = apply_config(&device, &new_config, &image_dir);
+                                    if let Err(err) =
+                                        set_brightness(&device, new_config.brightness.clamp(0, 100))
+                                    {
+                                        eprintln!("{err}");
+                                    }
+
+                                    total_pages = page_count(new_config.keys.len());
+                                    current_page = min(current_page, total_pages.saturating_sub(1));
+                                    button_actions = set_page(
+                                        &device,
+                                        &new_config,
+                                        &image_dir,
+                                        current_page,
+                                        &blank_image,
+                                    );
+                                    last_pressed_button = None;
                                     config = new_config;
                                     config_raw = raw;
                                     eprintln!("Config reloaded from '{}'", config_path.display());

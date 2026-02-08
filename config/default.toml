@@ -41,7 +41,7 @@ action = "open https://chatgpt.com/"
 icon = "chatgpt.png"
 
 [[keys]]
-action = "desklight"
+action = "hass-cli service call switch.toggle --arguments entity_id=switch.chuangmi_plug_hmi206"
 icon = "floor-lamp.png"
 
 [[keys]]
