@@ -4,18 +4,22 @@
 - Builds a Debian package for `streamrs`.
 - Intended for release/packaging workflows.
 
-## `mock_preview.py`
+## `streamrs-preview` (Rust binary)
 - Generates a mock Stream Deck preview image from config + icons.
-- Default template: `scripts/blank.svg`.
+- Source: `src/bin/streamrs-preview.rs`
+- Default template: `scripts/streamdeck.svg`.
 
 Example:
 
 ```bash
-scripts/mock_preview.py \
+cargo run --bin streamrs-preview -- \
   --config ~/.config/streamrs/default.toml \
   --image-dir ~/.local/share/streamrs/default \
   --output dist/mock-current-config.png
 ```
 
-## `blank.svg`
-- Mock Stream Deck face/template used by `mock_preview.py`.
+Notes:
+- Status commands are disabled by default for safety. Add `--evaluate-status` to enable.
+
+## `streamdeck.svg`
+- Mock Stream Deck face/template used by `streamrs-preview`.

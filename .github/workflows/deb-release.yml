@@ -40,8 +40,8 @@ jobs:
       - name: Run Tests
         run: cargo test --locked
 
-      - name: Build Release Binary
-        run: cargo build --release --locked
+      - name: Build Release Binaries
+        run: cargo build --release --locked --bin streamrs --bin streamrs-preview
 
       - name: Build Debian Package
         run: bash scripts/build-deb.sh "${{ steps.version.outputs.value }}" dist

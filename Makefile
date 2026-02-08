@@ -9,24 +9,11 @@ SYSTEMD_USER_DIR ?= $(XDG_CONFIG_HOME)/systemd/user
 SERVICE_NAME ?= streamrs
 SERVICE_FILE ?= $(SYSTEMD_USER_DIR)/$(SERVICE_NAME).service
 SERVICE_TEMPLATE ?= systemd/streamrs.service
-MOCK_SCRIPT ?= scripts/mock_preview.py
-MOCK_TEMPLATE ?= scripts/blank.svg
-MOCK_CONFIG ?= $(CONFIG_DIR)/$(PROFILE).toml
-MOCK_IMAGE_DIR ?= $(PROFILE_DIR)
 MOCK_OUTPUT ?= mock.png
-MOCK_SMALL_OUTPUT ?= dist/mock-small.png
-MOCK_WIDTH ?= 1560
-MOCK_HEIGHT ?= 1108
-MOCK_ICON_INSET ?= 8
-MOCK_BOTTOM_ROW_Y_OFFSET ?= 0
-MOCK_BOTTOM_ROW_EXTRA_INSET ?= 1
-MOCK_ICON_CONTENT_SHRINK_X ?= 10
-MOCK_ICON_CONTENT_SHRINK_Y ?= 10
-MOCK_ICON_MASK_EXPAND ?= 10
 
 .PHONY: build install-bin install-systemd install install-config install-images install-assets
 .PHONY: uninstall-bin uninstall-systemd uninstall-config uninstall-images uninstall-assets uninstall
-.PHONY: mock mock-small
+.PHONY: mock clean
 
 build:
 	cargo build --release
@@ -77,20 +64,10 @@ uninstall-assets: uninstall-config uninstall-images
 uninstall: uninstall-systemd uninstall-assets uninstall-bin
 
 mock:
-	python3 "$(MOCK_SCRIPT)" \
-		--blank-svg "$(MOCK_TEMPLATE)" \
-		--config "$(MOCK_CONFIG)" \
-		--image-dir "$(MOCK_IMAGE_DIR)" \
-		--output "$(MOCK_OUTPUT)" \
-		--width "$(MOCK_WIDTH)" \
-		--height "$(MOCK_HEIGHT)" \
-		--icon-inset "$(MOCK_ICON_INSET)" \
-		--bottom-row-y-offset "$(MOCK_BOTTOM_ROW_Y_OFFSET)" \
-		--bottom-row-extra-inset "$(MOCK_BOTTOM_ROW_EXTRA_INSET)" \
-		--icon-content-shrink-x "$(MOCK_ICON_CONTENT_SHRINK_X)" \
-		--icon-content-shrink-y "$(MOCK_ICON_CONTENT_SHRINK_Y)" \
-		--icon-mask-expand "$(MOCK_ICON_MASK_EXPAND)"
+	cargo run --quiet --bin streamrs-preview -- \
+		--width 780 --height 554 --output "$(MOCK_OUTPUT)"
 
-mock-small: mock
-	mkdir -p "$(dir $(MOCK_SMALL_OUTPUT))"
-	magick "$(MOCK_OUTPUT)" -resize 780x554 "$(MOCK_SMALL_OUTPUT)"
+clean:
+	cargo clean
+	rm -f -- "$(MOCK_OUTPUT)"
+	@if [ -d dist ] && [ -z "$$(find dist -mindepth 1 -print -quit)" ]; then rmdir dist; fi
