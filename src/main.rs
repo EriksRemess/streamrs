@@ -32,6 +32,7 @@ const PREVIOUS_PAGE_ICON: &str = "stream-deck-previous-page.png";
 const CLOCK_ICON_ALIAS: &str = "clock.svg";
 const CLOCK_ICON_PREFIX: &str = "clock://hh:mm";
 const CLOCK_BACKGROUND_ICON: &str = "blank.png";
+const CLOCK_FALLBACK_BACKGROUND_COLOR: &str = "#1f1f1f";
 const SVG_RENDER_SIZE: u32 = 256;
 const MIN_GIF_FRAME_DELAY_MS: u64 = 66;
 const DEFAULT_STATUS_CHECK_INTERVAL_MS: u64 = 1000;
@@ -793,7 +794,17 @@ fn clock_char_width(ch: char) -> i32 {
     }
 }
 
-fn render_clock_segments_svg(text: &str) -> String {
+fn clock_background_svg(image_dir: &Path) -> String {
+    if image_dir.join(CLOCK_BACKGROUND_ICON).is_file() {
+        format!(r##"<image href="{CLOCK_BACKGROUND_ICON}" x="0" y="0" width="72" height="72"/>"##)
+    } else {
+        format!(
+            r##"<rect x="0" y="0" width="72" height="72" fill="{CLOCK_FALLBACK_BACKGROUND_COLOR}"/>"##
+        )
+    }
+}
+
+fn render_clock_segments_svg(image_dir: &Path, text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let gaps = chars.len().saturating_sub(1) as i32;
     let total_width =
@@ -821,16 +832,16 @@ fn render_clock_segments_svg(text: &str) -> String {
 
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
-<image href="{background}" x="0" y="0" width="72" height="72"/>
+{background}
 {glyphs}
 </svg>"##,
-        background = CLOCK_BACKGROUND_ICON,
+        background = clock_background_svg(image_dir),
         glyphs = glyphs
     )
 }
 
 fn render_clock_svg(image_dir: &Path, text: &str) -> Result<Vec<u8>, String> {
-    let svg = render_clock_segments_svg(text);
+    let svg = render_clock_segments_svg(image_dir, text);
     let img = load_svg_data(CLOCK_ICON_ALIAS, svg.as_bytes(), Some(image_dir))?;
     encode_streamdeck_image(img)
 }
@@ -1415,9 +1426,10 @@ mod tests {
     }
 
     #[test]
-    fn clock_icon_renders_svg_on_blank_background() {
-        let loaded = load_key_image(Path::new("all_images"), CLOCK_ICON_ALIAS)
-            .expect("clock icon should render");
+    fn clock_icon_renders_svg_without_background_file() {
+        let missing_dir = Path::new("/tmp/streamrs-missing-clock-assets");
+        let loaded =
+            load_key_image(missing_dir, CLOCK_ICON_ALIAS).expect("clock icon should render");
         match loaded {
             LoadedKeyImage::Clock {
                 image,
@@ -1431,6 +1443,14 @@ mod tests {
             }
             _ => panic!("expected clock image variant"),
         }
+    }
+
+    #[test]
+    fn clock_svg_uses_fallback_background_when_blank_png_is_missing() {
+        let missing_dir = Path::new("/tmp/streamrs-missing-clock-assets");
+        let svg = render_clock_segments_svg(missing_dir, "12:34");
+        assert!(svg.contains(CLOCK_FALLBACK_BACKGROUND_COLOR));
+        assert!(!svg.contains(CLOCK_BACKGROUND_ICON));
     }
 
     #[test]

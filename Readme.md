@@ -6,7 +6,7 @@ Supported icon formats include PNG/JPEG, animated GIF/APNG/animated WebP (render
 
 Built-in dynamic clock icon:
 - use `icon = "clock.svg"` (or `icon = "clock://hh:mm"`) in your key config.
-- streamrs renders `HH:MM` over `blank.png` and refreshes automatically.
+- streamrs renders `HH:MM` over `blank.png` (or a built-in dark fallback background) and refreshes automatically.
 
 Key actions are optional: if `action` is missing or blank, pressing that key does nothing.
 

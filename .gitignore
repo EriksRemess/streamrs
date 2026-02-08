@@ -1,4 +1,5 @@
 /target
-/all_images
+/all_images/*
+!/all_images/blank.png
 /dist
 .DS_Store
