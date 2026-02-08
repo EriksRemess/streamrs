@@ -344,6 +344,22 @@ fn initialize_profile(
     Ok(())
 }
 
+fn ensure_profile_initialized(
+    profile: &str,
+    config_path: &Path,
+    image_dir: &Path,
+) -> Result<(), String> {
+    if config_path.exists() {
+        return Ok(());
+    }
+
+    eprintln!(
+        "Config '{}' not found; initializing profile assets",
+        config_path.display()
+    );
+    initialize_profile(profile, config_path, image_dir, false)
+}
+
 fn read_config_file(path: &Path) -> Result<String, String> {
     fs::read_to_string(path)
         .map_err(|err| format!("Failed to read config '{}': {err}", path.display()))
@@ -1141,6 +1157,11 @@ fn main() {
         if let Err(err) = initialize_profile(&args.profile, &config_path, &image_dir, args.force) {
             eprintln!("{err}");
         }
+        return;
+    }
+
+    if let Err(err) = ensure_profile_initialized(&args.profile, &config_path, &image_dir) {
+        eprintln!("{err}");
         return;
     }
 

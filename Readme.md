@@ -30,7 +30,7 @@ This installs:
 ## Debian Releases
 
 - GitHub Actions builds a `.deb` package on PRs and pushes.
-- Pushing a tag like `v0.2.0` publishes the `.deb` to GitHub Releases.
+- Pushing a tag like `v0.2.1` publishes the `.deb` to GitHub Releases.
 
 ## Usage
 
@@ -45,6 +45,8 @@ Optional flags:
 - `--config <path>`: load a config file from a custom path
 - `--init`: initialize per-user config and images into XDG paths
 - `--force`: with `--init`, overwrite existing files
+
+If the selected config file does not exist, streamrs auto-initializes profile assets before startup.
 
 If your config defines more than 15 keys, streamrs paginates automatically:
 - `stream-deck-next-page.png` appears on the bottom-right key when a next page exists.
