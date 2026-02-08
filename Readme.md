@@ -32,25 +32,39 @@ Status icon fields:
 - `icon_on` / `icon_off`: optional ON/OFF icons (fallback to `icon` when omitted)
 - `status_interval_ms`: optional poll interval in milliseconds
 
-## Install
+## Debian Package Install (Recommended)
 
-Install binary + assets + user systemd service:
+Install a release package:
 
 ```bash
-make install
+sudo apt install ./streamrs_<version>_<arch>.deb
 ```
 
-This installs:
-- Binary: `~/.local/bin/streamrs`
-- Config: `~/.config/streamrs/default.toml`
-- Images: `~/.local/share/streamrs/default/`
-- User service: `~/.config/systemd/user/streamrs.service`
+Example architecture values: `amd64`, `arm64`.
 
-The install target enables the service and starts it, or restarts it if already running.
+Package contents:
+- `/usr/bin/streamrs`
+- `/usr/bin/streamrs-preview`
+- `/usr/lib/systemd/user/streamrs.service`
+- `/usr/share/streamrs/default/default.toml`
+- `/usr/share/streamrs/default/` (bundled icons)
+
+First-time setup after install:
+
+```bash
+streamrs --init
+systemctl --user daemon-reload
+systemctl --user enable --now streamrs.service
+```
+
+Notes:
+- `streamrs --init` copies default config/icons into your user profile paths.
+- If you skip `--init`, `streamrs` auto-initializes on first run when config is missing.
+- To update profile files from packaged defaults later, run `streamrs --init --force`.
 
 ## Usage
 
-Run manually:
+After installing the `.deb`, run manually:
 
 ```bash
 streamrs
@@ -73,13 +87,7 @@ Pagination:
 
 ## Preview
 
-Generate the mock image used at the top of this README:
-
-```bash
-make mock
-```
-
-Or run the preview binary directly:
+Use `streamrs-preview` to generate an image from your current `default` profile config + icons:
 
 ```bash
 streamrs-preview --output mock.png
@@ -87,23 +95,38 @@ streamrs-preview --output mock.png
 
 Notes:
 - `streamrs-preview` only supports `--output`.
-- Default output is `mock.png` if `--output` is omitted.
-- Preview rendering uses built-in defaults for template, config/image discovery, and size (`780x554`).
+- If `--output` is omitted, it writes `mock.png` in the current directory.
+- It reads your current profile data from:
+  - `~/.config/streamrs/default.toml`
+  - `~/.local/share/streamrs/default/`
+- If those are missing, it falls back to packaged defaults under `/usr/share/streamrs/default/`.
 
-## Systemd
+## Source Install (Optional)
 
-Manual service commands:
+If you are working from a checkout instead of a `.deb` install:
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now streamrs.service
-systemctl --user restart streamrs.service
+make install
 ```
 
-## Debian Releases
+This installs:
+- Binary: `~/.local/bin/streamrs`
+- Config: `~/.config/streamrs/default.toml`
+- Images: `~/.local/share/streamrs/default/`
+- User service: `~/.config/systemd/user/streamrs.service`
 
-- GitHub Actions builds `.deb` artifacts for CI.
-- Pushing a tag like `vX.Y.Z` publishes a release `.deb` to GitHub Releases.
+Generate the README mock from source:
+
+```bash
+make mock
+```
+
+Build a `.deb` locally from source:
+
+```bash
+cargo build --release --locked --bin streamrs --bin streamrs-preview
+bash scripts/build-deb.sh <version> dist
+```
 
 ## Credits
 
