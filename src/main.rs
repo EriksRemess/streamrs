@@ -1283,7 +1283,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use image::Rgba;
+    use image::codecs::gif::GifEncoder;
     use std::io::Cursor;
 
     #[test]
@@ -1313,8 +1314,26 @@ mod tests {
 
     #[test]
     fn animated_gif_fixture_is_supported() {
-        let path = Path::new("all_images/twitch-stream-btn_twitch_toggle_slowchat_inactive.gif");
-        let gif_data = fs::read(path).expect("animated GIF fixture should exist");
+        let path = Path::new("animated.gif");
+        let mut gif_data = Vec::new();
+        {
+            let mut encoder = GifEncoder::new(&mut gif_data);
+            let frame1 = ImageFrame::from_parts(
+                RgbaImage::from_pixel(2, 2, Rgba([0, 0, 0, 255])),
+                0,
+                0,
+                image::Delay::from_numer_denom_ms(100, 1),
+            );
+            let frame2 = ImageFrame::from_parts(
+                RgbaImage::from_pixel(2, 2, Rgba([255, 255, 255, 255])),
+                0,
+                0,
+                image::Delay::from_numer_denom_ms(100, 1),
+            );
+            encoder
+                .encode_frames(vec![frame1, frame2].into_iter())
+                .expect("fixture GIF should encode");
+        }
 
         let decoder = GifDecoder::new(Cursor::new(gif_data.as_slice()))
             .expect("fixture should decode as GIF");
