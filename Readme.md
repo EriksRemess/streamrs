@@ -1,72 +1,89 @@
-# Stream Deck daemon in Rust
+# streamrs
 
-Simple utility daemon to set predefined icons[^1] and actions on Stream Deck.
+A lightweight Rust daemon for Stream Deck that maps keys to icons and shell commands.
 
-Supported icon formats include PNG/JPEG, animated GIF/APNG/animated WebP (rendered frame-by-frame by streamrs), and SVG.
+## Hardware
 
-Built-in dynamic clock icon:
-- use `icon = "clock.svg"` (or `icon = "clock://hh:mm"`) in your key config.
-- streamrs renders `HH:MM` over `blank.png` (or a built-in dark fallback background) and refreshes automatically.
+`streamrs` is built for and tested on:
+- Elgato Stream Deck MK.2
+- USB ID: `0fd9:0080`
+- `vendor_id = 4057` (`0x0fd9`)
+- `product_id = 128` (`0x0080`)
 
-Key actions are optional: if `action` is missing or blank, pressing that key does nothing.
+## Features
 
-Status-driven on/off icons:
-- `status = "<command>"`: command is run periodically via `sh -c`; exit code `0` means ON, non-zero means OFF.
-- `icon_on` / `icon_off`: optional icons for ON/OFF state (fallback to `icon` when omitted).
-- `status_interval_ms`: optional poll interval in milliseconds.
+- Supports static icons: PNG, JPEG/JPG, SVG
+- Supports animated icons: GIF, APNG, animated WebP (rendered by streamrs frame-by-frame)
+- Built-in digital clock icon via `icon = "clock.svg"` (or `icon = "clock://hh:mm"`)
+- Optional key actions: missing or blank `action` means no-op on press
+- Status-driven toggle icons via polling commands
+- Automatic pagination when config has more than 15 keys
+- Auto-initializes profile assets when config is missing
 
-## Installation
+Clock details:
+- Renders `HH:MM` once per second
+- Uses `blank.png` as background when present
+- Falls back to an internal dark background when `blank.png` is missing
+
+Status icon fields:
+- `status = "<command>"`: executed with `sh -c`; exit code `0` = ON, non-zero = OFF
+- `icon_on` / `icon_off`: optional ON/OFF icons (fallback to `icon` when omitted)
+- `status_interval_ms`: optional poll interval in milliseconds
+
+## Install
+
+Install binary + assets + user systemd service:
 
 ```bash
-cargo install --path .
-make install-assets
+make install
 ```
 
 This installs:
+- Binary: `~/.local/bin/streamrs`
+- Config: `~/.config/streamrs/default.toml`
+- Images: `~/.local/share/streamrs/default/`
+- User service: `~/.config/systemd/user/streamrs.service`
 
-- `~/.config/streamrs/default.toml`
-- `~/.local/share/streamrs/default/` (copied from `all_images/`)
-
-## Debian Releases
-
-- GitHub Actions builds a `.deb` package on PRs and pushes.
-- Pushing a tag like `v0.2.2` publishes the `.deb` to GitHub Releases.
+The install target enables the service and starts it, or restarts it if already running.
 
 ## Usage
+
+Run manually:
 
 ```bash
 streamrs
 ```
 
-Optional flags:
-
+CLI flags:
 - `--debug`: inherit child process stdout/stderr
-- `--profile <name>`: load `~/.config/streamrs/<name>.toml` and images from `~/.local/share/streamrs/<name>/`
-- `--config <path>`: load a config file from a custom path
-- `--init`: initialize per-user config and images into XDG paths
-- `--force`: with `--init`, overwrite existing files
+- `--profile <name>`: use `~/.config/streamrs/<name>.toml` and `~/.local/share/streamrs/<name>/`
+- `--config <path>`: use a custom config path
+- `--init`: initialize profile config + images, print service commands, then exit
+- `--force`: with `--init`, overwrite existing config/images from source assets
 
-If the selected config file does not exist, streamrs auto-initializes profile assets before startup.
+Notes:
+- If config is missing, streamrs auto-runs profile initialization before startup.
+- `--force` overwrites known source files but does not remove extra files already in the profile image directory.
 
-If your config defines more than 15 keys, streamrs paginates automatically:
-- `stream-deck-next-page.png` appears on the bottom-right key when a next page exists.
-- `stream-deck-previous-page.png` appears on the bottom-right area when a previous page exists.
+Pagination:
+- `stream-deck-next-page.png` appears on bottom-right when a next page exists.
+- `stream-deck-previous-page.png` appears in the bottom-right area when a previous page exists.
 
-Quick SVG/GIF check:
+## Systemd
 
-```bash
-make install-assets
-streamrs --profile default
-```
-
-Per-user bootstrap after system install:
+Manual service commands:
 
 ```bash
-streamrs --init
+systemctl --user daemon-reload
+systemctl --user enable --now streamrs.service
+systemctl --user restart streamrs.service
 ```
 
-The default config now maps:
-- key 1 icon to `streamrs-test-svg.svg`
-- key 2 icon to `twitch-stream-btn_twitch_toggle_slowchat_inactive.gif` (animated GIF input)
+## Debian Releases
 
-[^1]: Icons from https://marketplace.elgato.com/product/hexaza-3d4ed1dc-bf33-4f30-9ecd-201769f10c0d
+- GitHub Actions builds `.deb` artifacts for CI.
+- Pushing a tag like `vX.Y.Z` publishes a release `.deb` to GitHub Releases.
+
+## Credits
+
+- Icon pack source: https://marketplace.elgato.com/product/hexaza-3d4ed1dc-bf33-4f30-9ecd-201769f10c0d
