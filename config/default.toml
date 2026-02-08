@@ -5,7 +5,7 @@ usage_page = 12
 brightness = 60
 
 [[keys]]
-action = "open https://example.com"
+action = ""
 icon = "clock.svg"
 
 [[keys]]
