@@ -1,0 +1,65 @@
+vendor_id = 4057
+product_id = 128
+usage = 1
+usage_page = 12
+brightness = 60
+
+[[keys]]
+action = "open https://www.duckduckgo.com"
+icon = "duckduckgo.png"
+
+[[keys]]
+action = "open https://www.youtube.com"
+icon = "youtube.png"
+
+[[keys]]
+action = "open https://www.reddit.com"
+icon = "reddit.png"
+
+[[keys]]
+action = "open https://www.github.com"
+icon = "github.png"
+
+[[keys]]
+action = "amixer set Capture toggle"
+icon = "zoom-unmute.png"
+
+[[keys]]
+action = "open https://www.twitter.com"
+icon = "twitter.png"
+
+[[keys]]
+action = "open https://www.instagram.com"
+icon = "instagram.png"
+
+[[keys]]
+action = "open https://www.facebook.com"
+icon = "facebook.png"
+
+[[keys]]
+action = "open https://chatgpt.com/"
+icon = "chatgpt.png"
+
+[[keys]]
+action = "desklight"
+icon = "floor-lamp.png"
+
+[[keys]]
+action = "open https://www.twitch.com"
+icon = "twitch.png"
+
+[[keys]]
+action = "open https://discord.com/channels/@me"
+icon = "discord.png"
+
+[[keys]]
+action = "open https://business.facebook.com"
+icon = "meta.png"
+
+[[keys]]
+action = "slack"
+icon = "slack.png"
+
+[[keys]]
+action = "ghostty"
+icon = "ghostty.png"

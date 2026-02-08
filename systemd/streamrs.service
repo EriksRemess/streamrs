@@ -1,0 +1,13 @@
+[Unit]
+Description=streamrs
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/streamrs
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

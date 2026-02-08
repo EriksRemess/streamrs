@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 hidapi = "2.6.4"
 image = "0.25.9"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 
 [profile.release]
 strip = true
