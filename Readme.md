@@ -27,6 +27,11 @@ This installs:
 - `~/.config/streamrs/default.toml`
 - `~/.local/share/streamrs/default/` (copied from `all_images/`)
 
+## Debian Releases
+
+- GitHub Actions builds a `.deb` package on PRs and pushes.
+- Pushing a tag like `v0.2.0` publishes the `.deb` to GitHub Releases.
+
 ## Usage
 
 ```bash
@@ -38,6 +43,8 @@ Optional flags:
 - `--debug`: inherit child process stdout/stderr
 - `--profile <name>`: load `~/.config/streamrs/<name>.toml` and images from `~/.local/share/streamrs/<name>/`
 - `--config <path>`: load a config file from a custom path
+- `--init`: initialize per-user config and images into XDG paths
+- `--force`: with `--init`, overwrite existing files
 
 If your config defines more than 15 keys, streamrs paginates automatically:
 - `stream-deck-next-page.png` appears on the bottom-right key when a next page exists.
@@ -48,6 +55,12 @@ Quick SVG/GIF check:
 ```bash
 make install-assets
 streamrs --profile default
+```
+
+Per-user bootstrap after system install:
+
+```bash
+streamrs --init
 ```
 
 The default config now maps:

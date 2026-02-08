@@ -123,6 +123,8 @@ struct CliArgs {
     debug: bool,
     profile: String,
     config_path: Option<PathBuf>,
+    init: bool,
+    force: bool,
 }
 
 fn default_vendor_id() -> u16 {
@@ -146,13 +148,15 @@ fn default_brightness() -> usize {
 }
 
 fn print_usage(program: &str) {
-    println!("Usage: {program} [--debug] [--profile <name>] [--config <path>]");
+    println!("Usage: {program} [--debug] [--profile <name>] [--config <path>] [--init] [--force]");
 }
 
 fn parse_args() -> Result<CliArgs, String> {
     let mut debug = false;
     let mut profile = "default".to_string();
     let mut config_path = None;
+    let mut init = false;
+    let mut force = false;
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -169,6 +173,8 @@ fn parse_args() -> Result<CliArgs, String> {
                     .ok_or_else(|| "Missing value for --config".to_string())?;
                 config_path = Some(PathBuf::from(value));
             }
+            "--init" => init = true,
+            "--force" => force = true,
             "--help" | "-h" => {
                 let program = env::args().next().unwrap_or_else(|| "streamrs".to_string());
                 print_usage(&program);
@@ -178,10 +184,16 @@ fn parse_args() -> Result<CliArgs, String> {
         }
     }
 
+    if force && !init {
+        return Err("--force requires --init".to_string());
+    }
+
     Ok(CliArgs {
         debug,
         profile,
         config_path,
+        init,
+        force,
     })
 }
 
@@ -213,6 +225,123 @@ fn default_config_path(profile: &str) -> Result<PathBuf, String> {
 
 fn default_image_dir(profile: &str) -> Result<PathBuf, String> {
     Ok(xdg_data_home()?.join("streamrs").join(profile))
+}
+
+fn find_default_config_source(profile: &str) -> Option<PathBuf> {
+    let candidates = [
+        PathBuf::from(format!("/usr/share/streamrs/{profile}/default.toml")),
+        PathBuf::from("/usr/share/streamrs/default/default.toml"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("config")
+            .join("default.toml"),
+    ];
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+fn find_image_source_dir(profile: &str) -> Option<PathBuf> {
+    let candidates = [
+        PathBuf::from(format!("/usr/share/streamrs/{profile}")),
+        PathBuf::from("/usr/share/streamrs/default"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("all_images"),
+    ];
+    candidates.into_iter().find(|path| path.is_dir())
+}
+
+fn copy_file(src: &Path, dst: &Path, force: bool) -> Result<bool, String> {
+    if dst.exists() && !force {
+        return Ok(false);
+    }
+    if let Some(parent) = dst.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create directory '{}': {err}", parent.display()))?;
+    }
+    fs::copy(src, dst).map_err(|err| {
+        format!(
+            "Failed to copy '{}' to '{}': {err}",
+            src.display(),
+            dst.display()
+        )
+    })?;
+    Ok(true)
+}
+
+fn copy_dir_contents(src: &Path, dst: &Path, force: bool) -> Result<(usize, usize), String> {
+    fs::create_dir_all(dst)
+        .map_err(|err| format!("Failed to create directory '{}': {err}", dst.display()))?;
+
+    let mut copied = 0usize;
+    let mut skipped = 0usize;
+    for entry in fs::read_dir(src)
+        .map_err(|err| format!("Failed to read directory '{}': {err}", src.display()))?
+    {
+        let entry =
+            entry.map_err(|err| format!("Failed to read entry in '{}': {err}", src.display()))?;
+        let src_path = entry.path();
+        let name = entry.file_name();
+        if name == "default.toml" {
+            continue;
+        }
+        let dst_path = dst.join(&name);
+        let file_type = entry.file_type().map_err(|err| {
+            format!(
+                "Failed to read file type for '{}': {err}",
+                src_path.display()
+            )
+        })?;
+
+        if file_type.is_dir() {
+            let (sub_copied, sub_skipped) = copy_dir_contents(&src_path, &dst_path, force)?;
+            copied += sub_copied;
+            skipped += sub_skipped;
+        } else if file_type.is_file() {
+            if copy_file(&src_path, &dst_path, force)? {
+                copied += 1;
+            } else {
+                skipped += 1;
+            }
+        }
+    }
+
+    Ok((copied, skipped))
+}
+
+fn initialize_profile(
+    profile: &str,
+    config_path: &Path,
+    image_dir: &Path,
+    force: bool,
+) -> Result<(), String> {
+    let config_src = find_default_config_source(profile).ok_or_else(|| {
+        "Could not find a default config source. Expected /usr/share/streamrs/default/default.toml or repository config.".to_string()
+    })?;
+    let images_src = find_image_source_dir(profile).ok_or_else(|| {
+        "Could not find an image source directory. Expected /usr/share/streamrs/default or repository all_images.".to_string()
+    })?;
+
+    let config_copied = copy_file(&config_src, config_path, force)?;
+    let (images_copied, images_skipped) = copy_dir_contents(&images_src, image_dir, force)?;
+
+    if config_copied {
+        eprintln!(
+            "Initialized config '{}' from '{}'",
+            config_path.display(),
+            config_src.display()
+        );
+    } else {
+        eprintln!(
+            "Config '{}' already exists; keeping existing file (use --force to overwrite)",
+            config_path.display()
+        );
+    }
+
+    eprintln!(
+        "Initialized images in '{}': {} copied, {} skipped",
+        image_dir.display(),
+        images_copied,
+        images_skipped
+    );
+
+    Ok(())
 }
 
 fn read_config_file(path: &Path) -> Result<String, String> {
@@ -1007,6 +1136,13 @@ fn main() {
             return;
         }
     };
+
+    if args.init {
+        if let Err(err) = initialize_profile(&args.profile, &config_path, &image_dir, args.force) {
+            eprintln!("{err}");
+        }
+        return;
+    }
 
     let mut config_raw = match read_config_file(&config_path) {
         Ok(raw) => raw,
