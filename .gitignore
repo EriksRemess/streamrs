@@ -1,6 +1,8 @@
 /target
 /all_images/*
 !/all_images/blank.png
+!/all_images/stream-deck-next-page.png
+!/all_images/stream-deck-previous-page.png
 /dist
 .DS_Store
 *.pyc
