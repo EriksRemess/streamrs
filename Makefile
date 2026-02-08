@@ -5,6 +5,7 @@ PROFILE ?= default
 PROFILE_DIR ?= $(XDG_DATA_HOME)/streamrs/$(PROFILE)
 BIN_DIR ?= $(HOME)/.local/bin
 BIN_NAME ?= streamrs
+PREVIEW_BIN_NAME ?= streamrs-preview
 SYSTEMD_USER_DIR ?= $(XDG_CONFIG_HOME)/systemd/user
 SERVICE_NAME ?= streamrs
 SERVICE_FILE ?= $(SYSTEMD_USER_DIR)/$(SERVICE_NAME).service
@@ -21,6 +22,7 @@ build:
 install-bin: build
 	mkdir -p "$(BIN_DIR)"
 	install -m 0755 "target/release/$(BIN_NAME)" "$(BIN_DIR)/$(BIN_NAME)"
+	install -m 0755 "target/release/$(PREVIEW_BIN_NAME)" "$(BIN_DIR)/$(PREVIEW_BIN_NAME)"
 
 install-config:
 	mkdir -p "$(CONFIG_DIR)"
@@ -47,6 +49,7 @@ install: install-bin install-assets install-systemd
 
 uninstall-bin:
 	rm -f "$(BIN_DIR)/$(BIN_NAME)"
+	rm -f "$(BIN_DIR)/$(PREVIEW_BIN_NAME)"
 
 uninstall-systemd:
 	-systemctl --user disable --now "$(SERVICE_NAME).service"

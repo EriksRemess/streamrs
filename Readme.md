@@ -110,7 +110,9 @@ make install
 ```
 
 This installs:
-- Binary: `~/.local/bin/streamrs`
+- Binaries:
+  - `~/.local/bin/streamrs`
+  - `~/.local/bin/streamrs-preview`
 - Config: `~/.config/streamrs/default.toml`
 - Images: `~/.local/share/streamrs/default/`
 - User service: `~/.config/systemd/user/streamrs.service`
