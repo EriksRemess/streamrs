@@ -1,3 +1,5 @@
+![Mock Stream Deck Preview](mock.png)
+
 # streamrs
 
 A lightweight Rust daemon for Stream Deck that maps keys to icons and shell commands.
