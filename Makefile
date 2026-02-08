@@ -69,5 +69,4 @@ mock:
 
 clean:
 	cargo clean
-	rm -f -- "$(MOCK_OUTPUT)"
 	@if [ -d dist ] && [ -z "$$(find dist -mindepth 1 -print -quit)" ]; then rmdir dist; fi
