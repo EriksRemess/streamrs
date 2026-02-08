@@ -9,7 +9,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 const ACTIONS: [&str; 15] = [
-    "open https://www.google.com",
+    "open https://www.duckduckgo.com",
     "open https://www.youtube.com",
     "open https://www.reddit.com",
     "open https://www.github.com",
@@ -19,15 +19,15 @@ const ACTIONS: [&str; 15] = [
     "open https://www.facebook.com",
     "open https://chatgpt.com/",
     "desklight",
-    "open https://www.netflix.com",
-    "open https://discord.com/channels/@me",
     "open https://www.twitch.com",
+    "open https://discord.com/channels/@me",
+    "open https://business.facebook.com",
     "slack",
     "ghostty",
 ];
 
 const ACTION_ICONS: [&[u8]; 15] = [
-    include_bytes!("../images/google.png"),
+    include_bytes!("../images/duckduckgo.png"),
     include_bytes!("../images/youtube.png"),
     include_bytes!("../images/reddit.png"),
     include_bytes!("../images/github.png"),
@@ -37,11 +37,11 @@ const ACTION_ICONS: [&[u8]; 15] = [
     include_bytes!("../images/facebook.png"),
     include_bytes!("../images/chatgpt.png"),
     include_bytes!("../images/floor-lamp.png"),
-    include_bytes!("../images/netflix.png"),
-    include_bytes!("../images/discord.png"),
     include_bytes!("../images/twitch.png"),
+    include_bytes!("../images/discord.png"),
+    include_bytes!("../images/meta.png"),
     include_bytes!("../images/slack.png"),
-    include_bytes!("../images/terminal.png"),
+    include_bytes!("../images/ghostty.png"),
 ];
 
 fn get_device(vendor_id: u16, product_id: u16, usage: u16, usage_page: u16) -> Option<HidDevice> {
