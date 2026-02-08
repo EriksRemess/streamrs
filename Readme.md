@@ -30,7 +30,7 @@ This installs:
 ## Debian Releases
 
 - GitHub Actions builds a `.deb` package on PRs and pushes.
-- Pushing a tag like `v0.2.1` publishes the `.deb` to GitHub Releases.
+- Pushing a tag like `v0.2.2` publishes the `.deb` to GitHub Releases.
 
 ## Usage
 
