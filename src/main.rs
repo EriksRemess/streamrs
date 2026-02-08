@@ -361,6 +361,15 @@ fn ensure_profile_initialized(
     initialize_profile(profile, config_path, image_dir, false)
 }
 
+fn print_post_init_service_hint() {
+    eprintln!("Initialization complete.");
+    eprintln!("To enable and start streamrs as a user service:");
+    eprintln!("  systemctl --user daemon-reload");
+    eprintln!("  systemctl --user enable --now streamrs.service");
+    eprintln!("If streamrs is already running, restart it:");
+    eprintln!("  systemctl --user restart streamrs.service");
+}
+
 fn read_config_file(path: &Path) -> Result<String, String> {
     fs::read_to_string(path)
         .map_err(|err| format!("Failed to read config '{}': {err}", path.display()))
@@ -1165,10 +1174,16 @@ fn main() {
     };
 
     if args.init {
-        if let Err(err) = initialize_profile(&args.profile, &config_path, &image_dir, args.force) {
-            eprintln!("{err}");
+        match initialize_profile(&args.profile, &config_path, &image_dir, args.force) {
+            Ok(()) => {
+                print_post_init_service_hint();
+                return;
+            }
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(1);
+            }
         }
-        return;
     }
 
     if let Err(err) = ensure_profile_initialized(&args.profile, &config_path, &image_dir) {
