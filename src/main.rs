@@ -130,6 +130,7 @@ struct CliArgs {
     config_path: Option<PathBuf>,
     init: bool,
     force: bool,
+    force_images: bool,
 }
 
 fn default_vendor_id() -> u16 {
@@ -153,7 +154,9 @@ fn default_brightness() -> usize {
 }
 
 fn print_usage(program: &str) {
-    println!("Usage: {program} [--debug] [--profile <name>] [--config <path>] [--init] [--force]");
+    println!(
+        "Usage: {program} [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
+    );
 }
 
 fn parse_args() -> Result<CliArgs, String> {
@@ -162,6 +165,7 @@ fn parse_args() -> Result<CliArgs, String> {
     let mut config_path = None;
     let mut init = false;
     let mut force = false;
+    let mut force_images = false;
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
@@ -180,6 +184,7 @@ fn parse_args() -> Result<CliArgs, String> {
             }
             "--init" => init = true,
             "--force" => force = true,
+            "--force-images" => force_images = true,
             "--help" | "-h" => {
                 let program = env::args().next().unwrap_or_else(|| "streamrs".to_string());
                 print_usage(&program);
@@ -192,6 +197,9 @@ fn parse_args() -> Result<CliArgs, String> {
     if force && !init {
         return Err("--force requires --init".to_string());
     }
+    if force_images && !init {
+        return Err("--force-images requires --init".to_string());
+    }
 
     Ok(CliArgs {
         debug,
@@ -199,6 +207,7 @@ fn parse_args() -> Result<CliArgs, String> {
         config_path,
         init,
         force,
+        force_images,
     })
 }
 
@@ -314,7 +323,8 @@ fn initialize_profile(
     profile: &str,
     config_path: &Path,
     image_dir: &Path,
-    force: bool,
+    force_config: bool,
+    force_images: bool,
 ) -> Result<(), String> {
     let config_src = find_default_config_source(profile).ok_or_else(|| {
         "Could not find a default config source. Expected /usr/share/streamrs/default/default.toml or repository config.".to_string()
@@ -323,8 +333,8 @@ fn initialize_profile(
         "Could not find an image source directory. Expected /usr/share/streamrs/default or repository all_images.".to_string()
     })?;
 
-    let config_copied = copy_file(&config_src, config_path, force)?;
-    let (images_copied, images_skipped) = copy_dir_contents(&images_src, image_dir, force)?;
+    let config_copied = copy_file(&config_src, config_path, force_config)?;
+    let (images_copied, images_skipped) = copy_dir_contents(&images_src, image_dir, force_images)?;
 
     if config_copied {
         eprintln!(
@@ -362,7 +372,7 @@ fn ensure_profile_initialized(
         "Config '{}' not found; initializing profile assets",
         config_path.display()
     );
-    initialize_profile(profile, config_path, image_dir, false)
+    initialize_profile(profile, config_path, image_dir, false, false)
 }
 
 fn print_post_init_service_hint() {
@@ -1247,7 +1257,13 @@ fn main() {
     };
 
     if args.init {
-        match initialize_profile(&args.profile, &config_path, &image_dir, args.force) {
+        match initialize_profile(
+            &args.profile,
+            &config_path,
+            &image_dir,
+            args.force,
+            args.force || args.force_images,
+        ) {
             Ok(()) => {
                 print_post_init_service_hint();
                 return;

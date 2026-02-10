@@ -72,7 +72,7 @@ Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: streamrs maintainers <noreply@users.noreply.github.com>
+Maintainer: Ēriks Remess <eriks@remess.lv>
 Depends: libc6 (>= 2.31), libhidapi-hidraw0 | libhidapi-libusb0, libgtk-4-1, libadwaita-1-0
 Description: Stream Deck daemon and GUI configurator in Rust
  streamrs sets predefined icons and actions on Stream Deck hardware.
@@ -80,6 +80,123 @@ Description: Stream Deck daemon and GUI configurator in Rust
  a systemd user service unit, desktop entry, app icon, sample default profile config,
  and bundled icons.
 EOF
+
+cat > "${DEBIAN_DIR}/postinst" <<'EOF'
+#!/bin/sh
+set -e
+
+SERVICE_NAME="streamrs.service"
+
+enable_service_globally() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --global enable "${SERVICE_NAME}" >/dev/null 2>&1 || true
+    fi
+}
+
+reload_and_manage_for_active_users() {
+    action="$1"
+
+    if ! command -v loginctl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    loginctl list-users --no-legend 2>/dev/null | while read -r uid user _rest; do
+        [ -n "${uid}" ] || continue
+        [ -n "${user}" ] || continue
+        [ -S "/run/user/${uid}/bus" ] || continue
+
+        systemctl --machine="${user}@.host" --user daemon-reload >/dev/null 2>&1 || continue
+        if [ "${action}" = "restart" ]; then
+            if ! systemctl --machine="${user}@.host" --user restart "${SERVICE_NAME}" >/dev/null 2>&1; then
+                systemctl --machine="${user}@.host" --user start "${SERVICE_NAME}" >/dev/null 2>&1 || true
+            fi
+        else
+            systemctl --machine="${user}@.host" --user start "${SERVICE_NAME}" >/dev/null 2>&1 || true
+        fi
+    done
+}
+
+case "${1:-}" in
+    configure)
+        enable_service_globally
+        if [ -n "${2:-}" ]; then
+            reload_and_manage_for_active_users restart
+        else
+            reload_and_manage_for_active_users start
+        fi
+        ;;
+esac
+
+exit 0
+EOF
+chmod 0755 "${DEBIAN_DIR}/postinst"
+
+cat > "${DEBIAN_DIR}/prerm" <<'EOF'
+#!/bin/sh
+set -e
+
+SERVICE_NAME="streamrs.service"
+
+disable_service_globally() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl --global disable "${SERVICE_NAME}" >/dev/null 2>&1 || true
+    fi
+}
+
+stop_for_active_users() {
+    if ! command -v loginctl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    loginctl list-users --no-legend 2>/dev/null | while read -r uid user _rest; do
+        [ -n "${uid}" ] || continue
+        [ -n "${user}" ] || continue
+        [ -S "/run/user/${uid}/bus" ] || continue
+
+        if ! systemctl --machine="${user}@.host" --user disable --now "${SERVICE_NAME}" >/dev/null 2>&1; then
+            systemctl --machine="${user}@.host" --user stop "${SERVICE_NAME}" >/dev/null 2>&1 || true
+        fi
+    done
+}
+
+case "${1:-}" in
+    remove|deconfigure|purge)
+        disable_service_globally
+        stop_for_active_users
+        ;;
+esac
+
+exit 0
+EOF
+chmod 0755 "${DEBIAN_DIR}/prerm"
+
+cat > "${DEBIAN_DIR}/postrm" <<'EOF'
+#!/bin/sh
+set -e
+
+reload_active_user_daemons() {
+    if ! command -v loginctl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    loginctl list-users --no-legend 2>/dev/null | while read -r uid user _rest; do
+        [ -n "${uid}" ] || continue
+        [ -n "${user}" ] || continue
+        [ -S "/run/user/${uid}/bus" ] || continue
+
+        systemctl --machine="${user}@.host" --user daemon-reload >/dev/null 2>&1 || true
+    done
+}
+
+case "${1:-}" in
+    remove|purge)
+        reload_active_user_daemons
+        ;;
+esac
+
+exit 0
+EOF
+chmod 0755 "${DEBIAN_DIR}/postrm"
 
 mkdir -p "${REPO_ROOT}/${OUTPUT_DIR}"
 DEB_PATH="${REPO_ROOT}/${OUTPUT_DIR}/streamrs_${VERSION}_${ARCH}.deb"

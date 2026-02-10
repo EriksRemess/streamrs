@@ -56,16 +56,20 @@ Package contents:
 - `/usr/share/streamrs/default/default.toml`
 - `/usr/share/streamrs/default/` (bundled icons)
 
-First-time setup after install:
+Service behavior after install:
 
 ```bash
 streamrs --init
-systemctl --user daemon-reload
-systemctl --user enable --now streamrs.service
 ```
 
 Notes:
-- `streamrs --init` copies default config/icons into your user profile paths.
+- `apt install ./streamrs_<version>_<arch>.deb` enables `streamrs.service` globally for user sessions.
+- During install, active user sessions get the service started automatically.
+- During package upgrades, active user sessions get the service restarted automatically.
+- On each service start/restart, `streamrs --init --force-images` runs first:
+  - creates config if missing
+  - refreshes bundled images from the package
+  - keeps existing config unless you explicitly run `streamrs --init --force`
 - If you skip `--init`, `streamrs` auto-initializes on first run when config is missing.
 - To update profile files from packaged defaults later, run `streamrs --init --force`.
 

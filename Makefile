@@ -20,10 +20,12 @@ ICON_DEST_DIR ?= $(XDG_DATA_HOME)/icons/hicolor/$(ICON_SIZE_DIR)/apps
 ICON_SOURCE ?= config/$(ICON_NAME)
 ICON_NAME ?= $(APPLICATION_ID).png
 MOCK_OUTPUT ?= mock.png
+DEB_VERSION ?= $(shell awk -F '"' '/^version = "/ {print $$2; exit}' Cargo.toml)
+DEB_OUTPUT_DIR ?= dist
 
 .PHONY: build install-bin install-systemd install install-config install-images install-desktop install-assets
 .PHONY: uninstall-bin uninstall-systemd uninstall-config uninstall-images uninstall-desktop uninstall-assets uninstall
-.PHONY: mock clean
+.PHONY: mock deb clean
 
 build:
 	cargo build --release --bins
@@ -91,6 +93,9 @@ uninstall: uninstall-systemd uninstall-assets uninstall-bin
 
 mock:
 	cargo run --quiet --bin streamrs-preview -- --output "$(MOCK_OUTPUT)"
+
+deb: build
+	./scripts/build-deb.sh "$(DEB_VERSION)" "$(DEB_OUTPUT_DIR)"
 
 clean:
 	cargo clean

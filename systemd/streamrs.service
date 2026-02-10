@@ -6,6 +6,7 @@ Wants=graphical-session.target
 [Service]
 Type=simple
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin
+ExecStartPre=/usr/bin/streamrs --init --force-images
 ExecStart=/usr/bin/env streamrs
 Restart=on-failure
 RestartSec=2
