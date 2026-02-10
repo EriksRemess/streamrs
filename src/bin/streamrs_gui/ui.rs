@@ -10,7 +10,7 @@ fn build_ui(app: &Application) {
     let deck_image_path = manifest_dir.join("scripts").join("streamdeck.svg");
     let app_icon_path = manifest_dir.join("config").join("lv.apps.streamrs.png");
 
-    let catalog_dirs = vec![writable_image_dir.clone()];
+    let catalog_dirs = image_dirs.clone();
     let icons = discover_icons(&catalog_dirs);
     let icon_names = Rc::new(RefCell::new(icons));
     let clock_backgrounds = Rc::new(RefCell::new(discover_clock_backgrounds(&catalog_dirs)));

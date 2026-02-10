@@ -233,6 +233,9 @@ fn configure_icon_dropdown(dropdown: &DropDown, state: &Rc<RefCell<AppState>>) {
     dropdown.set_factory(Some(&factory));
     dropdown.set_list_factory(Some(&factory));
     dropdown.set_enable_search(true);
+    if dropdown.find_property("search-match-mode").is_some() {
+        dropdown.set_property("search-match-mode", gtk::StringFilterMatchMode::Substring);
+    }
     let expression = gtk::PropertyExpression::new(
         gtk::StringObject::static_type(),
         None::<&gtk::Expression>,
@@ -265,7 +268,7 @@ fn refresh_icon_catalogs(
     clock_backgrounds: &Rc<RefCell<Vec<String>>>,
     widgets: &EditorWidgets,
 ) {
-    let catalog_dirs = vec![state.borrow().writable_image_dir.clone()];
+    let catalog_dirs = state.borrow().image_dirs.clone();
     *icon_names.borrow_mut() = discover_icons(&catalog_dirs);
     *clock_backgrounds.borrow_mut() = discover_clock_backgrounds(&catalog_dirs);
 

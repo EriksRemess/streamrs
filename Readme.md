@@ -1,4 +1,4 @@
-![Mock Stream Deck Preview](mock.png)
+![Mock Stream Deck Preview](screenshot_streamrs-gui.png)
 
 # streamrs
 
