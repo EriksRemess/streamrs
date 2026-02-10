@@ -1,3 +1,6 @@
+const EMBEDDED_DECK_LABEL: &str = "embedded:scripts/streamdeck.svg";
+const EMBEDDED_DECK_SVG: &[u8] = include_bytes!("../../../../scripts/streamdeck.svg");
+
 fn load_svg_data(
     label: &str,
     svg_data: &[u8],
@@ -219,24 +222,30 @@ fn fallback_slots(width: u32, height: u32) -> Vec<KeySlot> {
 }
 
 fn key_slots_for_deck(deck_svg_path: &Path) -> Vec<KeySlot> {
-    let svg = match fs::read(deck_svg_path) {
-        Ok(data) => data,
+    let rendered = match fs::read(deck_svg_path) {
+        Ok(svg) => render_blank_base(
+            &deck_svg_path.display().to_string(),
+            &svg,
+            deck_svg_path.parent(),
+            TEMPLATE_RENDER_WIDTH,
+            TEMPLATE_RENDER_HEIGHT,
+        ),
         Err(err) => {
             eprintln!(
-                "Failed to read deck SVG '{}': {err}; using fallback key layout",
+                "Failed to read deck SVG '{}': {err}; falling back to embedded template",
                 deck_svg_path.display()
             );
-            return fallback_slots(PREVIEW_WIDTH, PREVIEW_HEIGHT);
+            render_blank_base(
+                EMBEDDED_DECK_LABEL,
+                EMBEDDED_DECK_SVG,
+                None,
+                TEMPLATE_RENDER_WIDTH,
+                TEMPLATE_RENDER_HEIGHT,
+            )
         }
     };
 
-    let rendered = match render_blank_base(
-        &deck_svg_path.display().to_string(),
-        &svg,
-        deck_svg_path.parent(),
-        TEMPLATE_RENDER_WIDTH,
-        TEMPLATE_RENDER_HEIGHT,
-    ) {
+    let rendered = match rendered {
         Ok(image) => image,
         Err(err) => {
             eprintln!("{err}; using fallback key layout");
@@ -307,14 +316,22 @@ fn deck_background_temp_path() -> PathBuf {
 }
 
 fn write_deck_background_png(deck_svg_path: &Path, width: u32, height: u32) -> Option<PathBuf> {
-    let svg = fs::read(deck_svg_path).ok()?;
-    let rendered = render_blank_base(
-        &deck_svg_path.display().to_string(),
-        &svg,
-        deck_svg_path.parent(),
-        width,
-        height,
-    )
+    let rendered = match fs::read(deck_svg_path) {
+        Ok(svg) => render_blank_base(
+            &deck_svg_path.display().to_string(),
+            &svg,
+            deck_svg_path.parent(),
+            width,
+            height,
+        ),
+        Err(err) => {
+            eprintln!(
+                "Failed to read deck SVG '{}': {err}; falling back to embedded template",
+                deck_svg_path.display()
+            );
+            render_blank_base(EMBEDDED_DECK_LABEL, EMBEDDED_DECK_SVG, None, width, height)
+        }
+    }
     .ok()?;
 
     let output_path = deck_background_temp_path();
@@ -324,4 +341,3 @@ fn write_deck_background_png(deck_svg_path: &Path, width: u32, height: u32) -> O
         None
     }
 }
-
