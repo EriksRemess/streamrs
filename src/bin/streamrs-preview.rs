@@ -24,8 +24,9 @@ const TEMPLATE_RENDER_WIDTH: u32 = 1560;
 const TEMPLATE_RENDER_HEIGHT: u32 = 1108;
 const EMBEDDED_BLANK_LABEL: &str = "embedded:scripts/streamdeck.svg";
 const EMBEDDED_BLANK_SVG: &[u8] = include_bytes!("../../scripts/streamdeck.svg");
-const PREVIEW_WIDTH: u32 = 780;
-const PREVIEW_HEIGHT: u32 = 554;
+const PREVIEW_WIDTH: u32 = 830;
+const PREVIEW_HEIGHT: u32 =
+    (PREVIEW_WIDTH * TEMPLATE_RENDER_HEIGHT + TEMPLATE_RENDER_WIDTH / 2) / TEMPLATE_RENDER_WIDTH;
 const ICON_INSET: i32 = 8;
 const BOTTOM_ROW_Y_OFFSET: i32 = 0;
 const BOTTOM_ROW_EXTRA_INSET: i32 = 1;
