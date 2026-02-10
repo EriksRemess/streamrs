@@ -382,6 +382,7 @@ headerbar.window-titlebar {
     padding: 14px;
 }
 .section-title { font-weight: 700; font-size: 1.04rem; margin-bottom: 8px; }
+.header-title-label { font-weight: 700; }
 .field-label { font-weight: 600; opacity: 0.92; margin-top: 4px; }
 .status-label { opacity: 0.85; }
 .status-bar {

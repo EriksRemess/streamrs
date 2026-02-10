@@ -19,6 +19,9 @@ fn refresh_key_grid(
                 set_picture_icon(picture, &image_dirs, key, clock_backgrounds);
             }
             key_buttons[slot].set_sensitive(true);
+            key_buttons[slot].add_css_class("key-has-binding");
+            key_buttons[slot].remove_css_class("key-navigation-slot");
+            key_buttons[slot].remove_css_class("key-empty-slot");
             key_buttons[slot].set_tooltip_text(Some(&format!(
                 "Key {} (page {}, slot {})",
                 key_index + 1,
@@ -30,6 +33,9 @@ fn refresh_key_grid(
 
         if let Some(nav_slot) = navigation_slot_for_slot(page, total_pages, slot) {
             key_buttons[slot].set_sensitive(true);
+            key_buttons[slot].remove_css_class("key-has-binding");
+            key_buttons[slot].add_css_class("key-navigation-slot");
+            key_buttons[slot].remove_css_class("key-empty-slot");
             let icon_name = navigation_icon_name(nav_slot);
             let icon_path =
                 find_icon_file(&image_dirs, icon_name).or_else(|| find_icon_file(&image_dirs, "blank.png"));
@@ -44,6 +50,9 @@ fn refresh_key_grid(
         }
 
         key_buttons[slot].set_sensitive(false);
+        key_buttons[slot].remove_css_class("key-has-binding");
+        key_buttons[slot].remove_css_class("key-navigation-slot");
+        key_buttons[slot].add_css_class("key-empty-slot");
         key_buttons[slot].set_tooltip_text(Some("Reserved for page navigation in streamrs"));
         picture.set_tooltip_text(None);
         if let Some(fallback) = find_icon_file(&image_dirs, "blank.png") {

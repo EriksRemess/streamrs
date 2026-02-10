@@ -132,11 +132,13 @@ fn wire_navigation_signals(
         });
 
         {
-            let state_for_drag_source = state.clone();
-            let current_page_for_drag_source = current_page.clone();
             let key_picture_for_drag = key_pictures[index].clone();
+            let button_for_drag_source = button.clone();
             let drag_source = gtk::DragSource::new();
             drag_source.set_actions(gtk::gdk::DragAction::MOVE);
+            drag_source.set_button(1);
+            drag_source.set_touch_only(false);
+            drag_source.set_propagation_phase(gtk::PropagationPhase::Capture);
             drag_source.connect_drag_begin(move |source, _| {
                 let width = key_picture_for_drag.allocated_width().max(1);
                 let height = key_picture_for_drag.allocated_height().max(1);
@@ -144,13 +146,7 @@ fn wire_navigation_signals(
                 source.set_icon(Some(&widget_paintable), width / 2, height / 2);
             });
             drag_source.connect_prepare(move |_, _, _| {
-                let mut state = state_for_drag_source.borrow_mut();
-                normalize_config(&mut state.config);
-                let total_pages = page_count(state.config.keys.len()).max(1);
-                let page = current_page_for_drag_source
-                    .get()
-                    .min(total_pages.saturating_sub(1));
-                if key_index_for_slot(&state.config, page, index).is_none() {
+                if !button_for_drag_source.has_css_class("key-has-binding") {
                     return None;
                 }
                 Some(gtk::gdk::ContentProvider::for_value(&(index as u32).to_value()))

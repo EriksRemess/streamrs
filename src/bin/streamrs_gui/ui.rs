@@ -8,6 +8,7 @@ fn build_ui(app: &Application) {
     let default_config_path = default_config_path_for_profile(&default_profile);
     let (writable_image_dir, image_dirs) = image_paths_for_profile(&default_profile);
     let deck_image_path = manifest_dir.join("scripts").join("streamdeck.svg");
+    let app_icon_path = manifest_dir.join("config").join("lv.apps.streamrs.png");
 
     let catalog_dirs = vec![writable_image_dir.clone()];
     let icons = discover_icons(&catalog_dirs);
@@ -342,7 +343,21 @@ fn build_ui(app: &Application) {
     let header_bar = HeaderBar::new();
     header_bar.add_css_class("flat");
     header_bar.add_css_class("window-titlebar");
-    header_bar.set_title_widget(None::<&gtk::Widget>);
+    let title_row = GtkBox::new(Orientation::Horizontal, 8);
+    title_row.set_halign(Align::Start);
+    let title_icon = if app_icon_path.is_file() {
+        Image::from_file(app_icon_path)
+    } else {
+        Image::from_icon_name("lv.apps.streamrs")
+    };
+    title_icon.set_pixel_size(32);
+    let title_label = Label::new(Some("streamrs"));
+    title_label.add_css_class("header-title-label");
+    title_row.append(&title_icon);
+    title_row.append(&title_label);
+    let empty_title = GtkBox::new(Orientation::Horizontal, 0);
+    header_bar.set_title_widget(Some(&empty_title));
+    header_bar.pack_start(&title_row);
     let status_bar = GtkBox::new(Orientation::Horizontal, 0);
     status_bar.add_css_class("status-bar");
     status_line.set_hexpand(true);
