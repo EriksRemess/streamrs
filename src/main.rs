@@ -59,6 +59,7 @@ struct AnimatedKeyState {
 
 struct ClockKeyState {
     current_text: String,
+    background_name: Option<String>,
     next_update_at: Instant,
 }
 
@@ -66,6 +67,7 @@ struct StatusKeyState {
     command: String,
     icon_on: String,
     icon_off: String,
+    clock_background: Option<String>,
     check_interval: Duration,
     next_check_at: Instant,
     current_on: Option<bool>,
@@ -91,6 +93,7 @@ enum LoadedKeyImage {
     Clock {
         image: Vec<u8>,
         current_text: String,
+        background_name: Option<String>,
     },
 }
 
@@ -113,6 +116,7 @@ struct Config {
 struct KeyBinding {
     action: Option<String>,
     icon: String,
+    clock_background: Option<String>,
     icon_on: Option<String>,
     icon_off: Option<String>,
     status: Option<String>,
@@ -412,6 +416,16 @@ fn key_status_command(key: &KeyBinding) -> Option<String> {
     trimmed_non_empty(key.status.as_deref())
 }
 
+fn is_launcher_like_command(command: &str) -> bool {
+    let mut parts = command.split_whitespace();
+    match (parts.next(), parts.next()) {
+        (Some("open"), _) => true,
+        (Some("xdg-open"), _) => true,
+        (Some("gio"), Some("open")) => true,
+        _ => false,
+    }
+}
+
 fn key_status_icon_on(key: &KeyBinding) -> String {
     trimmed_non_empty(key.icon_on.as_deref()).unwrap_or_else(|| key.icon.clone())
 }
@@ -426,6 +440,10 @@ fn key_status_interval(key: &KeyBinding) -> Duration {
         .unwrap_or(DEFAULT_STATUS_CHECK_INTERVAL_MS)
         .max(MIN_STATUS_CHECK_INTERVAL_MS);
     Duration::from_millis(interval_ms)
+}
+
+fn key_clock_background(key: &KeyBinding) -> Option<String> {
+    trimmed_non_empty(key.clock_background.as_deref())
 }
 
 fn get_device(vendor_id: u16, product_id: u16, usage: u16, usage_page: u16) -> Option<HidDevice> {
@@ -803,9 +821,10 @@ fn clock_char_width(ch: char) -> i32 {
     }
 }
 
-fn clock_background_svg(image_dir: &Path) -> String {
-    if image_dir.join(CLOCK_BACKGROUND_ICON).is_file() {
-        format!(r##"<image href="{CLOCK_BACKGROUND_ICON}" x="0" y="0" width="72" height="72"/>"##)
+fn clock_background_svg(image_dir: &Path, background_name: Option<&str>) -> String {
+    let selected = background_name.unwrap_or(CLOCK_BACKGROUND_ICON);
+    if image_dir.join(selected).is_file() {
+        format!(r##"<image href="{selected}" x="0" y="0" width="72" height="72"/>"##)
     } else {
         format!(
             r##"<rect x="0" y="0" width="72" height="72" fill="{CLOCK_FALLBACK_BACKGROUND_COLOR}"/>"##
@@ -813,7 +832,7 @@ fn clock_background_svg(image_dir: &Path) -> String {
     }
 }
 
-fn render_clock_segments_svg(image_dir: &Path, text: &str) -> String {
+fn render_clock_segments_svg(image_dir: &Path, text: &str, background_name: Option<&str>) -> String {
     let chars: Vec<char> = text.chars().collect();
     let gaps = chars.len().saturating_sub(1) as i32;
     let total_width =
@@ -844,29 +863,34 @@ fn render_clock_segments_svg(image_dir: &Path, text: &str) -> String {
 {background}
 {glyphs}
 </svg>"##,
-        background = clock_background_svg(image_dir),
+        background = clock_background_svg(image_dir, background_name),
         glyphs = glyphs
     )
 }
 
-fn render_clock_svg(image_dir: &Path, text: &str) -> Result<Vec<u8>, String> {
-    let svg = render_clock_segments_svg(image_dir, text);
+fn render_clock_svg(image_dir: &Path, text: &str, background_name: Option<&str>) -> Result<Vec<u8>, String> {
+    let svg = render_clock_segments_svg(image_dir, text, background_name);
     let img = load_svg_data(CLOCK_ICON_ALIAS, svg.as_bytes(), Some(image_dir))?;
     encode_streamdeck_image(img)
 }
 
-fn load_clock_icon(image_dir: &Path) -> Result<LoadedKeyImage, String> {
+fn load_clock_icon(image_dir: &Path, background_name: Option<&str>) -> Result<LoadedKeyImage, String> {
     let text = current_clock_text();
-    let image = render_clock_svg(image_dir, &text)?;
+    let image = render_clock_svg(image_dir, &text, background_name)?;
     Ok(LoadedKeyImage::Clock {
         image,
         current_text: text,
+        background_name: background_name.map(|name| name.to_string()),
     })
 }
 
-fn load_key_image(image_dir: &Path, icon: &str) -> Result<LoadedKeyImage, String> {
+fn load_key_image(
+    image_dir: &Path,
+    icon: &str,
+    clock_background: Option<&str>,
+) -> Result<LoadedKeyImage, String> {
     if is_clock_icon(icon) {
-        return load_clock_icon(image_dir);
+        return load_clock_icon(image_dir, clock_background);
     }
 
     let icon_path = image_dir.join(icon);
@@ -912,10 +936,12 @@ fn apply_loaded_key_image(
         LoadedKeyImage::Clock {
             image,
             current_text,
+            background_name,
         } => {
             set_key_image_data(device, key_index as u8, &image)?;
             state.dynamic_states[key_index] = Some(DynamicKeyState::Clock(ClockKeyState {
                 current_text,
+                background_name,
                 next_update_at: Instant::now() + Duration::from_secs(1),
             }));
         }
@@ -929,8 +955,9 @@ fn apply_icon_to_key(
     state: &mut PageState,
     key_index: usize,
     icon: &str,
+    clock_background: Option<&str>,
 ) -> Result<(), String> {
-    let loaded = load_key_image(image_dir, icon)?;
+    let loaded = load_key_image(image_dir, icon, clock_background)?;
     apply_loaded_key_image(device, state, key_index, loaded)
 }
 
@@ -996,7 +1023,16 @@ fn set_page(
         .take(keys_per_page)
         .enumerate()
     {
-        if let Some(command) = key_status_command(key) {
+        let clock_background = key_clock_background(key);
+        let launch_action = key_launch_action(key);
+        let status_command = key_status_command(key);
+        let status_is_launcher = status_command
+            .as_deref()
+            .is_some_and(is_launcher_like_command);
+
+        if let Some(command) = status_command
+            && !status_is_launcher
+        {
             let icon_on = key_status_icon_on(key);
             let icon_off = key_status_icon_off(key);
             let check_interval = key_status_interval(key);
@@ -1008,22 +1044,56 @@ fn set_page(
                 }
             };
             let icon = if initial_state { &icon_on } else { &icon_off };
-            if let Err(err) = apply_icon_to_key(device, image_dir, &mut state, index, icon) {
+            if let Err(err) = apply_icon_to_key(
+                device,
+                image_dir,
+                &mut state,
+                index,
+                icon,
+                clock_background.as_deref(),
+            ) {
                 eprintln!("{err}");
             }
             state.status_states[index] = Some(StatusKeyState {
                 command,
                 icon_on,
                 icon_off,
+                clock_background,
                 check_interval,
                 next_check_at: Instant::now() + check_interval,
                 current_on: Some(initial_state),
             });
-        } else if let Err(err) = apply_icon_to_key(device, image_dir, &mut state, index, &key.icon)
+        } else if let Err(err) = apply_icon_to_key(
+            device,
+            image_dir,
+            &mut state,
+            index,
+            &key.icon,
+            clock_background.as_deref(),
+        )
         {
             eprintln!("{err}");
         }
-        if let Some(action) = key_launch_action(key) {
+
+        if status_is_launcher {
+            if launch_action.is_none() {
+                if let Some(command) = key_status_command(key) {
+                    eprintln!(
+                        "Key {} has launcher-like status command '{}' with no action; treating it as action",
+                        offset + index + 1,
+                        command
+                    );
+                    state.button_actions[index] = Some(ButtonAction::Launch(command));
+                }
+            } else {
+                eprintln!(
+                    "Key {} has launcher-like status command; ignoring status polling for this key",
+                    offset + index + 1
+                );
+            }
+        }
+
+        if let Some(action) = launch_action {
             state.button_actions[index] = Some(ButtonAction::Launch(action));
         }
     }
@@ -1065,13 +1135,14 @@ fn advance_dynamic_keys(device: &HidDevice, image_dir: &Path, state: &mut PageSt
                 status.command.clone(),
                 status.icon_on.clone(),
                 status.icon_off.clone(),
+                status.clock_background.clone(),
                 status.current_on,
                 status.check_interval,
             )),
             _ => None,
         };
 
-        if let Some((command, icon_on, icon_off, current_on, check_interval)) = check {
+        if let Some((command, icon_on, icon_off, clock_background, current_on, check_interval)) = check {
             let new_state = match run_status_check(&command) {
                 Ok(is_on) => Some(is_on),
                 Err(err) => {
@@ -1084,7 +1155,9 @@ fn advance_dynamic_keys(device: &HidDevice, image_dir: &Path, state: &mut PageSt
                 && current_on != Some(is_on)
             {
                 let icon = if is_on { &icon_on } else { &icon_off };
-                if let Err(err) = apply_icon_to_key(device, image_dir, state, key, icon) {
+                if let Err(err) =
+                    apply_icon_to_key(device, image_dir, state, key, icon, clock_background.as_deref())
+                {
                     eprintln!("{err}");
                 }
             }
@@ -1125,7 +1198,7 @@ fn advance_dynamic_keys(device: &HidDevice, image_dir: &Path, state: &mut PageSt
 
                     let next_text = current_clock_text();
                     if next_text != clock.current_text {
-                        match render_clock_svg(image_dir, &next_text) {
+                        match render_clock_svg(image_dir, &next_text, clock.background_name.as_deref()) {
                             Ok(image) => {
                                 if let Err(err) = set_key_image_data(device, key as u8, &image) {
                                     eprintln!("{err}");
@@ -1443,15 +1516,17 @@ mod tests {
     #[test]
     fn clock_icon_renders_svg_without_background_file() {
         let missing_dir = Path::new("/tmp/streamrs-missing-clock-assets");
-        let loaded =
-            load_key_image(missing_dir, CLOCK_ICON_ALIAS).expect("clock icon should render");
+        let loaded = load_key_image(missing_dir, CLOCK_ICON_ALIAS, None)
+            .expect("clock icon should render");
         match loaded {
             LoadedKeyImage::Clock {
                 image,
                 current_text,
+                background_name,
             } => {
                 assert_eq!(current_text.len(), 5);
                 assert_eq!(&current_text[2..3], ":");
+                assert!(background_name.is_none());
                 assert!(image.len() > 2);
                 assert_eq!(image[0], 0xFF);
                 assert_eq!(image[1], 0xD8);
@@ -1463,7 +1538,7 @@ mod tests {
     #[test]
     fn clock_svg_uses_fallback_background_when_blank_png_is_missing() {
         let missing_dir = Path::new("/tmp/streamrs-missing-clock-assets");
-        let svg = render_clock_segments_svg(missing_dir, "12:34");
+        let svg = render_clock_segments_svg(missing_dir, "12:34", None);
         assert!(svg.contains(CLOCK_FALLBACK_BACKGROUND_COLOR));
         assert!(!svg.contains(CLOCK_BACKGROUND_ICON));
     }

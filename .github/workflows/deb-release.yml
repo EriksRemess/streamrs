@@ -21,7 +21,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libhidapi-dev libudev-dev
+          sudo apt-get install -y pkg-config libhidapi-dev libudev-dev libgtk-4-dev libadwaita-1-dev
 
       - name: Resolve Version
         id: version
@@ -41,7 +41,7 @@ jobs:
         run: cargo test --locked
 
       - name: Build Release Binaries
-        run: cargo build --release --locked --bin streamrs --bin streamrs-preview
+        run: cargo build --release --locked --bin streamrs --bin streamrs-preview --bin streamrs-gui
 
       - name: Build Debian Package
         run: bash scripts/build-deb.sh "${{ steps.version.outputs.value }}" dist

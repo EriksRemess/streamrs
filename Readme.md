@@ -2,7 +2,10 @@
 
 # streamrs
 
-A lightweight Rust daemon for Stream Deck that maps keys to icons and shell commands.
+A lightweight Rust Stream Deck toolkit with:
+- `streamrs`: daemon that maps keys to icons and shell commands
+- `streamrs-preview`: profile preview renderer
+- `streamrs-gui`: GTK/libadwaita GUI configurator
 
 ## Hardware
 
@@ -17,6 +20,7 @@ A lightweight Rust daemon for Stream Deck that maps keys to icons and shell comm
 - Supports static icons: PNG, JPEG/JPG, SVG
 - Supports animated icons: GIF, APNG, animated WebP (rendered by streamrs frame-by-frame)
 - Built-in digital clock icon via `icon = "clock.svg"` (or `icon = "clock://hh:mm"`)
+- Optional per-key clock background via `clock_background = "blank-*.png"`
 - Optional key actions: missing or blank `action` means no-op on press
 - Status-driven toggle icons via polling commands
 - Automatic pagination when config has more than 15 keys
@@ -45,7 +49,10 @@ Example architecture values: `amd64`, `arm64`.
 Package contents:
 - `/usr/bin/streamrs`
 - `/usr/bin/streamrs-preview`
+- `/usr/bin/streamrs-gui`
 - `/usr/lib/systemd/user/streamrs.service`
+- `/usr/share/applications/lv.apps.streamrs.desktop`
+- `/usr/share/icons/hicolor/512x512/apps/lv.apps.streamrs.png`
 - `/usr/share/streamrs/default/default.toml`
 - `/usr/share/streamrs/default/` (bundled icons)
 
@@ -68,6 +75,12 @@ After installing the `.deb`, run manually:
 
 ```bash
 streamrs
+```
+
+Open the GUI configurator:
+
+```bash
+streamrs-gui
 ```
 
 CLI flags:
@@ -113,8 +126,11 @@ This installs:
 - Binaries:
   - `~/.local/bin/streamrs`
   - `~/.local/bin/streamrs-preview`
+  - `~/.local/bin/streamrs-gui`
 - Config: `~/.config/streamrs/default.toml`
 - Images: `~/.local/share/streamrs/default/`
+- Desktop entry: `~/.local/share/applications/lv.apps.streamrs.desktop`
+- App icon: `~/.local/share/icons/hicolor/512x512/apps/lv.apps.streamrs.png`
 - User service: `~/.config/systemd/user/streamrs.service`
 
 Generate the README mock from source:
@@ -126,9 +142,11 @@ make mock
 Build a `.deb` locally from source:
 
 ```bash
-cargo build --release --locked --bin streamrs --bin streamrs-preview
+cargo build --release --locked --bin streamrs --bin streamrs-preview --bin streamrs-gui
 bash scripts/build-deb.sh <version> dist
 ```
+
+Build dependencies for GUI-enabled source builds include GTK4 and libadwaita dev packages (for example on Debian/Ubuntu: `libgtk-4-dev` and `libadwaita-1-dev`).
 
 ## Credits
 

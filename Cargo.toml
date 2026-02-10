@@ -4,7 +4,9 @@ version = "0.2.9"
 edition = "2024"
 
 [dependencies]
+adw = { package = "libadwaita", version = "0.8.0" }
 chrono = "0.4.43"
+gtk = { package = "gtk4", version = "0.10.2" }
 hidapi = "2.6.4"
 image = "0.25.9"
 resvg = "0.45.1"

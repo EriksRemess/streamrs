@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=streamrs
+Comment=Configure streamrs profiles for Stream Deck
+Exec=streamrs-gui
+Icon=lv.apps.streamrs
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+StartupWMClass=lv.apps.streamrs
