@@ -6,6 +6,7 @@ A lightweight Rust Stream Deck toolkit with:
 - `streamrs`: daemon that maps keys to icons and shell commands
 - `streamrs-preview`: profile preview renderer
 - `streamrs-gui`: GTK/libadwaita GUI configurator
+- `streamrs-icon-compose`: icon helper that picks a matching bundled blank and overlays a logo
 
 ## Hardware
 
@@ -50,6 +51,7 @@ Package contents:
 - `/usr/bin/streamrs`
 - `/usr/bin/streamrs-preview`
 - `/usr/bin/streamrs-gui`
+- `/usr/bin/streamrs-icon-compose`
 - `/usr/lib/systemd/user/streamrs.service`
 - `/usr/share/applications/lv.apps.streamrs.desktop`
 - `/usr/share/icons/hicolor/512x512/apps/lv.apps.streamrs.png`
@@ -118,6 +120,30 @@ Notes:
   - `~/.local/share/streamrs/default/`
 - If those are missing, it falls back to packaged defaults under `/usr/share/streamrs/default/`.
 
+## Icon Compose
+
+Use `streamrs-icon-compose` to build a new icon from a logo (`.svg` or `.png`):
+
+```bash
+streamrs-icon-compose path/to/logo.svg
+```
+
+Behavior:
+- Uses embedded `blank*.png` backgrounds (built into the binary)
+- Detects blank accent colors from the top-left and bottom-right accent lines
+- Detects the logo's overall dominant color
+- Picks the closest blank accent color, then centers and overlays the logo
+- Uses 15% padding by default
+
+Output:
+- Default output directory: `~/.local/share/streamrs/default/`
+- Default filename: `<logo>-icon.png`
+- If the filename already exists, it appends `-2`, `-3`, and so on
+
+Options:
+- `--output <path>`: write to an explicit path
+- `--padding <ratio>`: override logo padding ratio (0.0..0.5)
+
 ## Source Install (Optional)
 
 If you are working from a checkout instead of a `.deb` install:
@@ -131,6 +157,7 @@ This installs:
   - `~/.local/bin/streamrs`
   - `~/.local/bin/streamrs-preview`
   - `~/.local/bin/streamrs-gui`
+  - `~/.local/bin/streamrs-icon-compose`
 - Config: `~/.config/streamrs/default.toml`
 - Images: `~/.local/share/streamrs/default/`
 - Desktop entry: `~/.local/share/applications/lv.apps.streamrs.desktop`
@@ -146,7 +173,7 @@ make mock
 Build a `.deb` locally from source:
 
 ```bash
-cargo build --release --locked --bin streamrs --bin streamrs-preview --bin streamrs-gui
+cargo build --release --locked --bin streamrs --bin streamrs-preview --bin streamrs-gui --bin streamrs-icon-compose
 bash scripts/build-deb.sh <version> dist
 ```
 

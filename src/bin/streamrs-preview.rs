@@ -134,7 +134,11 @@ fn parse_args() -> Result<CliArgs, String> {
                 )
             }
             "--help" | "-h" => {
-                print_usage(&env::args().next().unwrap_or_else(|| "streamrs-preview".to_string()));
+                print_usage(
+                    &env::args()
+                        .next()
+                        .unwrap_or_else(|| "streamrs-preview".to_string()),
+                );
                 std::process::exit(0);
             }
             _ => return Err(format!("Unknown argument: {arg}")),
@@ -310,7 +314,8 @@ fn load_icon_image(icon_name: &str, image_dir: &Path) -> Result<RgbaImage, Strin
     }
 
     let path = image_dir.join(icon_name);
-    let data = fs::read(&path).map_err(|e| format!("Failed to read icon '{}': {e}", path.display()))?;
+    let data =
+        fs::read(&path).map_err(|e| format!("Failed to read icon '{}': {e}", path.display()))?;
     if path
         .extension()
         .and_then(|x| x.to_str())
@@ -624,8 +629,12 @@ fn compose_preview(args: &CliArgs) -> Result<(), String> {
         };
 
         let row_index = (idx / 5) as i32;
-        let row_icon_inset =
-            ICON_INSET + if row_index == 2 { BOTTOM_ROW_EXTRA_INSET } else { 0 };
+        let row_icon_inset = ICON_INSET
+            + if row_index == 2 {
+                BOTTOM_ROW_EXTRA_INSET
+            } else {
+                0
+            };
         let slot_min = slot.width.min(slot.height) as i32;
         let mut inset_px = ((row_icon_inset as f32 / 72.0) * slot_min as f32).round() as i32;
         inset_px = inset_px.clamp(0, slot_min / 2 - 1);
@@ -641,7 +650,8 @@ fn compose_preview(args: &CliArgs) -> Result<(), String> {
 
         let mut fitted_inner = resize(&icon, content_w as u32, content_h as u32, Lanczos3);
         let content_radius = ((content_w.min(content_h) as f32) * 0.16).round().max(2.0) as u32;
-        let content_round_mask = rounded_rect_mask(content_w as u32, content_h as u32, content_radius);
+        let content_round_mask =
+            rounded_rect_mask(content_w as u32, content_h as u32, content_radius);
         apply_mask_to_alpha(&mut fitted_inner, &content_round_mask);
 
         let mut fitted = RgbaImage::new(slot.width, slot.height);
@@ -702,7 +712,11 @@ fn main() {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error: {e}");
-            print_usage(&env::args().next().unwrap_or_else(|| "streamrs-preview".to_string()));
+            print_usage(
+                &env::args()
+                    .next()
+                    .unwrap_or_else(|| "streamrs-preview".to_string()),
+            );
             std::process::exit(1);
         }
     };

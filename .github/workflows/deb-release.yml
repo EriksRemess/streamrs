@@ -41,7 +41,7 @@ jobs:
         run: cargo test --locked
 
       - name: Build Release Binaries
-        run: cargo build --release --locked --bin streamrs --bin streamrs-preview --bin streamrs-gui
+        run: cargo build --release --locked --bin streamrs --bin streamrs-preview --bin streamrs-gui --bin streamrs-icon-compose
 
       - name: Build Debian Package
         run: bash scripts/build-deb.sh "${{ steps.version.outputs.value }}" dist

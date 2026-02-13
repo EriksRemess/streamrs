@@ -18,18 +18,20 @@ APPLICATION_ID="lv.apps.streamrs"
 STREAMRS_BIN="${REPO_ROOT}/target/release/streamrs"
 PREVIEW_BIN="${REPO_ROOT}/target/release/streamrs-preview"
 GUI_BIN="${REPO_ROOT}/target/release/streamrs-gui"
+ICON_COMPOSE_BIN="${REPO_ROOT}/target/release/streamrs-icon-compose"
 DESKTOP_FILE="${REPO_ROOT}/config/${APPLICATION_ID}.desktop"
 APP_ICON_SOURCE="${REPO_ROOT}/config/${APPLICATION_ID}.png"
 APP_ICON_NAME="${APPLICATION_ID}.png"
 
-if [[ ! -x "${STREAMRS_BIN}" || ! -x "${PREVIEW_BIN}" || ! -x "${GUI_BIN}" ]]; then
+if [[ ! -x "${STREAMRS_BIN}" || ! -x "${PREVIEW_BIN}" || ! -x "${GUI_BIN}" || ! -x "${ICON_COMPOSE_BIN}" ]]; then
     echo "Missing release binaries." >&2
     echo "Expected:" >&2
     echo "  ${STREAMRS_BIN}" >&2
     echo "  ${PREVIEW_BIN}" >&2
     echo "  ${GUI_BIN}" >&2
+    echo "  ${ICON_COMPOSE_BIN}" >&2
     echo "Build them first with:" >&2
-    echo "  cargo build --release --bin streamrs --bin streamrs-preview --bin streamrs-gui" >&2
+    echo "  cargo build --release --bin streamrs --bin streamrs-preview --bin streamrs-gui --bin streamrs-icon-compose" >&2
     exit 1
 fi
 
@@ -56,6 +58,7 @@ mkdir -p \
 install -m 0755 "${STREAMRS_BIN}" "${PKG_DIR}/usr/bin/streamrs"
 install -m 0755 "${PREVIEW_BIN}" "${PKG_DIR}/usr/bin/streamrs-preview"
 install -m 0755 "${GUI_BIN}" "${PKG_DIR}/usr/bin/streamrs-gui"
+install -m 0755 "${ICON_COMPOSE_BIN}" "${PKG_DIR}/usr/bin/streamrs-icon-compose"
 install -m 0644 "${REPO_ROOT}/config/default.toml" "${PKG_DIR}/usr/share/streamrs/default/default.toml"
 install -m 0644 "${REPO_ROOT}/systemd/streamrs.service" "${PKG_DIR}/usr/lib/systemd/user/streamrs.service"
 install -m 0644 "${DESKTOP_FILE}" "${PKG_DIR}/usr/share/applications/${APPLICATION_ID}.desktop"
@@ -76,7 +79,7 @@ Maintainer: Ēriks Remess <eriks@remess.lv>
 Depends: libc6 (>= 2.31), libhidapi-hidraw0 | libhidapi-libusb0, libgtk-4-1, libadwaita-1-0
 Description: Stream Deck daemon and GUI configurator in Rust
  streamrs sets predefined icons and actions on Stream Deck hardware.
- This package includes streamrs, streamrs-preview, and streamrs-gui binaries,
+ This package includes streamrs, streamrs-preview, streamrs-gui, and streamrs-icon-compose binaries,
  a systemd user service unit, desktop entry, app icon, sample default profile config,
  and bundled icons.
 EOF

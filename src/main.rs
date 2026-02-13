@@ -842,7 +842,11 @@ fn clock_background_svg(image_dir: &Path, background_name: Option<&str>) -> Stri
     }
 }
 
-fn render_clock_segments_svg(image_dir: &Path, text: &str, background_name: Option<&str>) -> String {
+fn render_clock_segments_svg(
+    image_dir: &Path,
+    text: &str,
+    background_name: Option<&str>,
+) -> String {
     let chars: Vec<char> = text.chars().collect();
     let gaps = chars.len().saturating_sub(1) as i32;
     let total_width =
@@ -878,13 +882,20 @@ fn render_clock_segments_svg(image_dir: &Path, text: &str, background_name: Opti
     )
 }
 
-fn render_clock_svg(image_dir: &Path, text: &str, background_name: Option<&str>) -> Result<Vec<u8>, String> {
+fn render_clock_svg(
+    image_dir: &Path,
+    text: &str,
+    background_name: Option<&str>,
+) -> Result<Vec<u8>, String> {
     let svg = render_clock_segments_svg(image_dir, text, background_name);
     let img = load_svg_data(CLOCK_ICON_ALIAS, svg.as_bytes(), Some(image_dir))?;
     encode_streamdeck_image(img)
 }
 
-fn load_clock_icon(image_dir: &Path, background_name: Option<&str>) -> Result<LoadedKeyImage, String> {
+fn load_clock_icon(
+    image_dir: &Path,
+    background_name: Option<&str>,
+) -> Result<LoadedKeyImage, String> {
     let text = current_clock_text();
     let image = render_clock_svg(image_dir, &text, background_name)?;
     Ok(LoadedKeyImage::Clock {
@@ -1080,8 +1091,7 @@ fn set_page(
             index,
             &key.icon,
             clock_background.as_deref(),
-        )
-        {
+        ) {
             eprintln!("{err}");
         }
 
@@ -1152,7 +1162,9 @@ fn advance_dynamic_keys(device: &HidDevice, image_dir: &Path, state: &mut PageSt
             _ => None,
         };
 
-        if let Some((command, icon_on, icon_off, clock_background, current_on, check_interval)) = check {
+        if let Some((command, icon_on, icon_off, clock_background, current_on, check_interval)) =
+            check
+        {
             let new_state = match run_status_check(&command) {
                 Ok(is_on) => Some(is_on),
                 Err(err) => {
@@ -1165,9 +1177,14 @@ fn advance_dynamic_keys(device: &HidDevice, image_dir: &Path, state: &mut PageSt
                 && current_on != Some(is_on)
             {
                 let icon = if is_on { &icon_on } else { &icon_off };
-                if let Err(err) =
-                    apply_icon_to_key(device, image_dir, state, key, icon, clock_background.as_deref())
-                {
+                if let Err(err) = apply_icon_to_key(
+                    device,
+                    image_dir,
+                    state,
+                    key,
+                    icon,
+                    clock_background.as_deref(),
+                ) {
                     eprintln!("{err}");
                 }
             }
@@ -1208,7 +1225,11 @@ fn advance_dynamic_keys(device: &HidDevice, image_dir: &Path, state: &mut PageSt
 
                     let next_text = current_clock_text();
                     if next_text != clock.current_text {
-                        match render_clock_svg(image_dir, &next_text, clock.background_name.as_deref()) {
+                        match render_clock_svg(
+                            image_dir,
+                            &next_text,
+                            clock.background_name.as_deref(),
+                        ) {
                             Ok(image) => {
                                 if let Err(err) = set_key_image_data(device, key as u8, &image) {
                                     eprintln!("{err}");
@@ -1532,8 +1553,8 @@ mod tests {
     #[test]
     fn clock_icon_renders_svg_without_background_file() {
         let missing_dir = Path::new("/tmp/streamrs-missing-clock-assets");
-        let loaded = load_key_image(missing_dir, CLOCK_ICON_ALIAS, None)
-            .expect("clock icon should render");
+        let loaded =
+            load_key_image(missing_dir, CLOCK_ICON_ALIAS, None).expect("clock icon should render");
         match loaded {
             LoadedKeyImage::Clock {
                 image,

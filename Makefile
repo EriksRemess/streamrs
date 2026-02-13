@@ -7,6 +7,7 @@ BIN_DIR ?= $(HOME)/.local/bin
 BIN_NAME ?= streamrs
 PREVIEW_BIN_NAME ?= streamrs-preview
 GUI_BIN_NAME ?= streamrs-gui
+ICON_COMPOSE_BIN_NAME ?= streamrs-icon-compose
 SYSTEMD_USER_DIR ?= $(XDG_CONFIG_HOME)/systemd/user
 SERVICE_NAME ?= streamrs
 SERVICE_FILE ?= $(SYSTEMD_USER_DIR)/$(SERVICE_NAME).service
@@ -35,6 +36,7 @@ install-bin: build
 	install -m 0755 "target/release/$(BIN_NAME)" "$(BIN_DIR)/$(BIN_NAME)"
 	install -m 0755 "target/release/$(PREVIEW_BIN_NAME)" "$(BIN_DIR)/$(PREVIEW_BIN_NAME)"
 	install -m 0755 "target/release/$(GUI_BIN_NAME)" "$(BIN_DIR)/$(GUI_BIN_NAME)"
+	install -m 0755 "target/release/$(ICON_COMPOSE_BIN_NAME)" "$(BIN_DIR)/$(ICON_COMPOSE_BIN_NAME)"
 
 install-config:
 	mkdir -p "$(CONFIG_DIR)"
@@ -70,6 +72,7 @@ uninstall-bin:
 	rm -f "$(BIN_DIR)/$(BIN_NAME)"
 	rm -f "$(BIN_DIR)/$(PREVIEW_BIN_NAME)"
 	rm -f "$(BIN_DIR)/$(GUI_BIN_NAME)"
+	rm -f "$(BIN_DIR)/$(ICON_COMPOSE_BIN_NAME)"
 
 uninstall-systemd:
 	-systemctl --user disable --now "$(SERVICE_NAME).service"
