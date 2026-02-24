@@ -1,5 +1,6 @@
-mod streamrs_gui;
+#[path = "../gui/main.rs"]
+mod gui;
 
 fn main() {
-    streamrs_gui::run();
+    gui::run();
 }
