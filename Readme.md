@@ -65,9 +65,9 @@ streamrs --init
 ```
 
 Notes:
-- `apt install ./streamrs_<version>_<arch>.deb` enables `streamrs.service` globally for user sessions.
-- During install, active user sessions get the service started automatically.
-- During package upgrades, active user sessions get the service restarted automatically.
+- `apt install ./streamrs_<version>_<arch>.deb` enables + starts `streamrs.service` for active logged-in regular users (not globally for all users).
+- During package upgrades, active logged-in regular user sessions get the service restarted automatically.
+- To enable it for an additional user later, log into that user and run `systemctl --user enable --now streamrs.service`.
 - On each service start/restart, `streamrs --init --force-images` runs first:
   - creates config if missing
   - refreshes bundled images from the package

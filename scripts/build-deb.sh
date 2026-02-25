@@ -90,9 +90,10 @@ set -e
 
 SERVICE_NAME="streamrs.service"
 
-enable_service_globally() {
+disable_global_service_if_present() {
     if command -v systemctl >/dev/null 2>&1; then
-        systemctl --global enable "${SERVICE_NAME}" >/dev/null 2>&1 || true
+        # Migration for older package versions that globally enabled the user unit.
+        systemctl --global disable "${SERVICE_NAME}" >/dev/null 2>&1 || true
     fi
 }
 
@@ -111,6 +112,7 @@ reload_and_manage_for_active_users() {
         [ -S "/run/user/${uid}/bus" ] || continue
 
         systemctl --machine="${user}@.host" --user daemon-reload >/dev/null 2>&1 || continue
+        systemctl --machine="${user}@.host" --user enable "${SERVICE_NAME}" >/dev/null 2>&1 || true
         if [ "${action}" = "restart" ]; then
             if ! systemctl --machine="${user}@.host" --user restart "${SERVICE_NAME}" >/dev/null 2>&1; then
                 systemctl --machine="${user}@.host" --user start "${SERVICE_NAME}" >/dev/null 2>&1 || true
@@ -123,7 +125,7 @@ reload_and_manage_for_active_users() {
 
 case "${1:-}" in
     configure)
-        enable_service_globally
+        disable_global_service_if_present
         if [ -n "${2:-}" ]; then
             reload_and_manage_for_active_users restart
         else
