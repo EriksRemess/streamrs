@@ -2,6 +2,8 @@
 Description=streamrs
 After=graphical-session.target
 Wants=graphical-session.target
+ConditionUser=!gdm
+ConditionUser=!root
 
 [Service]
 Type=simple

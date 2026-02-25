@@ -106,6 +106,8 @@ reload_and_manage_for_active_users() {
     loginctl list-users --no-legend 2>/dev/null | while read -r uid user _rest; do
         [ -n "${uid}" ] || continue
         [ -n "${user}" ] || continue
+        # Only target regular interactive users; skip greeter/system accounts (e.g. gdm).
+        [ "${uid}" -ge 1000 ] 2>/dev/null || continue
         [ -S "/run/user/${uid}/bus" ] || continue
 
         systemctl --machine="${user}@.host" --user daemon-reload >/dev/null 2>&1 || continue
@@ -154,6 +156,8 @@ stop_for_active_users() {
     loginctl list-users --no-legend 2>/dev/null | while read -r uid user _rest; do
         [ -n "${uid}" ] || continue
         [ -n "${user}" ] || continue
+        # Only target regular interactive users; skip greeter/system accounts (e.g. gdm).
+        [ "${uid}" -ge 1000 ] 2>/dev/null || continue
         [ -S "/run/user/${uid}/bus" ] || continue
 
         if ! systemctl --machine="${user}@.host" --user disable --now "${SERVICE_NAME}" >/dev/null 2>&1; then
