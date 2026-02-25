@@ -289,7 +289,11 @@ pub(crate) fn deck_background_temp_path() -> PathBuf {
     env::temp_dir().join("streamrs-gui-deck-background.png")
 }
 
-pub(crate) fn write_deck_background_png(deck_svg_path: &Path, width: u32, height: u32) -> Option<PathBuf> {
+pub(crate) fn write_deck_background_png(
+    deck_svg_path: &Path,
+    width: u32,
+    height: u32,
+) -> Option<PathBuf> {
     let rendered = match fs::read(deck_svg_path) {
         Ok(svg) => render_blank_base(
             &deck_svg_path.display().to_string(),

@@ -1,6 +1,9 @@
 use super::*;
 
-pub(crate) fn copy_icon_into_profile(source_path: &Path, target_dir: &Path) -> Result<String, String> {
+pub(crate) fn copy_icon_into_profile(
+    source_path: &Path,
+    target_dir: &Path,
+) -> Result<String, String> {
     copy_supported_image_into_dir(source_path, target_dir)
 }
 
@@ -66,7 +69,8 @@ pub(crate) fn configure_icon_dropdown(dropdown: &DropDown, state: &Rc<RefCell<Ap
         let preview_path = if icon_is_clock(&name) {
             render_clock_icon_png(&image_dirs, Some(CLOCK_BACKGROUND_ICON))
         } else {
-            render_regular_icon_png(&image_dirs, &name).or_else(|| find_icon_file(&image_dirs, &name))
+            render_regular_icon_png(&image_dirs, &name)
+                .or_else(|| find_icon_file(&image_dirs, &name))
         };
         update_picture_file(&icon, preview_path.as_deref());
     });
@@ -85,7 +89,10 @@ pub(crate) fn configure_icon_dropdown(dropdown: &DropDown, state: &Rc<RefCell<Ap
     dropdown.set_expression(Some(expression));
 }
 
-pub(crate) fn dropdown_with_icons(state: &Rc<RefCell<AppState>>, icon_names: &[String]) -> DropDown {
+pub(crate) fn dropdown_with_icons(
+    state: &Rc<RefCell<AppState>>,
+    icon_names: &[String],
+) -> DropDown {
     let names: Vec<&str> = icon_names.iter().map(String::as_str).collect();
     let dropdown = DropDown::from_strings(&names);
     configure_icon_dropdown(&dropdown, state);
@@ -134,7 +141,10 @@ pub(crate) fn dropdown_selected_icon(dropdown: &DropDown, icon_names: &[String])
 }
 
 pub(crate) fn set_dropdown_icon(dropdown: &DropDown, icon_names: &[String], icon_name: &str) {
-    if let Some(index) = icon_names.iter().position(|candidate| candidate == icon_name) {
+    if let Some(index) = icon_names
+        .iter()
+        .position(|candidate| candidate == icon_name)
+    {
         dropdown.set_selected(index as u32);
     } else {
         dropdown.set_selected(0);
@@ -157,7 +167,10 @@ pub(crate) fn find_icon_file(image_dirs: &[PathBuf], name: &str) -> Option<PathB
         .find(|path| path.is_file())
 }
 
-pub(crate) fn key_clock_background_name<'a>(key: &'a KeyBinding, defaults: &'a [String]) -> &'a str {
+pub(crate) fn key_clock_background_name<'a>(
+    key: &'a KeyBinding,
+    defaults: &'a [String],
+) -> &'a str {
     if let Some(background) = key.clock_background.as_deref()
         && defaults.iter().any(|name| name == background)
     {

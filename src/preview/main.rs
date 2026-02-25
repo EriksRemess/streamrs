@@ -4,11 +4,11 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::Path;
-use streamrs::process::run_shell_status;
 use streamrs::image::clock::{
     CLOCK_ICON_ALIAS, current_clock_text, is_clock_icon, render_clock_segments_svg,
 };
 use streamrs::image::svg::load_svg_data;
+use streamrs::process::run_shell_status;
 
 #[path = "../cli/preview.rs"]
 mod cli;

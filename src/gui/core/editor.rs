@@ -12,7 +12,12 @@ pub(crate) fn refresh_key_grid(
         normalize_config(&mut state.config);
         let total_pages = page_count(&state.config).max(1);
         let page = current_page.min(total_pages.saturating_sub(1));
-        (state.config.clone(), state.image_dirs.clone(), page, total_pages)
+        (
+            state.config.clone(),
+            state.image_dirs.clone(),
+            page,
+            total_pages,
+        )
     };
 
     for (slot, picture) in key_pictures.iter().enumerate() {
@@ -39,8 +44,8 @@ pub(crate) fn refresh_key_grid(
             key_buttons[slot].add_css_class("key-navigation-slot");
             key_buttons[slot].remove_css_class("key-empty-slot");
             let icon_name = navigation_icon_name(nav_slot);
-            let icon_path =
-                find_icon_file(&image_dirs, icon_name).or_else(|| find_icon_file(&image_dirs, "blank.png"));
+            let icon_path = find_icon_file(&image_dirs, icon_name)
+                .or_else(|| find_icon_file(&image_dirs, "blank.png"));
             update_picture_file(picture, icon_path.as_deref());
             let tip = match nav_slot {
                 ReservedNavigationSlot::PreviousPage => "Previous page",
@@ -118,13 +123,20 @@ pub(crate) fn preview_key_from_editor(
         }
         EditorMode::Status => {
             key.icon = dropdown_selected_icon(&widgets.icon_off_dropdown, icon_names);
-            key.icon_on = Some(dropdown_selected_icon(&widgets.icon_on_dropdown, icon_names));
-            key.icon_off = Some(dropdown_selected_icon(&widgets.icon_off_dropdown, icon_names));
+            key.icon_on = Some(dropdown_selected_icon(
+                &widgets.icon_on_dropdown,
+                icon_names,
+            ));
+            key.icon_off = Some(dropdown_selected_icon(
+                &widgets.icon_off_dropdown,
+                icon_names,
+            ));
             key.status = trimmed_or_none(widgets.status_entry.text().as_str());
         }
         EditorMode::Clock => {
             key.icon = CLOCK_ICON_ALIAS.to_string();
-            let selected = dropdown_selected_icon(&widgets.clock_background_dropdown, clock_backgrounds);
+            let selected =
+                dropdown_selected_icon(&widgets.clock_background_dropdown, clock_backgrounds);
             if selected != CLOCK_BACKGROUND_ICON {
                 key.clock_background = Some(selected);
             }
@@ -151,7 +163,14 @@ pub(crate) fn populate_editor(
         let key = key_index
             .and_then(|index| state.config.keys.get(index).cloned())
             .unwrap_or_default();
-        (key, state.image_dirs.clone(), key_index, nav_slot, total_pages, page)
+        (
+            key,
+            state.image_dirs.clone(),
+            key_index,
+            nav_slot,
+            total_pages,
+            page,
+        )
     };
 
     set_editor_controls_sensitive(widgets, key_index.is_some());
@@ -205,42 +224,54 @@ pub(crate) fn populate_editor(
         set_picture_icon(&widgets.icon_preview, &image_dirs, &key, clock_backgrounds);
     } else if let Some(nav_slot) = nav_slot {
         let (label, tooltip) = match nav_slot {
-            ReservedNavigationSlot::PreviousPage => ("Page navigation: Previous", "Go to previous page"),
+            ReservedNavigationSlot::PreviousPage => {
+                ("Page navigation: Previous", "Go to previous page")
+            }
             ReservedNavigationSlot::NextPage => ("Page navigation: Next", "Go to next page"),
         };
         widgets.selected_label.set_text(label);
         widgets.action_entry.set_text("");
         widgets.status_entry.set_text("");
-        widgets.interval_spin.set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
+        widgets
+            .interval_spin
+            .set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
         widgets.icon_kind_dropdown.set_selected(0);
         set_editor_mode_visibility(widgets, EditorMode::Regular);
         set_dropdown_icon(&widgets.icon_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
         set_dropdown_icon(&widgets.icon_on_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
-        set_dropdown_icon(&widgets.icon_off_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
+        set_dropdown_icon(
+            &widgets.icon_off_dropdown,
+            icon_names,
+            CLOCK_BACKGROUND_ICON,
+        );
         set_dropdown_icon(
             &widgets.clock_background_dropdown,
             clock_backgrounds,
             CLOCK_BACKGROUND_ICON,
         );
         let icon_name = navigation_icon_name(nav_slot);
-        let icon_path =
-            find_icon_file(&image_dirs, icon_name).or_else(|| find_icon_file(&image_dirs, "blank.png"));
+        let icon_path = find_icon_file(&image_dirs, icon_name)
+            .or_else(|| find_icon_file(&image_dirs, "blank.png"));
         update_picture_file(&widgets.icon_preview, icon_path.as_deref());
-        widgets.status_label.set_text(&format!(
-            "{tooltip} ({}/{})",
-            page + 1,
-            total_pages
-        ));
+        widgets
+            .status_label
+            .set_text(&format!("{tooltip} ({}/{})", page + 1, total_pages));
     } else {
         widgets.selected_label.set_text("Reserved slot");
         widgets.action_entry.set_text("");
         widgets.status_entry.set_text("");
-        widgets.interval_spin.set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
+        widgets
+            .interval_spin
+            .set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
         widgets.icon_kind_dropdown.set_selected(0);
         set_editor_mode_visibility(widgets, EditorMode::Regular);
         set_dropdown_icon(&widgets.icon_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
         set_dropdown_icon(&widgets.icon_on_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
-        set_dropdown_icon(&widgets.icon_off_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
+        set_dropdown_icon(
+            &widgets.icon_off_dropdown,
+            icon_names,
+            CLOCK_BACKGROUND_ICON,
+        );
         set_dropdown_icon(
             &widgets.clock_background_dropdown,
             clock_backgrounds,
@@ -428,19 +459,18 @@ pub(crate) fn editor_refresh_preview(
 ) {
     let image_dirs = state.borrow().image_dirs.clone();
     let preview = preview_key_from_editor(widgets, icon_names, clock_backgrounds);
-    set_picture_icon(&widgets.icon_preview, &image_dirs, &preview, clock_backgrounds);
+    set_picture_icon(
+        &widgets.icon_preview,
+        &image_dirs,
+        &preview,
+        clock_backgrounds,
+    );
 }
 
 pub(crate) fn key_uses_clock(key: &KeyBinding) -> bool {
     icon_is_clock(&key.icon)
-        || key
-            .icon_on
-            .as_deref()
-            .is_some_and(icon_is_clock)
-        || key
-            .icon_off
-            .as_deref()
-            .is_some_and(icon_is_clock)
+        || key.icon_on.as_deref().is_some_and(icon_is_clock)
+        || key.icon_off.as_deref().is_some_and(icon_is_clock)
 }
 
 pub(crate) fn config_uses_clock(config: &Config) -> bool {

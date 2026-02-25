@@ -2,27 +2,27 @@ pub(crate) use adw::prelude::*;
 pub(crate) use adw::{Application, ApplicationWindow, HeaderBar};
 pub(crate) use gtk::{
     Align, Box as GtkBox, Button, CssProvider, DropDown, Entry, Fixed, Image, Label, Orientation,
-    Overlay, Paned, Picture, ScrolledWindow, SpinButton, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    Overlay, Paned, Picture, STYLE_PROVIDER_PRIORITY_APPLICATION, ScrolledWindow, SpinButton,
 };
-pub(crate) use image::imageops::{FilterType::Lanczos3, resize};
 pub(crate) use image::RgbaImage;
+pub(crate) use image::imageops::{FilterType::Lanczos3, resize};
 pub(crate) use std::cell::{Cell, RefCell};
 pub(crate) use std::env;
 pub(crate) use std::fs;
 pub(crate) use std::path::{Path, PathBuf};
 pub(crate) use std::rc::Rc;
+pub(crate) use streamrs::config::streamrs_profile;
 pub(crate) use streamrs::config::streamrs_schema::{
     StreamrsConfig as Config, StreamrsKeyBinding as KeyBinding, default_icon_name,
 };
-pub(crate) use streamrs::config::streamrs_profile;
 pub(crate) use streamrs::image::cache_fs::{cached_png_path_if_valid, write_cached_png};
 pub(crate) use streamrs::image::catalog::{
     copy_supported_image_into_dir, discover_icons as discover_icons_generic,
     discover_png_backgrounds_with_prefix,
 };
 pub(crate) use streamrs::image::clock::{
-    CLOCK_BACKGROUND_ICON, CLOCK_ICON_ALIAS, current_clock_text,
-    is_clock_icon as icon_is_clock, render_clock_segments_svg,
+    CLOCK_BACKGROUND_ICON, CLOCK_ICON_ALIAS, current_clock_text, is_clock_icon as icon_is_clock,
+    render_clock_segments_svg,
 };
 pub(crate) use streamrs::image::effects::apply_rounded_corners;
 pub(crate) use streamrs::image::svg::load_svg_data as load_svg_image_data;

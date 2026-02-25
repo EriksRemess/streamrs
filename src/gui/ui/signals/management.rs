@@ -332,7 +332,10 @@ pub(crate) fn wire_management_signals(
                                 let page = current_page_for_response.get();
                                 editor_syncing_for_response.set(true);
                                 widgets_for_response.icon_kind_dropdown.set_selected(0);
-                                set_editor_mode_visibility(&widgets_for_response, EditorMode::Regular);
+                                set_editor_mode_visibility(
+                                    &widgets_for_response,
+                                    EditorMode::Regular,
+                                );
                                 set_dropdown_icon(
                                     &widgets_for_response.icon_dropdown,
                                     icons.as_slice(),

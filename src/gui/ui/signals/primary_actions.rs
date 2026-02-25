@@ -1,7 +1,11 @@
 use super::super::*;
 use adw::prelude::*;
 
-pub(crate) fn wire_primary_action_signals(ctx: &UiCtx, apply_button: &Button, clear_button: &Button) {
+pub(crate) fn wire_primary_action_signals(
+    ctx: &UiCtx,
+    apply_button: &Button,
+    clear_button: &Button,
+) {
     let state = &ctx.state;
     let current_page = &ctx.current_page;
     let selected_key = &ctx.selected_key;
@@ -86,8 +90,7 @@ pub(crate) fn wire_primary_action_signals(ctx: &UiCtx, apply_button: &Button, cl
 
         clear_button.connect_clicked(move |_| {
             let slot = selected_for_clear.get();
-            let cleared =
-                clear_selected_key(&state_for_clear, current_page_for_clear.get(), slot);
+            let cleared = clear_selected_key(&state_for_clear, current_page_for_clear.get(), slot);
             if cleared {
                 clamp_page_and_selection(
                     &state_for_clear,
@@ -124,7 +127,9 @@ pub(crate) fn wire_primary_action_signals(ctx: &UiCtx, apply_button: &Button, cl
                 &editor_syncing_for_clear,
             );
             if cleared {
-                widgets_for_clear.status_label.set_text("Deleted selected key");
+                widgets_for_clear
+                    .status_label
+                    .set_text("Deleted selected key");
             } else {
                 widgets_for_clear
                     .status_label

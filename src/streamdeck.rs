@@ -24,7 +24,6 @@ pub fn get_device(
             }
         }
     }
-    eprintln!("Device not found");
     None
 }
 
@@ -41,16 +40,13 @@ fn get_pressed_button(buf: &[u8]) -> Option<usize> {
     buf.iter().position(|&x| x == 1)
 }
 
-pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Option<usize> {
+pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>, String> {
     let mut buf = [0u8; 32];
     buf[0] = 19;
     match device.read_timeout(&mut buf, timeout_ms) {
-        Ok(size) if size > 0 => get_pressed_button(&buf[4..19]),
-        Ok(_) => None,
-        Err(err) => {
-            eprintln!("Failed to read key state: {err}");
-            None
-        }
+        Ok(size) if size > 0 => Ok(get_pressed_button(&buf[4..19])),
+        Ok(_) => Ok(None),
+        Err(err) => Err(format!("Failed to read key state: {err}")),
     }
 }
 

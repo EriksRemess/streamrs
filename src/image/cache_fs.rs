@@ -23,11 +23,7 @@ pub fn cached_png_path_if_valid(cache_dir: &Path, cache_key: &str) -> Option<Pat
     }
 }
 
-pub fn write_cached_png(
-    cache_dir: &Path,
-    cache_key: &str,
-    image: &RgbaImage,
-) -> Option<PathBuf> {
+pub fn write_cached_png(cache_dir: &Path, cache_key: &str, image: &RgbaImage) -> Option<PathBuf> {
     let path = cache_png_path(cache_dir, cache_key);
     if path.is_file() && image::open(&path).is_ok() {
         return Some(path);

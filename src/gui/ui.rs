@@ -135,7 +135,6 @@ pub(crate) fn build_ui(app: &Application) {
     let mut key_pictures = Vec::with_capacity(KEY_COUNT);
 
     for (index, slot) in slots.iter().copied().enumerate().take(KEY_COUNT) {
-
         let button = Button::new();
         button.add_css_class("key-button");
         button.set_tooltip_text(Some(&format!("Key {}", index + 1)));

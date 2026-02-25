@@ -12,7 +12,8 @@ use image::codecs::webp::WebPDecoder;
 use image::imageops::FilterType::Lanczos3;
 use image::imageops::{crop_imm, resize, rotate180};
 use image::{
-    AnimationDecoder, DynamicImage, Frame as ImageFrame, GenericImageView, RgbImage, load_from_memory,
+    AnimationDecoder, DynamicImage, Frame as ImageFrame, GenericImageView, RgbImage,
+    load_from_memory,
 };
 use std::cmp::min;
 use std::fs;
@@ -134,7 +135,10 @@ pub(super) fn encode_animated_frames(
     }
 }
 
-pub(super) fn load_animated_gif(icon_path: &Path, img_data: &[u8]) -> Result<LoadedKeyImage, String> {
+pub(super) fn load_animated_gif(
+    icon_path: &Path,
+    img_data: &[u8],
+) -> Result<LoadedKeyImage, String> {
     let decoder = GifDecoder::new(Cursor::new(img_data))
         .map_err(|err| format!("Failed to decode GIF icon '{}': {err}", icon_path.display()))?;
     let frames: Vec<ImageFrame> = decoder.into_frames().collect_frames().map_err(|err| {
@@ -273,10 +277,7 @@ fn image_cache_key(icon: &str, clock_background: Option<&str>) -> ImageCacheKey 
     }
 }
 
-fn refresh_cached_clock_image(
-    image_dir: &Path,
-    cached: &mut LoadedKeyImage,
-) -> Result<(), String> {
+fn refresh_cached_clock_image(image_dir: &Path, cached: &mut LoadedKeyImage) -> Result<(), String> {
     let LoadedKeyImage::Clock {
         image,
         current_text,

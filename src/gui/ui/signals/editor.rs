@@ -20,47 +20,49 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
         let key_buttons_for_kind = key_buttons.clone();
         let key_pictures_for_kind = key_pictures.clone();
         let editor_syncing_for_kind = editor_syncing.clone();
-        widgets.icon_kind_dropdown.connect_selected_notify(move |_| {
-            if editor_syncing_for_kind.get() {
-                return;
-            }
-            set_editor_mode_visibility(&widgets_for_kind, editor_mode(&widgets_for_kind));
+        widgets
+            .icon_kind_dropdown
+            .connect_selected_notify(move |_| {
+                if editor_syncing_for_kind.get() {
+                    return;
+                }
+                set_editor_mode_visibility(&widgets_for_kind, editor_mode(&widgets_for_kind));
 
-            let page = current_page_for_kind.get();
-            let slot = selected_for_kind.get();
-            let icons = icons_for_kind.borrow();
-            let backgrounds = backgrounds_for_kind.borrow();
-            apply_editor_to_selected_key(
-                &state_for_kind,
-                page,
-                slot,
-                &widgets_for_kind,
-                icons.as_slice(),
-                backgrounds.as_slice(),
-            );
-            refresh_key_grid(
-                &state_for_kind,
-                &key_buttons_for_kind,
-                &key_pictures_for_kind,
-                page,
-                backgrounds.as_slice(),
-            );
-            editor_refresh_preview(
-                &state_for_kind,
-                &widgets_for_kind,
-                icons.as_slice(),
-                backgrounds.as_slice(),
-            );
-            populate_editor_guarded(
-                &state_for_kind,
-                page,
-                slot,
-                &widgets_for_kind,
-                icons.as_slice(),
-                backgrounds.as_slice(),
-                &editor_syncing_for_kind,
-            );
-        });
+                let page = current_page_for_kind.get();
+                let slot = selected_for_kind.get();
+                let icons = icons_for_kind.borrow();
+                let backgrounds = backgrounds_for_kind.borrow();
+                apply_editor_to_selected_key(
+                    &state_for_kind,
+                    page,
+                    slot,
+                    &widgets_for_kind,
+                    icons.as_slice(),
+                    backgrounds.as_slice(),
+                );
+                refresh_key_grid(
+                    &state_for_kind,
+                    &key_buttons_for_kind,
+                    &key_pictures_for_kind,
+                    page,
+                    backgrounds.as_slice(),
+                );
+                editor_refresh_preview(
+                    &state_for_kind,
+                    &widgets_for_kind,
+                    icons.as_slice(),
+                    backgrounds.as_slice(),
+                );
+                populate_editor_guarded(
+                    &state_for_kind,
+                    page,
+                    slot,
+                    &widgets_for_kind,
+                    icons.as_slice(),
+                    backgrounds.as_slice(),
+                    &editor_syncing_for_kind,
+                );
+            });
     }
 
     {

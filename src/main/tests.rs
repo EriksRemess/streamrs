@@ -59,10 +59,9 @@ fn svg_icon_is_supported() {
 #[test]
 fn gif_icon_is_supported() {
     let gif: &[u8] = &[
-        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x21, 0xF9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2C,
-        0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00,
-        0x3B,
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0xFF, 0xFF, 0xFF, 0x21, 0xF9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00,
+        0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3B,
     ];
     let data = get_image_data(Path::new("icon.gif"), gif)
         .expect("GIF should decode and encode for Stream Deck");
@@ -102,7 +101,8 @@ fn animated_gif_fixture_is_supported() {
         .expect("fixture frames should decode");
     assert!(frames.len() > 1, "fixture should be an animated GIF");
 
-    let loaded = load_animated_gif(path, &gif_data).expect("animated GIF should load for animation");
+    let loaded =
+        load_animated_gif(path, &gif_data).expect("animated GIF should load for animation");
     match loaded {
         LoadedKeyImage::Animated { frames, delays } => {
             assert!(frames.len() > 1);
@@ -154,7 +154,8 @@ fn encode_animated_frames_builds_animation_state() {
 #[test]
 fn clock_icon_renders_svg_without_background_file() {
     let missing_dir = Path::new("/tmp/streamrs-missing-clock-assets");
-    let loaded = load_key_image(missing_dir, CLOCK_ICON_ALIAS, None).expect("clock icon should render");
+    let loaded =
+        load_key_image(missing_dir, CLOCK_ICON_ALIAS, None).expect("clock icon should render");
     match loaded {
         LoadedKeyImage::Clock {
             image,
@@ -186,7 +187,8 @@ fn parse_config_allows_missing_action() {
             [[keys]]
             icon = "blank.png"
         "#;
-    let config = parse_config(Path::new("test.toml"), raw).expect("config with missing action should parse");
+    let config =
+        parse_config(Path::new("test.toml"), raw).expect("config with missing action should parse");
     assert_eq!(config.keys.len(), 1);
     assert!(key_launch_action(&config.keys[0]).is_none());
 }
@@ -198,7 +200,8 @@ fn blank_action_is_treated_as_noop() {
             action = "   "
             icon = "blank.png"
         "#;
-    let config = parse_config(Path::new("test.toml"), raw).expect("config with blank action should parse");
+    let config =
+        parse_config(Path::new("test.toml"), raw).expect("config with blank action should parse");
     assert_eq!(config.keys.len(), 1);
     assert!(key_launch_action(&config.keys[0]).is_none());
 }
@@ -226,7 +229,8 @@ fn status_interval_is_clamped() {
             status = "test-command"
             status_interval_ms = 1
         "#;
-    let config = parse_config(Path::new("test.toml"), raw).expect("status interval config should parse");
+    let config =
+        parse_config(Path::new("test.toml"), raw).expect("status interval config should parse");
     let key = &config.keys[0];
     assert_eq!(
         key_status_interval(key),
@@ -381,7 +385,9 @@ fn page_layout_plan_places_navigation_keys_across_pages() {
         Some("icon-13.png")
     );
     assert_eq!(
-        first.icons[next_key].as_ref().map(|(icon, _)| icon.as_str()),
+        first.icons[next_key]
+            .as_ref()
+            .map(|(icon, _)| icon.as_str()),
         Some(NEXT_PAGE_ICON)
     );
 
@@ -391,7 +397,10 @@ fn page_layout_plan_places_navigation_keys_across_pages() {
         middle.button_actions[prev_key],
         Some(ButtonAction::PreviousPage)
     );
-    assert_eq!(middle.button_actions[next_key], Some(ButtonAction::NextPage));
+    assert_eq!(
+        middle.button_actions[next_key],
+        Some(ButtonAction::NextPage)
+    );
     assert_eq!(
         middle.icons[0].as_ref().map(|(icon, _)| icon.as_str()),
         Some("icon-14.png")
@@ -401,18 +410,25 @@ fn page_layout_plan_places_navigation_keys_across_pages() {
         Some("icon-26.png")
     );
     assert_eq!(
-        middle.icons[prev_key].as_ref().map(|(icon, _)| icon.as_str()),
+        middle.icons[prev_key]
+            .as_ref()
+            .map(|(icon, _)| icon.as_str()),
         Some(PREVIOUS_PAGE_ICON)
     );
     assert_eq!(
-        middle.icons[next_key].as_ref().map(|(icon, _)| icon.as_str()),
+        middle.icons[next_key]
+            .as_ref()
+            .map(|(icon, _)| icon.as_str()),
         Some(NEXT_PAGE_ICON)
     );
 
     let last = plan_page_layout(&config, &status_cache, 2);
     assert_eq!(last.page, 2);
     assert_eq!(last.button_actions[prev_key], None);
-    assert_eq!(last.button_actions[next_key], Some(ButtonAction::PreviousPage));
+    assert_eq!(
+        last.button_actions[next_key],
+        Some(ButtonAction::PreviousPage)
+    );
     assert_eq!(
         last.icons[0].as_ref().map(|(icon, _)| icon.as_str()),
         Some("icon-27.png")
@@ -443,7 +459,9 @@ fn page_layout_plan_uses_cached_status_for_initial_icon_and_poll_timing() {
     assert_eq!(no_cache_status.current_on, None);
     assert!(no_cache_status.poll_now);
     assert_eq!(
-        no_cache_plan.icons[0].as_ref().map(|(icon, _)| icon.as_str()),
+        no_cache_plan.icons[0]
+            .as_ref()
+            .map(|(icon, _)| icon.as_str()),
         Some("off.png")
     );
 
@@ -468,7 +486,10 @@ fn page_layout_plan_treats_launcher_like_status_as_action_when_missing_action() 
     let config = test_config_with_keys(vec![key]);
 
     let plan = plan_page_layout(&config, &StatusCache::new(), 0);
-    assert!(plan.status_slots[0].is_none(), "launcher-like status should not poll");
+    assert!(
+        plan.status_slots[0].is_none(),
+        "launcher-like status should not poll"
+    );
     assert_eq!(
         plan.button_actions[0],
         Some(ButtonAction::Launch(

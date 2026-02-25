@@ -117,7 +117,10 @@ mod tests {
         assert_eq!(layout.page_count(KEY_COUNT + 1), 2);
         assert_eq!(layout.page_count((KEY_COUNT - 1) * 2), 2);
         assert_eq!(layout.page_count(((KEY_COUNT - 1) * 2) + 1), 3);
-        assert_eq!(layout.page_count(((KEY_COUNT - 1) * 2) + (KEY_COUNT - 2)), 3);
+        assert_eq!(
+            layout.page_count(((KEY_COUNT - 1) * 2) + (KEY_COUNT - 2)),
+            3
+        );
         assert_eq!(
             layout.page_count(((KEY_COUNT - 1) * 2) + (KEY_COUNT - 2) + 1),
             4

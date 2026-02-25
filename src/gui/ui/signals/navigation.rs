@@ -64,7 +64,9 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
                 let mut state = state_for_click.borrow_mut();
                 normalize_config(&mut state.config);
                 let total_pages = page_count(&state.config).max(1);
-                let page = current_page_for_click.get().min(total_pages.saturating_sub(1));
+                let page = current_page_for_click
+                    .get()
+                    .min(total_pages.saturating_sub(1));
                 (page, total_pages)
             };
 
@@ -156,7 +158,9 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
                 if !button_for_drag_source.has_css_class("key-has-binding") {
                     return None;
                 }
-                Some(gtk::gdk::ContentProvider::for_value(&(index as u32).to_value()))
+                Some(gtk::gdk::ContentProvider::for_value(
+                    &(index as u32).to_value(),
+                ))
             });
             button.add_controller(drag_source);
         }
@@ -174,7 +178,8 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
             let drop_button = button.clone();
             let buttons_for_motion = key_buttons.clone();
             let buttons_for_leave = key_buttons.clone();
-            let drop_target = gtk::DropTarget::new(gtk::glib::Type::U32, gtk::gdk::DragAction::MOVE);
+            let drop_target =
+                gtk::DropTarget::new(gtk::glib::Type::U32, gtk::gdk::DragAction::MOVE);
             drop_target.connect_motion(move |_, x, _| {
                 apply_drop_preview_state(&buttons_for_motion, index, x);
                 gtk::gdk::DragAction::MOVE

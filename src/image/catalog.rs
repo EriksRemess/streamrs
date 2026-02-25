@@ -12,7 +12,10 @@ pub fn is_supported_icon_extension(path: &Path) -> bool {
     )
 }
 
-pub fn copy_supported_image_into_dir(source_path: &Path, target_dir: &Path) -> Result<String, String> {
+pub fn copy_supported_image_into_dir(
+    source_path: &Path,
+    target_dir: &Path,
+) -> Result<String, String> {
     if !source_path.is_file() {
         return Err(format!(
             "Selected path '{}' is not a file",

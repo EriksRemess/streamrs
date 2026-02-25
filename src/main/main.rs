@@ -10,29 +10,37 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 #[cfg(test)]
-use streamrs::image::clock::{CLOCK_BACKGROUND_ICON, CLOCK_FALLBACK_BACKGROUND_COLOR, CLOCK_ICON_ALIAS};
+use streamrs::image::clock::{
+    CLOCK_BACKGROUND_ICON, CLOCK_FALLBACK_BACKGROUND_COLOR, CLOCK_ICON_ALIAS,
+};
 
-#[path = "../init/streamrs.rs"]
-mod init;
 #[path = "../config/streamrs.rs"]
 mod config;
-#[path = "../image/streamrs.rs"]
-mod stream_image;
+#[path = "../init/streamrs.rs"]
+mod init;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod main_tests;
+#[path = "../image/streamrs.rs"]
+mod stream_image;
 
-use init::{
-    default_config_path, default_image_dir, ensure_profile_initialized, initialize_profile,
-    parse_args, print_post_init_service_hint, print_usage,
-};
 use config::{
     is_launcher_like_command, key_clock_background, key_launch_action, key_status_command,
     key_status_icon_off, key_status_icon_on, key_status_interval, parse_config, read_config_file,
 };
-use streamrs::paging::PagingLayout;
-use streamrs::process::{launch_split_command, run_shell_status};
-use streamrs::streamdeck::{get_device, read_states, set_brightness, set_key_image_data};
+use init::{
+    default_config_path, default_image_dir, ensure_profile_initialized, initialize_profile,
+    parse_args, print_post_init_service_hint, print_usage,
+};
+use stream_image::{
+    blank_image_data, build_image_cache, current_clock_text, load_key_image_cached,
+    render_clock_svg,
+};
+#[cfg(test)]
+use stream_image::{
+    delay_to_duration_ms, encode_animated_frames, get_image_data, load_animated_gif,
+    load_key_image, render_clock_segments_svg,
+};
 use streamrs::config::streamrs_schema::{
     StreamrsConfig as Config, StreamrsKeyBinding as KeyBinding,
 };
@@ -40,19 +48,12 @@ use streamrs::config::streamrs_schema::{
 use streamrs::config::streamrs_schema::{
     default_brightness as schema_default_brightness,
     default_keys_per_page as schema_default_keys_per_page,
-    default_product_id as schema_default_product_id,
-    default_usage as schema_default_usage,
-    default_usage_page as schema_default_usage_page,
-    default_vendor_id as schema_default_vendor_id,
+    default_product_id as schema_default_product_id, default_usage as schema_default_usage,
+    default_usage_page as schema_default_usage_page, default_vendor_id as schema_default_vendor_id,
 };
-use stream_image::{
-    blank_image_data, build_image_cache, current_clock_text, load_key_image_cached, render_clock_svg,
-};
-#[cfg(test)]
-use stream_image::{
-    delay_to_duration_ms, encode_animated_frames, get_image_data, load_animated_gif, load_key_image,
-    render_clock_segments_svg,
-};
+use streamrs::paging::PagingLayout;
+use streamrs::process::{launch_split_command, run_shell_status};
+use streamrs::streamdeck::{get_device, read_states, set_brightness, set_key_image_data};
 
 const KEY_COUNT: usize = streamrs::paging::STREAMDECK_KEY_COUNT;
 const MIN_KEYS_PER_PAGE: usize = streamrs::paging::MIN_KEYS_PER_PAGE;
@@ -288,7 +289,11 @@ fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) ->
             let check_interval = key_status_interval(key);
             let cached_state = status_cache.get(&command).copied();
             let initial_state = cached_state.unwrap_or(false);
-            let initial_icon = if initial_state { icon_on.clone() } else { icon_off.clone() };
+            let initial_icon = if initial_state {
+                icon_on.clone()
+            } else {
+                icon_off.clone()
+            };
             icons[index] = Some((initial_icon, clock_background.clone()));
             status_slots[index] = Some(PlannedStatusKey {
                 command,
@@ -621,135 +626,181 @@ pub(crate) fn run() {
         }
     };
 
-    if let Some(device) = get_device(
-        config.vendor_id,
-        config.product_id,
-        config.usage,
-        config.usage_page,
-    ) {
-        if let Err(err) = set_brightness(&device, config.brightness.clamp(0, 100)) {
-            eprintln!("{err}");
+    let mut device: Option<HidDevice> = None;
+    let mut current_page = 0usize;
+    let mut total_pages = page_count(&config);
+    let mut page_state: Option<PageState> = None;
+    let mut last_reload_check = Instant::now();
+    let mut last_pressed_button = None;
+    let mut last_device_probe = Instant::now() - Duration::from_secs(1);
+    let mut waiting_for_device_logged = false;
+
+    loop {
+        if device.is_none() && last_device_probe.elapsed() >= Duration::from_millis(500) {
+            last_device_probe = Instant::now();
+            if !waiting_for_device_logged {
+                eprintln!("Waiting for Stream Deck connection...");
+                waiting_for_device_logged = true;
+            }
+
+            if let Some(connected_device) = get_device(
+                config.vendor_id,
+                config.product_id,
+                config.usage,
+                config.usage_page,
+            ) {
+                eprintln!("Stream Deck connected");
+                if let Err(err) = set_brightness(&connected_device, config.brightness.clamp(0, 100))
+                {
+                    eprintln!("{err}");
+                }
+                total_pages = page_count(&config);
+                current_page = min(current_page, total_pages.saturating_sub(1));
+                page_state = Some(set_page(
+                    &connected_device,
+                    &config,
+                    &image_dir,
+                    &mut image_cache,
+                    &status_cache,
+                    current_page,
+                    &blank_image,
+                ));
+                last_pressed_button = None;
+                waiting_for_device_logged = false;
+                device = Some(connected_device);
+            }
         }
 
-        let mut current_page = 0usize;
-        let mut total_pages = page_count(&config);
-        let mut page_state = set_page(
-            &device,
-            &config,
-            &image_dir,
-            &mut image_cache,
-            &status_cache,
-            current_page,
-            &blank_image,
-        );
-        let mut last_reload_check = Instant::now();
-        let mut last_pressed_button = None;
-
-        loop {
+        let mut disconnected = false;
+        if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
             advance_dynamic_keys(
-                &device,
+                device_ref,
                 &image_dir,
                 &mut image_cache,
                 &mut status_cache,
-                &mut page_state,
+                page_state_ref,
             );
-            let pressed_button = read_states(&device, 10);
-            if pressed_button != last_pressed_button {
-                if let Some(index) = pressed_button
-                    && let Some(action) = page_state.button_actions[index].clone()
-                {
-                    match action {
-                        ButtonAction::Launch(action) => launch_app(&action, args.debug),
-                        ButtonAction::PreviousPage => {
-                            if current_page > 0 {
-                                current_page -= 1;
-                                page_state = set_page(
-                                    &device,
-                                    &config,
-                                    &image_dir,
-                                    &mut image_cache,
-                                    &status_cache,
-                                    current_page,
-                                    &blank_image,
-                                );
-                            }
-                        }
-                        ButtonAction::NextPage => {
-                            if current_page + 1 < total_pages {
-                                current_page += 1;
-                                page_state = set_page(
-                                    &device,
-                                    &config,
-                                    &image_dir,
-                                    &mut image_cache,
-                                    &status_cache,
-                                    current_page,
-                                    &blank_image,
-                                );
-                            }
-                        }
-                    }
-                }
 
-                last_pressed_button = pressed_button;
-            }
-
-            if last_reload_check.elapsed() >= Duration::from_secs(10) {
-                last_reload_check = Instant::now();
-
-                match read_config_file(&config_path) {
-                    Ok(raw) => {
-                        if raw != config_raw {
-                            match parse_config(&config_path, &raw) {
-                                Ok(new_config) => {
-                                    if (
-                                        new_config.vendor_id,
-                                        new_config.product_id,
-                                        new_config.usage,
-                                        new_config.usage_page,
-                                    ) != (
-                                        config.vendor_id,
-                                        config.product_id,
-                                        config.usage,
-                                        config.usage_page,
-                                    ) {
-                                        eprintln!(
-                                            "Warning: HID identifiers changed in config; restart streamrs to apply device selection changes"
+            match read_states(device_ref, 10) {
+                Ok(pressed_button) => {
+                    if pressed_button != last_pressed_button {
+                        if let Some(index) = pressed_button
+                            && let Some(action) = page_state_ref.button_actions[index].clone()
+                        {
+                            match action {
+                                ButtonAction::Launch(action) => launch_app(&action, args.debug),
+                                ButtonAction::PreviousPage => {
+                                    if current_page > 0 {
+                                        current_page -= 1;
+                                        *page_state_ref = set_page(
+                                            device_ref,
+                                            &config,
+                                            &image_dir,
+                                            &mut image_cache,
+                                            &status_cache,
+                                            current_page,
+                                            &blank_image,
                                         );
                                     }
+                                }
+                                ButtonAction::NextPage => {
+                                    if current_page + 1 < total_pages {
+                                        current_page += 1;
+                                        *page_state_ref = set_page(
+                                            device_ref,
+                                            &config,
+                                            &image_dir,
+                                            &mut image_cache,
+                                            &status_cache,
+                                            current_page,
+                                            &blank_image,
+                                        );
+                                    }
+                                }
+                            }
+                        }
 
-                                    if let Err(err) =
-                                        set_brightness(&device, new_config.brightness.clamp(0, 100))
-                                    {
+                        last_pressed_button = pressed_button;
+                    }
+                }
+                Err(err) => {
+                    if err.to_ascii_lowercase().contains("device disconnected") {
+                        eprintln!("Lost Stream Deck connection while reading key state");
+                    } else {
+                        eprintln!("{err}");
+                    }
+                    disconnected = true;
+                }
+            }
+        }
+
+        if disconnected {
+            eprintln!("Stream Deck disconnected");
+            device = None;
+            page_state = None;
+            last_pressed_button = None;
+        }
+
+        if last_reload_check.elapsed() >= Duration::from_secs(10) {
+            last_reload_check = Instant::now();
+
+            match read_config_file(&config_path) {
+                Ok(raw) => {
+                    if raw != config_raw {
+                        match parse_config(&config_path, &raw) {
+                            Ok(new_config) => {
+                                if (
+                                    new_config.vendor_id,
+                                    new_config.product_id,
+                                    new_config.usage,
+                                    new_config.usage_page,
+                                ) != (
+                                    config.vendor_id,
+                                    config.product_id,
+                                    config.usage,
+                                    config.usage_page,
+                                ) {
+                                    eprintln!(
+                                        "Warning: HID identifiers changed in config; existing connection will keep using the current device until it reconnects"
+                                    );
+                                }
+
+                                total_pages = page_count(&new_config);
+                                current_page = min(current_page, total_pages.saturating_sub(1));
+                                image_cache = build_image_cache(&new_config, &image_dir);
+
+                                if let Some(device_ref) = device.as_ref() {
+                                    if let Err(err) = set_brightness(
+                                        device_ref,
+                                        new_config.brightness.clamp(0, 100),
+                                    ) {
                                         eprintln!("{err}");
                                     }
 
-                                    total_pages = page_count(&new_config);
-                                    current_page = min(current_page, total_pages.saturating_sub(1));
-                                    image_cache = build_image_cache(&new_config, &image_dir);
-                                    page_state = set_page(
-                                        &device,
+                                    page_state = Some(set_page(
+                                        device_ref,
                                         &new_config,
                                         &image_dir,
                                         &mut image_cache,
                                         &status_cache,
                                         current_page,
                                         &blank_image,
-                                    );
+                                    ));
                                     last_pressed_button = None;
-                                    config = new_config;
-                                    config_raw = raw;
-                                    eprintln!("Config reloaded from '{}'", config_path.display());
                                 }
-                                Err(err) => eprintln!("{err}"),
+
+                                config = new_config;
+                                config_raw = raw;
+                                eprintln!("Config reloaded from '{}'", config_path.display());
                             }
+                            Err(err) => eprintln!("{err}"),
                         }
                     }
-                    Err(err) => eprintln!("{err}"),
                 }
+                Err(err) => eprintln!("{err}"),
             }
-
-            sleep(Duration::from_millis(10));
         }
+
+        sleep(Duration::from_millis(10));
     }
 }

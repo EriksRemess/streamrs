@@ -105,13 +105,21 @@ impl PagingLayout {
         None
     }
 
-    pub fn key_index_for_slot(self, action_count: usize, page: usize, slot: usize) -> Option<usize> {
+    pub fn key_index_for_slot(
+        self,
+        action_count: usize,
+        page: usize,
+        slot: usize,
+    ) -> Option<usize> {
         let total_pages = self.page_count(action_count);
         let page = page.min(total_pages.saturating_sub(1));
         if slot >= self.total_slots {
             return None;
         }
-        if self.navigation_slot_for_slot(page, total_pages, slot).is_some() {
+        if self
+            .navigation_slot_for_slot(page, total_pages, slot)
+            .is_some()
+        {
             return None;
         }
 

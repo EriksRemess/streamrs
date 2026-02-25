@@ -13,7 +13,10 @@ pub(crate) fn write_rounded_png(cache_key: &str, mut image: RgbaImage) -> Option
     write_cached_png(&rounded_icons_dir(), cache_key, &image)
 }
 
-pub(crate) fn render_clock_icon_png(image_dirs: &[PathBuf], background_name: Option<&str>) -> Option<PathBuf> {
+pub(crate) fn render_clock_icon_png(
+    image_dirs: &[PathBuf],
+    background_name: Option<&str>,
+) -> Option<PathBuf> {
     let clock_text = current_clock_text();
     let background = background_name.unwrap_or(CLOCK_BACKGROUND_ICON);
     let cache_key = format!("clock-{}-{}", clock_text, background);
@@ -21,15 +24,16 @@ pub(crate) fn render_clock_icon_png(image_dirs: &[PathBuf], background_name: Opt
         return Some(path);
     }
 
-    let background_dir = find_icon_file(image_dirs, background)
-        .and_then(|path| path.parent().map(PathBuf::from));
+    let background_dir =
+        find_icon_file(image_dirs, background).and_then(|path| path.parent().map(PathBuf::from));
     let resources_dir = background_dir.as_deref();
     let svg = render_clock_segments_svg(
         resources_dir.unwrap_or_else(|| Path::new(".")),
         &clock_text,
         Some(background),
     );
-    let image = load_svg_image_data(CLOCK_ICON_ALIAS, svg.as_bytes(), resources_dir, 256, 256).ok()?;
+    let image =
+        load_svg_image_data(CLOCK_ICON_ALIAS, svg.as_bytes(), resources_dir, 256, 256).ok()?;
     write_rounded_png(&cache_key, image)
 }
 
