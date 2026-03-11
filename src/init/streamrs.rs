@@ -80,8 +80,14 @@ pub(crate) fn parse_args() -> Result<CliArgs, String> {
 
 fn resolve_default_profile() -> String {
     let profiles = discover_profiles();
+    resolve_default_profile_from(&profiles, load_current_profile())
+}
 
-    match load_current_profile() {
+fn resolve_default_profile_from(
+    profiles: &[String],
+    current_profile: Result<Option<String>, String>,
+) -> String {
+    match current_profile {
         Ok(Some(profile)) => {
             if profile == BLANK_PROFILE {
                 if profiles.is_empty() {
@@ -308,41 +314,8 @@ pub(crate) fn print_post_init_service_hint() {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::{Mutex, OnceLock};
 
     static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    fn with_temp_xdg_config_home(name: &str, run: impl FnOnce(&Path)) {
-        let _guard = env_lock().lock().expect("env lock should be available");
-        let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("streamrs-init-xdg-tests-{name}-{id}"));
-        fs::create_dir_all(&dir).expect("test XDG config dir should be creatable");
-
-        let previous = std::env::var_os("XDG_CONFIG_HOME");
-        // SAFETY: Test helper serializes env mutation via a process-wide mutex.
-        unsafe {
-            std::env::set_var("XDG_CONFIG_HOME", &dir);
-        }
-
-        run(&dir);
-
-        if let Some(value) = previous {
-            // SAFETY: Test helper serializes env mutation via a process-wide mutex.
-            unsafe {
-                std::env::set_var("XDG_CONFIG_HOME", value);
-            }
-        } else {
-            // SAFETY: Test helper serializes env mutation via a process-wide mutex.
-            unsafe {
-                std::env::remove_var("XDG_CONFIG_HOME");
-            }
-        }
-    }
 
     fn test_temp_dir(name: &str) -> PathBuf {
         let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -412,37 +385,24 @@ mod tests {
 
     #[test]
     fn resolve_default_profile_keeps_saved_non_blank_profile_even_if_not_discovered() {
-        with_temp_xdg_config_home("resolve-current", |xdg_config_home| {
-            let streamrs_dir = xdg_config_home.join("streamrs");
-            fs::create_dir_all(&streamrs_dir).expect("streamrs config dir should be creatable");
-            fs::write(streamrs_dir.join("current_profile"), "test\n")
-                .expect("current profile fixture should be written");
-            fs::write(streamrs_dir.join("default.toml"), "brightness = 60\n")
-                .expect("default config fixture should be written");
-
-            let resolved = resolve_default_profile();
-            assert_eq!(
-                resolved, "test",
-                "saved non-blank current profile should not fall back to default"
-            );
-        });
+        let profiles = vec![DEFAULT_PROFILE.to_string()];
+        let resolved = resolve_default_profile_from(&profiles, Ok(Some("test".to_string())));
+        assert_eq!(
+            resolved, "test",
+            "saved non-blank current profile should not fall back to default"
+        );
     }
 
     #[test]
     fn resolve_default_profile_uses_blank_when_current_profile_is_invalid() {
-        with_temp_xdg_config_home("resolve-invalid-current", |xdg_config_home| {
-            let streamrs_dir = xdg_config_home.join("streamrs");
-            fs::create_dir_all(&streamrs_dir).expect("streamrs config dir should be creatable");
-            fs::write(streamrs_dir.join("current_profile"), "bad profile\n")
-                .expect("invalid current profile fixture should be written");
-            fs::write(streamrs_dir.join("default.toml"), "brightness = 60\n")
-                .expect("default config fixture should be written");
-
-            let resolved = resolve_default_profile();
-            assert_eq!(
-                resolved, BLANK_PROFILE,
-                "invalid current profile should force blank fallback"
-            );
-        });
+        let profiles = vec![DEFAULT_PROFILE.to_string()];
+        let resolved = resolve_default_profile_from(
+            &profiles,
+            Err("current profile should fail to load".to_string()),
+        );
+        assert_eq!(
+            resolved, BLANK_PROFILE,
+            "invalid current profile should force blank fallback"
+        );
     }
 }
