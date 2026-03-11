@@ -93,11 +93,11 @@ systemctl --user stop streamrs.service
 
 Default profile files live in:
 - Config: `~/.config/streamrs/default.toml`
-- Images: `~/.local/share/streamrs/default/`
+- Images: `~/.local/share/streamrs/icons/`
 
 Additional profiles use:
 - `~/.config/streamrs/<name>.toml`
-- `~/.local/share/streamrs/<name>/`
+- Shared icons in `~/.local/share/streamrs/icons/`
 
 Notes:
 - If the config is missing, `streamrs` auto-initializes the profile from bundled defaults
@@ -120,9 +120,16 @@ Generate a mock image from your current profile:
 streamrs-preview --output mock.png
 ```
 
+Render a specific profile:
+
+```bash
+streamrs-preview --profile test --output mock.png
+```
+
 Notes:
 - If `--output` is omitted, it writes `mock.png`
-- It reads your profile config/images first, then falls back to packaged defaults if needed
+- If `--profile` is omitted, it uses the current profile from `~/.config/streamrs/current_profile` (or `default` if unset)
+- It reads the selected profile config and shared icons first, then falls back to packaged defaults if needed
 
 ### Icon Composer
 
@@ -133,7 +140,7 @@ streamrs-icon-compose path/to/logo.svg
 ```
 
 Defaults:
-- Output directory: `~/.local/share/streamrs/default/`
+- Output directory: `~/.local/share/streamrs/icons/`
 - Output name: `<logo>-icon.png` (auto-suffixed if needed)
 
 Options:

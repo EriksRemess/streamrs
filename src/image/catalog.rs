@@ -1,6 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub fn is_blank_background_icon_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("blank") && lower.ends_with(".png")
+}
+
 pub fn is_supported_icon_extension(path: &Path) -> bool {
     matches!(
         path.extension()
@@ -134,5 +139,19 @@ fn promote_or_insert(items: &mut Vec<String>, preferred_first: &str) {
         }
     } else {
         items.insert(0, preferred_first.to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blank_background_icon_detection_matches_blank_png_family() {
+        assert!(is_blank_background_icon_name("blank.png"));
+        assert!(is_blank_background_icon_name("blank_2.png"));
+        assert!(is_blank_background_icon_name("BLANK_9.PNG"));
+        assert!(!is_blank_background_icon_name("blank.jpg"));
+        assert!(!is_blank_background_icon_name("youtube.png"));
     }
 }

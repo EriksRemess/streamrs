@@ -47,6 +47,12 @@ Render a preview image:
 cargo run --bin streamrs-preview -- --output mock.png
 ```
 
+Preview a specific profile:
+
+```bash
+cargo run --bin streamrs-preview -- --profile test --output mock.png
+```
+
 Compose an icon:
 
 ```bash
@@ -64,7 +70,7 @@ make install
 This installs:
 - Binaries into `~/.local/bin/`
 - Default profile config into `~/.config/streamrs/default.toml`
-- Default images into `~/.local/share/streamrs/default/`
+- Default images into `~/.local/share/streamrs/icons/`
 - Desktop entry + icon
 - User systemd service into `~/.config/systemd/user/streamrs.service`
 

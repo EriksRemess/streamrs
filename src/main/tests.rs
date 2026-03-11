@@ -1,4 +1,5 @@
 use super::*;
+use chrono::{FixedOffset, TimeZone};
 use image::Rgba;
 use image::codecs::gif::GifEncoder;
 use std::fs;
@@ -110,6 +111,7 @@ fn animated_gif_fixture_is_supported() {
         }
         LoadedKeyImage::Static(_) => panic!("animated GIF should not load as static"),
         LoadedKeyImage::Clock { .. } => panic!("animated GIF should not load as clock"),
+        LoadedKeyImage::Calendar { .. } => panic!("animated GIF should not load as calendar"),
     }
 }
 
@@ -148,6 +150,7 @@ fn encode_animated_frames_builds_animation_state() {
         }
         LoadedKeyImage::Static(_) => panic!("expected animated state"),
         LoadedKeyImage::Clock { .. } => panic!("expected animated state"),
+        LoadedKeyImage::Calendar { .. } => panic!("expected animated state"),
     }
 }
 
@@ -171,6 +174,46 @@ fn clock_icon_renders_svg_without_background_file() {
         }
         _ => panic!("expected clock image variant"),
     }
+}
+
+#[test]
+fn calendar_icon_renders_svg_without_background_file() {
+    let missing_dir = Path::new("/tmp/streamrs-missing-calendar-assets");
+    let loaded = load_key_image(missing_dir, CALENDAR_ICON_ALIAS, None)
+        .expect("calendar icon should render");
+    match loaded {
+        LoadedKeyImage::Calendar { image, current_key } => {
+            assert_eq!(current_key.len(), 10);
+            assert_eq!(&current_key[4..5], "-");
+            assert_eq!(&current_key[7..8], "-");
+            assert!(image.len() > 2);
+            assert_eq!(image[0], 0xFF);
+            assert_eq!(image[1], 0xD8);
+        }
+        _ => panic!("expected calendar image variant"),
+    }
+}
+
+#[test]
+fn calendar_refresh_delay_targets_next_midnight() {
+    let offset = FixedOffset::east_opt(2 * 3600).expect("fixed offset should be valid");
+    let now = offset
+        .with_ymd_and_hms(2026, 3, 11, 23, 59, 30)
+        .single()
+        .expect("fixed-offset datetime should be valid");
+    assert_eq!(
+        duration_until_next_midnight_fixed(now),
+        Duration::from_secs(30)
+    );
+
+    let midday = offset
+        .with_ymd_and_hms(2026, 3, 11, 12, 0, 0)
+        .single()
+        .expect("fixed-offset datetime should be valid");
+    assert_eq!(
+        duration_until_next_midnight_fixed(midday),
+        Duration::from_secs(12 * 3600)
+    );
 }
 
 #[test]
@@ -204,6 +247,22 @@ fn blank_action_is_treated_as_noop() {
         parse_config(Path::new("test.toml"), raw).expect("config with blank action should parse");
     assert_eq!(config.keys.len(), 1);
     assert!(key_launch_action(&config.keys[0]).is_none());
+}
+
+#[test]
+fn blank_icon_family_renders_black_key_image() {
+    let loaded = load_key_image(Path::new("/tmp/streamrs-unused"), "blank_3.png", None)
+        .expect("blank icon alias should render as black image");
+    match loaded {
+        LoadedKeyImage::Static(image) => {
+            assert!(image.len() > 2);
+            assert_eq!(image[0], 0xFF);
+            assert_eq!(image[1], 0xD8);
+        }
+        LoadedKeyImage::Animated { .. } => panic!("blank icon should be static"),
+        LoadedKeyImage::Clock { .. } => panic!("blank icon should not load as clock"),
+        LoadedKeyImage::Calendar { .. } => panic!("blank icon should not load as calendar"),
+    }
 }
 
 #[test]

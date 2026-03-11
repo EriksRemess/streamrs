@@ -1,5 +1,24 @@
 use super::*;
 
+pub(crate) fn is_plain_blank_key(key: &KeyBinding) -> bool {
+    key.status.is_none()
+        && key.icon_on.is_none()
+        && key.icon_off.is_none()
+        && is_blank_background_icon_name(&key.icon)
+}
+
+pub(crate) fn slot_has_plain_blank_key(
+    state: &Rc<RefCell<AppState>>,
+    current_page: usize,
+    selected_slot: usize,
+) -> bool {
+    let mut state = state.borrow_mut();
+    normalize_config(&mut state.config);
+    key_index_for_slot(&state.config, current_page, selected_slot)
+        .and_then(|index| state.config.keys.get(index))
+        .is_some_and(is_plain_blank_key)
+}
+
 pub(crate) fn refresh_key_grid(
     state: &Rc<RefCell<AppState>>,
     key_buttons: &[Button],
@@ -24,28 +43,43 @@ pub(crate) fn refresh_key_grid(
         if let Some(key_index) = key_index_for_slot(&config, page, slot) {
             if let Some(key) = config.keys.get(key_index) {
                 set_picture_icon(picture, &image_dirs, key, clock_backgrounds);
+                if is_plain_blank_key(key) {
+                    key_buttons[slot].add_css_class("key-blank-binding");
+                } else {
+                    key_buttons[slot].remove_css_class("key-blank-binding");
+                }
+                let tip = if is_plain_blank_key(key) {
+                    format!(
+                        "Key {} (page {}, slot {}) - Blank button",
+                        key_index + 1,
+                        page + 1,
+                        slot + 1
+                    )
+                } else {
+                    format!(
+                        "Key {} (page {}, slot {})",
+                        key_index + 1,
+                        page + 1,
+                        slot + 1
+                    )
+                };
+                key_buttons[slot].set_tooltip_text(Some(&tip));
             }
             key_buttons[slot].set_sensitive(true);
             key_buttons[slot].add_css_class("key-has-binding");
             key_buttons[slot].remove_css_class("key-navigation-slot");
             key_buttons[slot].remove_css_class("key-empty-slot");
-            key_buttons[slot].set_tooltip_text(Some(&format!(
-                "Key {} (page {}, slot {})",
-                key_index + 1,
-                page + 1,
-                slot + 1
-            )));
             continue;
         }
 
         if let Some(nav_slot) = navigation_slot_for_slot(&config, page, total_pages, slot) {
             key_buttons[slot].set_sensitive(true);
             key_buttons[slot].remove_css_class("key-has-binding");
+            key_buttons[slot].remove_css_class("key-blank-binding");
             key_buttons[slot].add_css_class("key-navigation-slot");
             key_buttons[slot].remove_css_class("key-empty-slot");
             let icon_name = navigation_icon_name(nav_slot);
-            let icon_path = find_icon_file(&image_dirs, icon_name)
-                .or_else(|| find_icon_file(&image_dirs, "blank.png"));
+            let icon_path = find_icon_file(&image_dirs, icon_name);
             update_picture_file(picture, icon_path.as_deref());
             let tip = match nav_slot {
                 ReservedNavigationSlot::PreviousPage => "Previous page",
@@ -58,23 +92,26 @@ pub(crate) fn refresh_key_grid(
 
         key_buttons[slot].set_sensitive(false);
         key_buttons[slot].remove_css_class("key-has-binding");
+        key_buttons[slot].remove_css_class("key-blank-binding");
         key_buttons[slot].remove_css_class("key-navigation-slot");
         key_buttons[slot].add_css_class("key-empty-slot");
         key_buttons[slot].set_tooltip_text(Some("Reserved for page navigation in streamrs"));
         picture.set_tooltip_text(None);
-        if let Some(fallback) = find_icon_file(&image_dirs, "blank.png") {
-            update_picture_file(picture, Some(&fallback));
-        } else {
-            update_picture_file(picture, None);
-        }
+        update_picture_file(picture, None);
     }
 }
 
 pub(crate) fn editor_mode(widgets: &EditorWidgets) -> EditorMode {
-    match widgets.icon_kind_dropdown.selected() {
-        1 => EditorMode::Status,
-        2 => EditorMode::Clock,
-        _ => EditorMode::Regular,
+    editor_mode_from_index(widgets.icon_kind_dropdown.selected())
+}
+
+pub(crate) fn editor_mode_from_index(selected: u32) -> EditorMode {
+    match selected {
+        1 => EditorMode::Regular,
+        2 => EditorMode::Status,
+        3 => EditorMode::Clock,
+        4 => EditorMode::Calendar,
+        _ => EditorMode::Blank,
     }
 }
 
@@ -118,6 +155,9 @@ pub(crate) fn preview_key_from_editor(
 ) -> KeyBinding {
     let mut key = KeyBinding::default();
     match editor_mode(widgets) {
+        EditorMode::Blank => {
+            key.icon = CLOCK_BACKGROUND_ICON.to_string();
+        }
         EditorMode::Regular => {
             key.icon = dropdown_selected_icon(&widgets.icon_dropdown, icon_names);
         }
@@ -140,6 +180,9 @@ pub(crate) fn preview_key_from_editor(
             if selected != CLOCK_BACKGROUND_ICON {
                 key.clock_background = Some(selected);
             }
+        }
+        EditorMode::Calendar => {
+            key.icon = CALENDAR_ICON_ALIAS.to_string();
         }
     }
     key
@@ -178,42 +221,89 @@ pub(crate) fn populate_editor(
     if let Some(key_index) = key_index {
         widgets
             .selected_label
-            .set_text(&format!("Editing key {}", key_index + 1));
+            .set_text(&format!("Editing button {}", key_index + 1));
         widgets
             .action_entry
             .set_text(key.action.as_deref().unwrap_or_default());
 
         let mode = if icon_is_clock(&key.icon) {
             EditorMode::Clock
+        } else if icon_is_calendar(&key.icon) {
+            EditorMode::Calendar
         } else if key.status.is_some() || key.icon_on.is_some() || key.icon_off.is_some() {
             EditorMode::Status
+        } else if is_blank_background_icon_name(&key.icon) {
+            EditorMode::Blank
         } else {
             EditorMode::Regular
         };
         widgets.icon_kind_dropdown.set_selected(match mode {
-            EditorMode::Regular => 0,
-            EditorMode::Status => 1,
-            EditorMode::Clock => 2,
+            EditorMode::Blank => 0,
+            EditorMode::Regular => 1,
+            EditorMode::Status => 2,
+            EditorMode::Clock => 3,
+            EditorMode::Calendar => 4,
         });
         set_editor_mode_visibility(widgets, mode);
-
-        set_dropdown_icon(&widgets.icon_dropdown, icon_names, &key.icon);
-        let background = key_clock_background_name(&key, clock_backgrounds);
-        set_dropdown_icon(
-            &widgets.clock_background_dropdown,
-            clock_backgrounds,
-            background,
-        );
 
         widgets
             .status_entry
             .set_text(key.status.as_deref().unwrap_or_default());
-
-        let icon_on = key.icon_on.as_deref().unwrap_or(&key.icon);
-        set_dropdown_icon(&widgets.icon_on_dropdown, icon_names, icon_on);
-
-        let icon_off = key.icon_off.as_deref().unwrap_or(&key.icon);
-        set_dropdown_icon(&widgets.icon_off_dropdown, icon_names, icon_off);
+        match mode {
+            EditorMode::Blank => {
+                widgets.icon_dropdown.set_selected(0);
+                widgets.icon_on_dropdown.set_selected(0);
+                widgets.icon_off_dropdown.set_selected(0);
+                set_dropdown_icon(
+                    &widgets.clock_background_dropdown,
+                    clock_backgrounds,
+                    CLOCK_BACKGROUND_ICON,
+                );
+            }
+            EditorMode::Regular => {
+                set_dropdown_icon(&widgets.icon_dropdown, icon_names, &key.icon);
+                widgets.icon_on_dropdown.set_selected(0);
+                widgets.icon_off_dropdown.set_selected(0);
+                set_dropdown_icon(
+                    &widgets.clock_background_dropdown,
+                    clock_backgrounds,
+                    CLOCK_BACKGROUND_ICON,
+                );
+            }
+            EditorMode::Status => {
+                widgets.icon_dropdown.set_selected(0);
+                let icon_on = key.icon_on.as_deref().unwrap_or(&key.icon);
+                set_dropdown_icon(&widgets.icon_on_dropdown, icon_names, icon_on);
+                let icon_off = key.icon_off.as_deref().unwrap_or(&key.icon);
+                set_dropdown_icon(&widgets.icon_off_dropdown, icon_names, icon_off);
+                set_dropdown_icon(
+                    &widgets.clock_background_dropdown,
+                    clock_backgrounds,
+                    CLOCK_BACKGROUND_ICON,
+                );
+            }
+            EditorMode::Clock => {
+                widgets.icon_dropdown.set_selected(0);
+                widgets.icon_on_dropdown.set_selected(0);
+                widgets.icon_off_dropdown.set_selected(0);
+                let background = key_clock_background_name(&key, clock_backgrounds);
+                set_dropdown_icon(
+                    &widgets.clock_background_dropdown,
+                    clock_backgrounds,
+                    background,
+                );
+            }
+            EditorMode::Calendar => {
+                widgets.icon_dropdown.set_selected(0);
+                widgets.icon_on_dropdown.set_selected(0);
+                widgets.icon_off_dropdown.set_selected(0);
+                set_dropdown_icon(
+                    &widgets.clock_background_dropdown,
+                    clock_backgrounds,
+                    CLOCK_BACKGROUND_ICON,
+                );
+            }
+        }
 
         let interval = key
             .status_interval_ms
@@ -236,22 +326,17 @@ pub(crate) fn populate_editor(
             .interval_spin
             .set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
         widgets.icon_kind_dropdown.set_selected(0);
-        set_editor_mode_visibility(widgets, EditorMode::Regular);
-        set_dropdown_icon(&widgets.icon_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
-        set_dropdown_icon(&widgets.icon_on_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
-        set_dropdown_icon(
-            &widgets.icon_off_dropdown,
-            icon_names,
-            CLOCK_BACKGROUND_ICON,
-        );
+        set_editor_mode_visibility(widgets, EditorMode::Blank);
+        widgets.icon_dropdown.set_selected(0);
+        widgets.icon_on_dropdown.set_selected(0);
+        widgets.icon_off_dropdown.set_selected(0);
         set_dropdown_icon(
             &widgets.clock_background_dropdown,
             clock_backgrounds,
             CLOCK_BACKGROUND_ICON,
         );
         let icon_name = navigation_icon_name(nav_slot);
-        let icon_path = find_icon_file(&image_dirs, icon_name)
-            .or_else(|| find_icon_file(&image_dirs, "blank.png"));
+        let icon_path = find_icon_file(&image_dirs, icon_name);
         update_picture_file(&widgets.icon_preview, icon_path.as_deref());
         widgets
             .status_label
@@ -264,24 +349,16 @@ pub(crate) fn populate_editor(
             .interval_spin
             .set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
         widgets.icon_kind_dropdown.set_selected(0);
-        set_editor_mode_visibility(widgets, EditorMode::Regular);
-        set_dropdown_icon(&widgets.icon_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
-        set_dropdown_icon(&widgets.icon_on_dropdown, icon_names, CLOCK_BACKGROUND_ICON);
-        set_dropdown_icon(
-            &widgets.icon_off_dropdown,
-            icon_names,
-            CLOCK_BACKGROUND_ICON,
-        );
+        set_editor_mode_visibility(widgets, EditorMode::Blank);
+        widgets.icon_dropdown.set_selected(0);
+        widgets.icon_on_dropdown.set_selected(0);
+        widgets.icon_off_dropdown.set_selected(0);
         set_dropdown_icon(
             &widgets.clock_background_dropdown,
             clock_backgrounds,
             CLOCK_BACKGROUND_ICON,
         );
-        if let Some(fallback) = find_icon_file(&image_dirs, "blank.png") {
-            update_picture_file(&widgets.icon_preview, Some(&fallback));
-        } else {
-            update_picture_file(&widgets.icon_preview, None);
-        }
+        update_picture_file(&widgets.icon_preview, None);
     }
 }
 
@@ -347,6 +424,14 @@ pub(crate) fn apply_editor_to_selected_key(
         let key = &mut state.config.keys[key_index];
         key.action = action;
         match mode {
+            EditorMode::Blank => {
+                key.icon = CLOCK_BACKGROUND_ICON.to_string();
+                key.clock_background = None;
+                key.status = None;
+                key.status_interval_ms = None;
+                key.icon_on = None;
+                key.icon_off = None;
+            }
             EditorMode::Clock => {
                 key.icon = CLOCK_ICON_ALIAS.to_string();
                 let selected_bg =
@@ -356,6 +441,14 @@ pub(crate) fn apply_editor_to_selected_key(
                 } else {
                     Some(selected_bg)
                 };
+                key.status = None;
+                key.status_interval_ms = None;
+                key.icon_on = None;
+                key.icon_off = None;
+            }
+            EditorMode::Calendar => {
+                key.icon = CALENDAR_ICON_ALIAS.to_string();
+                key.clock_background = None;
                 key.status = None;
                 key.status_interval_ms = None;
                 key.icon_on = None;
@@ -392,8 +485,12 @@ pub(crate) fn clear_selected_key(
     let Some(key_index) = key_index_for_slot(&state.config, current_page, selected_slot) else {
         return false;
     };
-    state.config.keys.remove(key_index);
-    normalize_config(&mut state.config);
+    let is_last = key_index + 1 == state.config.keys.len();
+    if is_last {
+        state.config.keys.remove(key_index);
+    } else {
+        state.config.keys[key_index] = KeyBinding::default();
+    }
     true
 }
 
@@ -473,8 +570,18 @@ pub(crate) fn key_uses_clock(key: &KeyBinding) -> bool {
         || key.icon_off.as_deref().is_some_and(icon_is_clock)
 }
 
+pub(crate) fn key_uses_calendar(key: &KeyBinding) -> bool {
+    icon_is_calendar(&key.icon)
+        || key.icon_on.as_deref().is_some_and(icon_is_calendar)
+        || key.icon_off.as_deref().is_some_and(icon_is_calendar)
+}
+
 pub(crate) fn config_uses_clock(config: &Config) -> bool {
     config.keys.iter().take(KEY_COUNT).any(key_uses_clock)
+}
+
+pub(crate) fn config_uses_calendar(config: &Config) -> bool {
+    config.keys.iter().take(KEY_COUNT).any(key_uses_calendar)
 }
 
 #[cfg(test)]
@@ -502,17 +609,32 @@ mod editor_tests {
     }
 
     #[test]
-    fn clear_selected_key_removes_key_and_shifts_following_keys() {
+    fn clear_selected_key_replaces_key_with_blank_without_shifting() {
         let state = app_state_with_key_count(KEY_COUNT + 1);
         let deleted = clear_selected_key(&state, 0, 0);
         assert!(deleted);
 
         let state = state.borrow();
-        assert_eq!(state.config.keys.len(), KEY_COUNT);
-        assert_eq!(state.config.keys[0].action.as_deref(), Some("action-1"));
+        assert_eq!(state.config.keys.len(), KEY_COUNT + 1);
+        assert!(is_plain_blank_key(&state.config.keys[0]));
+        assert_eq!(state.config.keys[1].action.as_deref(), Some("action-1"));
         assert_eq!(
-            state.config.keys[KEY_COUNT - 1].action.as_deref(),
+            state.config.keys[KEY_COUNT].action.as_deref(),
             Some("action-15")
+        );
+    }
+
+    #[test]
+    fn clear_selected_key_removes_last_key_in_list() {
+        let state = app_state_with_key_count(KEY_COUNT);
+        let deleted = clear_selected_key(&state, 0, KEY_COUNT - 1);
+        assert!(deleted);
+
+        let state = state.borrow();
+        assert_eq!(state.config.keys.len(), KEY_COUNT - 1);
+        assert_eq!(
+            state.config.keys[KEY_COUNT - 2].action.as_deref(),
+            Some("action-13")
         );
     }
 
@@ -570,5 +692,30 @@ mod editor_tests {
         let state = app_state_with_key_count(KEY_COUNT + 1);
         let moved = move_key_between_slots(&state, 0, 0, KEY_COUNT - 1, false);
         assert!(!moved);
+    }
+
+    #[test]
+    fn editor_mode_index_mapping_includes_blank_mode() {
+        assert_eq!(editor_mode_from_index(0), EditorMode::Blank);
+        assert_eq!(editor_mode_from_index(1), EditorMode::Regular);
+        assert_eq!(editor_mode_from_index(2), EditorMode::Status);
+        assert_eq!(editor_mode_from_index(3), EditorMode::Clock);
+        assert_eq!(editor_mode_from_index(4), EditorMode::Calendar);
+        assert_eq!(
+            editor_mode_from_index(gtk::INVALID_LIST_POSITION),
+            EditorMode::Blank
+        );
+    }
+
+    #[test]
+    fn blank_key_detection_distinguishes_plain_blank_from_status_blank() {
+        let plain_blank = KeyBinding::default();
+        assert!(is_plain_blank_key(&plain_blank));
+
+        let status_blank = KeyBinding {
+            status: Some("echo ok".to_string()),
+            ..KeyBinding::default()
+        };
+        assert!(!is_plain_blank_key(&status_blank));
     }
 }

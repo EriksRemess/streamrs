@@ -1,3 +1,6 @@
+#[cfg(test)]
+use chrono::FixedOffset;
+use chrono::{Duration as ChronoDuration, Local, LocalResult, TimeZone};
 use hidapi::HidDevice;
 #[cfg(test)]
 use image::codecs::gif::GifDecoder;
@@ -7,8 +10,11 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+#[cfg(test)]
+use streamrs::image::calendar::CALENDAR_ICON_ALIAS;
 #[cfg(test)]
 use streamrs::image::clock::{
     CLOCK_BACKGROUND_ICON, CLOCK_FALLBACK_BACKGROUND_COLOR, CLOCK_ICON_ALIAS,
@@ -33,16 +39,17 @@ use init::{
     parse_args, print_post_init_service_hint, print_usage,
 };
 use stream_image::{
-    blank_image_data, build_image_cache, current_clock_text, load_key_image_cached,
-    render_clock_svg,
+    blank_image_data, build_image_cache, current_calendar_key, current_clock_text,
+    load_key_image_cached, render_calendar_icon, render_clock_svg,
 };
 #[cfg(test)]
 use stream_image::{
     delay_to_duration_ms, encode_animated_frames, get_image_data, load_animated_gif,
     load_key_image, render_clock_segments_svg,
 };
+use streamrs::config::current_profile::{BLANK_PROFILE, discover_profiles, load_current_profile};
 use streamrs::config::streamrs_schema::{
-    StreamrsConfig as Config, StreamrsKeyBinding as KeyBinding,
+    StreamrsConfig as Config, StreamrsKeyBinding as KeyBinding, blank_profile_config,
 };
 #[cfg(test)]
 use streamrs::config::streamrs_schema::{
@@ -111,6 +118,11 @@ struct ClockKeyState {
     next_update_at: Instant,
 }
 
+struct CalendarKeyState {
+    current_key: String,
+    next_update_at: Instant,
+}
+
 struct StatusKeyState {
     command: String,
     icon_on: String,
@@ -124,6 +136,7 @@ struct StatusKeyState {
 enum DynamicKeyState {
     Animated(AnimatedKeyState),
     Clock(ClockKeyState),
+    Calendar(CalendarKeyState),
 }
 
 struct PageState {
@@ -144,6 +157,10 @@ enum LoadedKeyImage {
         current_text: String,
         background_name: Option<String>,
     },
+    Calendar {
+        image: Vec<u8>,
+        current_key: String,
+    },
 }
 
 #[derive(Clone, Eq, Hash, PartialEq)]
@@ -154,6 +171,33 @@ struct ImageCacheKey {
 
 type ImageCache = HashMap<ImageCacheKey, LoadedKeyImage>;
 type StatusCache = HashMap<String, bool>;
+
+static RELOAD_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+#[cfg(unix)]
+const SIGHUP_SIGNAL: i32 = 1;
+
+#[cfg(unix)]
+extern "C" fn handle_reload_signal(_signal: i32) {
+    RELOAD_REQUESTED.store(true, Ordering::Relaxed);
+}
+
+#[cfg(unix)]
+fn install_reload_signal_handler() {
+    unsafe extern "C" {
+        fn signal(signum: i32, handler: extern "C" fn(i32)) -> extern "C" fn(i32);
+    }
+
+    // SAFETY: Registering a simple signal handler that only stores to an AtomicBool.
+    let _ = unsafe { signal(SIGHUP_SIGNAL, handle_reload_signal) };
+}
+
+#[cfg(not(unix))]
+fn install_reload_signal_handler() {}
+
+fn take_reload_request() -> bool {
+    RELOAD_REQUESTED.swap(false, Ordering::Relaxed)
+}
 
 #[cfg(test)]
 fn default_vendor_id() -> u16 {
@@ -222,8 +266,52 @@ fn apply_loaded_key_image(
                 next_update_at: Instant::now() + Duration::from_secs(1),
             }));
         }
+        LoadedKeyImage::Calendar { image, current_key } => {
+            set_key_image_data(device, key_index as u8, &image)?;
+            state.dynamic_states[key_index] = Some(DynamicKeyState::Calendar(CalendarKeyState {
+                current_key,
+                next_update_at: next_midnight_instant(),
+            }));
+        }
     }
     Ok(())
+}
+
+fn duration_until_next_midnight_local(now: chrono::DateTime<Local>) -> Duration {
+    let tomorrow = now.date_naive() + ChronoDuration::days(1);
+    let next_midnight_naive = tomorrow
+        .and_hms_opt(0, 0, 0)
+        .expect("midnight should always be representable");
+    let next_midnight = match Local.from_local_datetime(&next_midnight_naive) {
+        LocalResult::Single(ts) => ts,
+        LocalResult::Ambiguous(first, _) => first,
+        LocalResult::None => now + ChronoDuration::hours(24),
+    };
+    (next_midnight - now)
+        .to_std()
+        .unwrap_or_else(|_| Duration::from_secs(1))
+        .max(Duration::from_secs(1))
+}
+
+#[cfg(test)]
+fn duration_until_next_midnight_fixed(now: chrono::DateTime<FixedOffset>) -> Duration {
+    let tomorrow = now.date_naive() + ChronoDuration::days(1);
+    let next_midnight_naive = tomorrow
+        .and_hms_opt(0, 0, 0)
+        .expect("midnight should always be representable");
+    let next_midnight = now
+        .offset()
+        .from_local_datetime(&next_midnight_naive)
+        .single()
+        .expect("fixed offset midnight should be unambiguous");
+    (next_midnight - now)
+        .to_std()
+        .unwrap_or_else(|_| Duration::from_secs(1))
+        .max(Duration::from_secs(1))
+}
+
+fn next_midnight_instant() -> Instant {
+    Instant::now() + duration_until_next_midnight_local(Local::now())
 }
 
 fn launch_app(action: &str, debug: bool) {
@@ -251,6 +339,13 @@ fn apply_icon_to_key(
 
 fn page_count(config: &Config) -> usize {
     paging_layout(config).page_count(config.keys.len())
+}
+
+fn parse_profile_config(profile: &str, config_path: &Path, raw: &str) -> Result<Config, String> {
+    if profile == BLANK_PROFILE {
+        return Ok(blank_profile_config());
+    }
+    parse_config(config_path, raw)
 }
 
 fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) -> PageLayoutPlan {
@@ -541,6 +636,26 @@ fn advance_dynamic_keys(
                     }
                     clock.next_update_at = now + Duration::from_secs(1);
                 }
+                DynamicKeyState::Calendar(calendar) => {
+                    if now < calendar.next_update_at {
+                        continue;
+                    }
+
+                    let next_key = current_calendar_key();
+                    if next_key != calendar.current_key {
+                        match render_calendar_icon() {
+                            Ok(image) => {
+                                if let Err(err) = set_key_image_data(device, key as u8, &image) {
+                                    eprintln!("{err}");
+                                } else {
+                                    calendar.current_key = next_key;
+                                }
+                            }
+                            Err(err) => eprintln!("{err}"),
+                        }
+                    }
+                    calendar.next_update_at = next_midnight_instant();
+                }
             }
         }
     }
@@ -556,10 +671,14 @@ pub(crate) fn run() {
             return;
         }
     };
+    install_reload_signal_handler();
 
-    let config_path = match args.config_path {
+    let profile_locked = args.config_path.is_some() || args.profile_explicit;
+    let mut profile = args.profile.clone();
+
+    let mut config_path = match args.config_path.clone() {
         Some(path) => path,
-        None => match default_config_path(&args.profile) {
+        None => match default_config_path(&profile) {
             Ok(path) => path,
             Err(err) => {
                 eprintln!("{err}");
@@ -568,7 +687,7 @@ pub(crate) fn run() {
         },
     };
 
-    let image_dir = match default_image_dir(&args.profile) {
+    let mut image_dir = match default_image_dir(&profile) {
         Ok(path) => path,
         Err(err) => {
             eprintln!("{err}");
@@ -578,7 +697,7 @@ pub(crate) fn run() {
 
     if args.init {
         match initialize_profile(
-            &args.profile,
+            &profile,
             &config_path,
             &image_dir,
             args.force,
@@ -595,7 +714,7 @@ pub(crate) fn run() {
         }
     }
 
-    if let Err(err) = ensure_profile_initialized(&args.profile, &config_path, &image_dir) {
+    if let Err(err) = ensure_profile_initialized(&profile, &config_path, &image_dir) {
         eprintln!("{err}");
         return;
     }
@@ -608,7 +727,7 @@ pub(crate) fn run() {
         }
     };
 
-    let mut config = match parse_config(&config_path, &config_raw) {
+    let mut config = match parse_profile_config(&profile, &config_path, &config_raw) {
         Ok(config) => config,
         Err(err) => {
             eprintln!("{err}");
@@ -741,13 +860,56 @@ pub(crate) fn run() {
             last_pressed_button = None;
         }
 
-        if last_reload_check.elapsed() >= Duration::from_secs(10) {
+        let signal_requested = take_reload_request();
+        let periodic_reload = last_reload_check.elapsed() >= Duration::from_secs(10);
+        if periodic_reload {
             last_reload_check = Instant::now();
+        }
 
-            match read_config_file(&config_path) {
+        if signal_requested || periodic_reload {
+            let mut reload_profile = profile.clone();
+            let mut reload_path = config_path.clone();
+            let mut reload_image_dir = image_dir.clone();
+
+            if !profile_locked {
+                let discovered_profiles = discover_profiles();
+                match load_current_profile() {
+                    Ok(Some(selected_profile)) if selected_profile != profile => {
+                        if !(selected_profile == BLANK_PROFILE && !discovered_profiles.is_empty()) {
+                            match (
+                                default_config_path(&selected_profile),
+                                default_image_dir(&selected_profile),
+                            ) {
+                                (Ok(path), Ok(dir)) => {
+                                    reload_profile = selected_profile;
+                                    reload_path = path;
+                                    reload_image_dir = dir;
+                                }
+                                (Err(err), _) | (_, Err(err)) => eprintln!("{err}"),
+                            }
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(err) => eprintln!("{err}"),
+                }
+            }
+
+            if reload_path != config_path
+                && let Err(err) =
+                    ensure_profile_initialized(&reload_profile, &reload_path, &reload_image_dir)
+            {
+                eprintln!("{err}");
+                reload_profile = profile.clone();
+                reload_path = config_path.clone();
+                reload_image_dir = image_dir.clone();
+            }
+
+            match read_config_file(&reload_path) {
                 Ok(raw) => {
-                    if raw != config_raw {
-                        match parse_config(&config_path, &raw) {
+                    let profile_switched = reload_path != config_path;
+                    let should_parse = signal_requested || profile_switched || raw != config_raw;
+                    if should_parse {
+                        match parse_profile_config(&reload_profile, &reload_path, &raw) {
                             Ok(new_config) => {
                                 if (
                                     new_config.vendor_id,
@@ -766,8 +928,15 @@ pub(crate) fn run() {
                                 }
 
                                 total_pages = page_count(&new_config);
-                                current_page = min(current_page, total_pages.saturating_sub(1));
-                                image_cache = build_image_cache(&new_config, &image_dir);
+                                if profile_switched {
+                                    current_page = 0;
+                                } else {
+                                    current_page = min(current_page, total_pages.saturating_sub(1));
+                                }
+                                image_cache = build_image_cache(&new_config, &reload_image_dir);
+                                if profile_switched {
+                                    status_cache.clear();
+                                }
 
                                 if let Some(device_ref) = device.as_ref() {
                                     if let Err(err) = set_brightness(
@@ -780,7 +949,7 @@ pub(crate) fn run() {
                                     page_state = Some(set_page(
                                         device_ref,
                                         &new_config,
-                                        &image_dir,
+                                        &reload_image_dir,
                                         &mut image_cache,
                                         &status_cache,
                                         current_page,
@@ -789,8 +958,18 @@ pub(crate) fn run() {
                                     last_pressed_button = None;
                                 }
 
+                                profile = reload_profile;
+                                config_path = reload_path;
+                                image_dir = reload_image_dir;
                                 config = new_config;
                                 config_raw = raw;
+                                if profile_switched {
+                                    eprintln!(
+                                        "Switched to profile '{}' (config '{}')",
+                                        profile,
+                                        config_path.display()
+                                    );
+                                }
                                 eprintln!("Config reloaded from '{}'", config_path.display());
                             }
                             Err(err) => eprintln!("{err}"),

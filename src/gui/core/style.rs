@@ -1,8 +1,8 @@
 use super::*;
 
 pub(crate) fn install_css() {
-    let css = r#"
-.streamrs-root { padding: 12px; }
+    let css_template = r#"
+.streamrs-root { padding: $SPACINGpx; }
 headerbar.window-titlebar {
     background: transparent;
     background-image: none;
@@ -10,26 +10,52 @@ headerbar.window-titlebar {
     border: none;
 }
 .config-bar {
-    padding: 10px 12px;
+    padding: $SPACINGpx;
     border-radius: 12px;
     background: alpha(@headerbar_bg_color, 0.45);
 }
 .deck-card, .inspector-card {
     border-radius: 16px;
     background: alpha(@headerbar_bg_color, 0.20);
-    padding: 14px;
+    padding: $SPACINGpx;
 }
-.section-title { font-weight: 700; font-size: 1.04rem; margin-bottom: 8px; }
+.section-title { font-weight: 700; font-size: 1.04rem; margin-bottom: $SPACINGpx; }
+.page-indicator {
+    font-weight: 700;
+    font-size: 1.04rem;
+    opacity: 0.92;
+    margin-bottom: $SPACINGpx;
+}
 .header-title-label { font-weight: 700; }
-.field-label { font-weight: 600; opacity: 0.92; margin-top: 4px; }
+.field-label { font-weight: 600; opacity: 0.92; margin-top: 0; }
 .status-label { opacity: 0.85; }
 .status-bar {
-    margin-top: 8px;
-    padding: 8px 12px;
+    margin-top: 0;
+    padding: $SPACINGpx;
     border-radius: 10px;
     background: alpha(@headerbar_bg_color, 0.20);
 }
-.close-button { min-width: 34px; min-height: 34px; }
+.main-split > separator {
+    background: transparent;
+    box-shadow: none;
+    min-width: 10px;
+    min-height: 10px;
+}
+.main-split.horizontal > separator {
+    margin: $SPACINGpx 0;
+    border-radius: 5px;
+}
+.main-split > separator:hover {
+    background: alpha(@theme_fg_color, 0.20);
+}
+.main-split > separator:active {
+    background: alpha(@accent_color, 0.35);
+}
+.inspector-scroller scrollbar.vertical,
+.inspector-scroller scrollbar.vertical slider {
+    min-width: 8px;
+}
+.close-button { min-width: $CONTROLpx; min-height: $CONTROLpx; }
 .key-button {
     background: transparent;
     border: none;
@@ -38,6 +64,16 @@ headerbar.window-titlebar {
 }
 .key-button:hover {
     background: alpha(@accent_color, 0.08);
+}
+.key-blank-binding {
+    background: alpha(@theme_fg_color, 0.04);
+    box-shadow:
+        inset 0 0 0 2px alpha(@theme_fg_color, 0.45),
+        inset 0 0 0 6px alpha(@theme_fg_color, 0.10);
+    border-radius: 18px;
+}
+.key-empty-slot {
+    opacity: 0.55;
 }
 .key-selected {
     outline: 2px solid @accent_color;
@@ -62,8 +98,8 @@ headerbar.window-titlebar {
 }
 .icon-preview {
     border-radius: 14px;
-    background: alpha(@view_bg_color, 0.35);
-    padding: 6px;
+    background: transparent;
+    padding: 0;
 }
 .key-icon {
     border-radius: 14px;
@@ -71,17 +107,32 @@ headerbar.window-titlebar {
 .dropdown-icon {
     border-radius: 6px;
 }
+.streamrs-field {
+    min-height: $CONTROLpx;
+}
 .icon-add-button {
-    min-width: 28px;
-    min-height: 28px;
+    min-width: $CONTROLpx;
+    min-height: $CONTROLpx;
     padding: 0;
 }
+.icon-add-button > label {
+    margin: 0;
+    padding: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
 .action-button {
-    min-height: 38px;
+    min-height: $CONTROLpx;
     min-width: 0;
     border-radius: 12px;
     font-weight: 700;
-    padding: 0 14px;
+    padding: 0 12px;
+}
+.profile-action-button {
+    min-height: $CONTROLpx;
+    min-width: 0;
+    border-radius: 10px;
+    padding: 0 10px;
 }
 .apply-button {
     background: alpha(@accent_color, 0.80);
@@ -92,9 +143,12 @@ headerbar.window-titlebar {
     color: #ffc1d5;
 }
 "#;
+    let css = css_template
+        .replace("$SPACING", &UI_SPACING.to_string())
+        .replace("$CONTROL", &UI_CONTROL_HEIGHT.to_string());
 
     let provider = CssProvider::new();
-    provider.load_from_data(css);
+    provider.load_from_data(&css);
     if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,

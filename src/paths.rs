@@ -14,11 +14,21 @@ pub fn xdg_config_home() -> Result<PathBuf, String> {
     Ok(home_dir()?.join(".config"))
 }
 
+pub fn streamrs_config_dir() -> Result<PathBuf, String> {
+    Ok(xdg_config_home()?.join("streamrs"))
+}
+
 pub fn xdg_data_home() -> Result<PathBuf, String> {
     if let Some(path) = env::var_os("XDG_DATA_HOME") {
         return Ok(PathBuf::from(path));
     }
     Ok(home_dir()?.join(".local/share"))
+}
+
+pub fn current_profile_path() -> PathBuf {
+    streamrs_config_dir()
+        .unwrap_or_else(|_| PathBuf::from("/tmp").join("streamrs"))
+        .join("current_profile")
 }
 
 pub fn profile_from_config_path(path: &Path) -> String {
@@ -36,14 +46,21 @@ pub fn default_config_path_for_profile(profile: &str) -> PathBuf {
         .join(format!("{profile}.toml"))
 }
 
-pub fn writable_image_dir_for_profile(profile: &str) -> PathBuf {
+pub fn writable_icon_dir() -> PathBuf {
     xdg_data_home()
         .unwrap_or_else(|_| PathBuf::from("/tmp"))
         .join("streamrs")
-        .join(profile)
+        .join("icons")
+}
+
+pub fn writable_image_dir_for_profile(_profile: &str) -> PathBuf {
+    writable_icon_dir()
 }
 
 pub fn config_load_candidates(profile: &str, preferred_path: &Path) -> Vec<PathBuf> {
+    if profile == "blank" {
+        return vec![preferred_path.to_path_buf()];
+    }
     let mut candidates = vec![preferred_path.to_path_buf()];
     candidates.push(PathBuf::from(format!(
         "/usr/share/streamrs/{profile}/default.toml"
@@ -58,9 +75,38 @@ pub fn config_load_candidates(profile: &str, preferred_path: &Path) -> Vec<PathB
 }
 
 pub fn image_dir_candidates(profile: &str, writable_dir: &Path) -> Vec<PathBuf> {
-    vec![
+    let mut dirs = vec![
         writable_dir.to_path_buf(),
-        PathBuf::from(format!("/usr/share/streamrs/{profile}")),
-        PathBuf::from("/usr/share/streamrs/default"),
-    ]
+        PathBuf::from("/usr/share/streamrs/icons"),
+    ];
+    dirs.dedup();
+    let _ = profile;
+    dirs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writable_image_dir_is_shared_across_profiles() {
+        let default_dir = writable_image_dir_for_profile("default");
+        let test_dir = writable_image_dir_for_profile("test");
+        assert_eq!(default_dir, test_dir);
+        assert!(default_dir.ends_with("streamrs/icons"));
+    }
+
+    #[test]
+    fn image_candidates_include_shared_dir_first() {
+        let shared = writable_icon_dir();
+        let candidates = image_dir_candidates("test", &shared);
+        assert_eq!(candidates.first(), Some(&shared));
+        assert_eq!(candidates.len(), 2);
+        assert!(
+            candidates
+                .iter()
+                .any(|path| path == Path::new("/usr/share/streamrs/icons")),
+            "packaged shared icon dir should be part of candidates"
+        );
+    }
 }

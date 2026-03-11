@@ -2,6 +2,21 @@ use image::{DynamicImage, RgbaImage};
 use resvg::tiny_skia;
 use resvg::usvg;
 use std::path::Path;
+use std::sync::{Arc, OnceLock};
+
+const EMBEDDED_UI_FONT: &[u8] = include_bytes!("../../config/fonts/DejaVuSans.ttf");
+
+fn svg_fontdb() -> Arc<usvg::fontdb::Database> {
+    static FONT_DB: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
+    FONT_DB
+        .get_or_init(|| {
+            let mut db = usvg::fontdb::Database::new();
+            db.load_system_fonts();
+            db.load_font_data(EMBEDDED_UI_FONT.to_vec());
+            Arc::new(db)
+        })
+        .clone()
+}
 
 pub fn load_svg_data(
     label: &str,
@@ -12,6 +27,8 @@ pub fn load_svg_data(
 ) -> Result<RgbaImage, String> {
     let options = usvg::Options {
         resources_dir: resources_dir.map(|p| p.to_path_buf()),
+        fontdb: svg_fontdb(),
+        font_family: "DejaVu Sans".to_string(),
         ..usvg::Options::default()
     };
 

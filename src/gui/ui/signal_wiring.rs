@@ -34,8 +34,9 @@ pub(super) fn wire_ui_handlers_and_present(
     prev_page_button: Button,
     next_page_button: Button,
     page_label: Label,
-    load_button: Button,
-    save_button: Button,
+    add_profile_button: Button,
+    remove_profile_button: Button,
+    rename_profile_button: Button,
     add_key_button: Button,
     add_icon_button: Button,
     apply_button: Button,
@@ -62,8 +63,9 @@ pub(super) fn wire_ui_handlers_and_present(
     wire_management_signals(
         window,
         &ctx,
-        &load_button,
-        &save_button,
+        &add_profile_button,
+        &remove_profile_button,
+        &rename_profile_button,
         &add_key_button,
         &add_icon_button,
     );

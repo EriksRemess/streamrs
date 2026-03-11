@@ -19,23 +19,25 @@ pub(crate) fn wire_clock_refresh_signal(ctx: &UiCtx) {
         let backgrounds_for_clock = clock_backgrounds.clone();
         let key_buttons_for_clock = key_buttons.clone();
         let key_pictures_for_clock = key_pictures.clone();
-        let last_clock_text = Rc::new(RefCell::new(String::new()));
-        let last_clock_for_tick = last_clock_text.clone();
+        let last_live_signature = Rc::new(RefCell::new(String::new()));
+        let last_live_for_tick = last_live_signature.clone();
         let editor_syncing_for_clock = editor_syncing.clone();
 
         gtk::glib::timeout_add_seconds_local(1, move || {
-            let has_clock = {
+            let has_live_icon = {
                 let mut state = state_for_clock.borrow_mut();
                 normalize_config(&mut state.config);
-                config_uses_clock(&state.config)
+                config_uses_clock(&state.config) || config_uses_calendar(&state.config)
             };
 
-            if has_clock {
+            if has_live_icon {
                 let now_clock = current_clock_text();
-                if *last_clock_for_tick.borrow() == now_clock {
+                let now_calendar = current_calendar_key();
+                let signature = format!("{now_clock}|{now_calendar}");
+                if *last_live_for_tick.borrow() == signature {
                     return gtk::glib::ControlFlow::Continue;
                 }
-                *last_clock_for_tick.borrow_mut() = now_clock;
+                *last_live_for_tick.borrow_mut() = signature;
 
                 let icons = icons_for_clock.borrow();
                 let backgrounds = backgrounds_for_clock.borrow();

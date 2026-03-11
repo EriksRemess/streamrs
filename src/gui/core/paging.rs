@@ -4,9 +4,6 @@ pub(crate) fn normalize_config(config: &mut Config) {
     config.keys_per_page = config
         .keys_per_page
         .clamp(streamrs::paging::MIN_KEYS_PER_PAGE, KEY_COUNT);
-    while config.keys.len() < config.keys_per_page {
-        config.keys.push(KeyBinding::default());
-    }
 }
 
 pub(crate) fn paging_layout(config: &Config) -> PagingLayout {
@@ -183,5 +180,32 @@ mod tests {
             assert_eq!(key_index_for_slot(&config, page, slot), Some(key_index));
         }
         assert_eq!(locate_key_slot(&config, config.keys.len() + 1), None);
+    }
+
+    #[test]
+    fn normalize_config_preserves_empty_profile() {
+        let mut config = Config {
+            keys: Vec::new(),
+            ..Config::default()
+        };
+        normalize_config(&mut config);
+        assert!(
+            config.keys.is_empty(),
+            "blank profile should stay empty after normalization"
+        );
+    }
+
+    #[test]
+    fn normalize_config_does_not_auto_pad_short_non_empty_profiles() {
+        let mut config = Config {
+            keys: vec![KeyBinding::default()],
+            ..Config::default()
+        };
+        normalize_config(&mut config);
+        assert_eq!(
+            config.keys.len(),
+            1,
+            "normalization must preserve actual key list length"
+        );
     }
 }

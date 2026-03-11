@@ -52,6 +52,7 @@ mkdir -p \
     "${PKG_DIR}/usr/lib/systemd/user" \
     "${PKG_DIR}/usr/share/applications" \
     "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps" \
+    "${PKG_DIR}/usr/share/streamrs/icons" \
     "${PKG_DIR}/usr/share/streamrs/default" \
     "${PKG_DIR}/usr/share/doc/streamrs"
 
@@ -65,8 +66,8 @@ install -m 0644 "${DESKTOP_FILE}" "${PKG_DIR}/usr/share/applications/${APPLICATI
 install -m 0644 "${APP_ICON_SOURCE}" "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps/${APP_ICON_NAME}"
 install -m 0644 "${REPO_ROOT}/Readme.md" "${PKG_DIR}/usr/share/doc/streamrs/README.md"
 
-if [[ -d "${REPO_ROOT}/all_images" ]]; then
-    cp -a "${REPO_ROOT}/all_images/." "${PKG_DIR}/usr/share/streamrs/default/"
+if [[ -d "${REPO_ROOT}/icons" ]]; then
+    cp -a "${REPO_ROOT}/icons/." "${PKG_DIR}/usr/share/streamrs/icons/"
 fi
 
 cat > "${DEBIAN_DIR}/control" <<EOF

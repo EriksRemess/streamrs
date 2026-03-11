@@ -20,6 +20,11 @@ use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::time::Duration;
+use streamrs::image::calendar::{
+    CALENDAR_ICON_ALIAS, current_calendar_key as generic_current_calendar_key, is_calendar_icon,
+    render_calendar_svg as generic_render_calendar_svg,
+};
+use streamrs::image::catalog::is_blank_background_icon_name;
 use streamrs::image::clock::{
     CLOCK_ICON_ALIAS, current_clock_text as generic_current_clock_text, is_clock_icon,
     render_clock_segments_svg as generic_render_clock_segments_svg,
@@ -213,6 +218,10 @@ pub(super) fn current_clock_text() -> String {
     generic_current_clock_text()
 }
 
+pub(super) fn current_calendar_key() -> String {
+    generic_current_calendar_key()
+}
+
 pub(super) fn render_clock_svg(
     image_dir: &Path,
     text: &str,
@@ -223,6 +232,18 @@ pub(super) fn render_clock_svg(
         CLOCK_ICON_ALIAS,
         svg.as_bytes(),
         Some(image_dir),
+        SVG_RENDER_SIZE,
+        SVG_RENDER_SIZE,
+    )?;
+    encode_streamdeck_image(DynamicImage::ImageRgba8(img))
+}
+
+pub(super) fn render_calendar_icon() -> Result<Vec<u8>, String> {
+    let svg = generic_render_calendar_svg();
+    let img = load_svg_data_generic(
+        CALENDAR_ICON_ALIAS,
+        svg.as_bytes(),
+        None,
         SVG_RENDER_SIZE,
         SVG_RENDER_SIZE,
     )?;
@@ -242,6 +263,15 @@ fn load_clock_icon(
     })
 }
 
+fn load_calendar_icon() -> Result<LoadedKeyImage, String> {
+    let key = current_calendar_key();
+    let image = render_calendar_icon()?;
+    Ok(LoadedKeyImage::Calendar {
+        image,
+        current_key: key,
+    })
+}
+
 pub(super) fn load_key_image(
     image_dir: &Path,
     icon: &str,
@@ -249,6 +279,12 @@ pub(super) fn load_key_image(
 ) -> Result<LoadedKeyImage, String> {
     if is_clock_icon(icon) {
         return load_clock_icon(image_dir, clock_background);
+    }
+    if is_calendar_icon(icon) {
+        return load_calendar_icon();
+    }
+    if is_blank_background_icon_name(icon) {
+        return Ok(LoadedKeyImage::Static(blank_image_data()?));
     }
 
     let icon_path = image_dir.join(icon);
@@ -277,24 +313,32 @@ fn image_cache_key(icon: &str, clock_background: Option<&str>) -> ImageCacheKey 
     }
 }
 
-fn refresh_cached_clock_image(image_dir: &Path, cached: &mut LoadedKeyImage) -> Result<(), String> {
-    let LoadedKeyImage::Clock {
-        image,
-        current_text,
-        background_name,
-    } = cached
-    else {
-        return Ok(());
-    };
-
-    let next_text = current_clock_text();
-    if *current_text == next_text {
-        return Ok(());
+fn refresh_cached_live_icon(image_dir: &Path, cached: &mut LoadedKeyImage) -> Result<(), String> {
+    match cached {
+        LoadedKeyImage::Clock {
+            image,
+            current_text,
+            background_name,
+        } => {
+            let next_text = current_clock_text();
+            if *current_text == next_text {
+                return Ok(());
+            }
+            *image = render_clock_svg(image_dir, &next_text, background_name.as_deref())?;
+            *current_text = next_text;
+            Ok(())
+        }
+        LoadedKeyImage::Calendar { image, current_key } => {
+            let next_key = current_calendar_key();
+            if *current_key == next_key {
+                return Ok(());
+            }
+            *image = render_calendar_icon()?;
+            *current_key = next_key;
+            Ok(())
+        }
+        _ => Ok(()),
     }
-
-    *image = render_clock_svg(image_dir, &next_text, background_name.as_deref())?;
-    *current_text = next_text;
-    Ok(())
 }
 
 pub(super) fn load_key_image_cached(
@@ -305,7 +349,7 @@ pub(super) fn load_key_image_cached(
 ) -> Result<LoadedKeyImage, String> {
     let cache_key = image_cache_key(icon, clock_background);
     if let Some(cached) = image_cache.get_mut(&cache_key) {
-        refresh_cached_clock_image(image_dir, cached)?;
+        refresh_cached_live_icon(image_dir, cached)?;
         return Ok(cached.clone());
     }
 

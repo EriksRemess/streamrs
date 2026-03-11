@@ -26,10 +26,29 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
                 if editor_syncing_for_kind.get() {
                     return;
                 }
-                set_editor_mode_visibility(&widgets_for_kind, editor_mode(&widgets_for_kind));
-
                 let page = current_page_for_kind.get();
                 let slot = selected_for_kind.get();
+                let mode = editor_mode(&widgets_for_kind);
+                set_editor_mode_visibility(&widgets_for_kind, mode);
+
+                if mode == EditorMode::Regular
+                    && slot_has_plain_blank_key(&state_for_kind, page, slot)
+                {
+                    editor_syncing_for_kind.set(true);
+                    widgets_for_kind.icon_dropdown.set_selected(0);
+                    editor_syncing_for_kind.set(false);
+
+                    let icons = icons_for_kind.borrow();
+                    let backgrounds = backgrounds_for_kind.borrow();
+                    editor_refresh_preview(
+                        &state_for_kind,
+                        &widgets_for_kind,
+                        icons.as_slice(),
+                        backgrounds.as_slice(),
+                    );
+                    return;
+                }
+
                 let icons = icons_for_kind.borrow();
                 let backgrounds = backgrounds_for_kind.borrow();
                 apply_editor_to_selected_key(

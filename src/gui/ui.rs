@@ -3,11 +3,41 @@ use crate::gui::*;
 mod signal_wiring;
 use signal_wiring::wire_ui_handlers_and_present;
 
+fn fallback_non_blank_profile(profiles: &[String]) -> Option<String> {
+    profiles
+        .iter()
+        .find(|profile| profile.as_str() == DEFAULT_PROFILE)
+        .cloned()
+        .or_else(|| profiles.first().cloned())
+}
+
+fn choose_startup_profile(profiles: &[String], current_profile: Option<String>) -> String {
+    if profiles.is_empty() {
+        return BLANK_PROFILE.to_string();
+    }
+
+    if let Some(current_profile) = current_profile
+        && profiles.iter().any(|profile| profile == &current_profile)
+    {
+        return current_profile;
+    }
+
+    fallback_non_blank_profile(profiles).unwrap_or_else(|| BLANK_PROFILE.to_string())
+}
+
 pub(crate) fn build_ui(app: &Application) {
     install_css();
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let default_profile = "default".to_string();
+    let profiles = discover_profiles();
+    let startup_current = match load_current_profile() {
+        Ok(profile) => profile,
+        Err(err) => {
+            eprintln!("{err}");
+            None
+        }
+    };
+    let default_profile = choose_startup_profile(&profiles, startup_current);
     let default_config_path = default_config_path_for_profile(&default_profile);
     let (writable_image_dir, image_dirs) = image_paths_for_profile(&default_profile);
     let deck_image_path = manifest_dir.join("scripts").join("streamdeck.svg");
@@ -22,9 +52,22 @@ pub(crate) fn build_ui(app: &Application) {
         Ok(config) => config,
         Err(err) => {
             eprintln!("{err}");
-            Config::default()
+            if default_profile == BLANK_PROFILE {
+                streamrs::config::streamrs_schema::blank_profile_config()
+            } else {
+                Config::default()
+            }
         }
     };
+    if let Err(err) = save_current_profile(&default_profile) {
+        eprintln!("{err}");
+    }
+    if default_profile == BLANK_PROFILE
+        && !default_config_path.is_file()
+        && let Err(err) = save_config(&default_config_path, &initial_config)
+    {
+        eprintln!("{err}");
+    }
 
     let state = Rc::new(RefCell::new(AppState {
         config: initial_config,
@@ -33,6 +76,7 @@ pub(crate) fn build_ui(app: &Application) {
         image_dirs,
         writable_image_dir,
     }));
+    let profile_names = Rc::new(RefCell::new(profiles));
     let selected_key = Rc::new(Cell::new(0usize));
     let current_page = Rc::new(Cell::new(0usize));
 
@@ -40,56 +84,73 @@ pub(crate) fn build_ui(app: &Application) {
         .application(app)
         .title("streamrs")
         .icon_name("lv.apps.streamrs")
-        .default_width(1480)
-        .default_height(920)
+        .default_width(WINDOW_MIN_WIDTH)
+        .default_height(WINDOW_MIN_HEIGHT)
         .build();
     window.set_size_request(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT);
 
-    let root = GtkBox::new(Orientation::Vertical, 10);
+    let root = GtkBox::new(Orientation::Vertical, UI_SPACING);
     root.add_css_class("streamrs-root");
 
-    let top_bar = GtkBox::new(Orientation::Horizontal, 10);
-    top_bar.add_css_class("config-bar");
-    let config_icon = Image::from_icon_name("document-open-symbolic");
-    config_icon.set_pixel_size(16);
-    let config_path_label = Label::new(Some("Config"));
-    config_path_label.set_halign(Align::Start);
-    config_path_label.add_css_class("field-label");
+    let profile_dropdown = {
+        let profiles = profile_names.borrow();
+        let labels: Vec<String> = profiles
+            .iter()
+            .map(|profile| profile_display_name(profile))
+            .collect();
+        let names: Vec<&str> = labels.iter().map(String::as_str).collect();
+        DropDown::from_strings(&names)
+    };
+    profile_dropdown.set_hexpand(false);
+    profile_dropdown.set_size_request(PROFILE_DROPDOWN_WIDTH, -1);
+    profile_dropdown.add_css_class("streamrs-field");
+    if let Some(initial_profile_index) = profile_names
+        .borrow()
+        .iter()
+        .position(|profile| profile == &state.borrow().profile)
+    {
+        profile_dropdown.set_selected(initial_profile_index as u32);
+    }
+    let add_profile_button = Button::with_label("Add");
+    let remove_profile_button = Button::with_label("Remove");
+    let rename_profile_button = Button::with_label("Rename");
+    add_profile_button.add_css_class("profile-action-button");
+    remove_profile_button.add_css_class("profile-action-button");
+    rename_profile_button.add_css_class("profile-action-button");
 
-    let config_path_entry = Entry::new();
-    config_path_entry.set_hexpand(true);
-    config_path_entry.set_text(default_config_path.to_string_lossy().as_ref());
-    config_path_entry.set_placeholder_text(Some("Path to streamrs profile config"));
-
-    let load_button = Button::with_label("Load");
-    let save_button = Button::with_label("Save");
-    let add_key_button = Button::with_label("Add button");
+    let add_key_button = Button::with_label("Add a button");
     let add_icon_button = Button::with_label("+");
     add_icon_button.set_tooltip_text(Some("Add icon"));
     add_icon_button.add_css_class("icon-add-button");
-    top_bar.append(&config_icon);
-    top_bar.append(&config_path_label);
-    top_bar.append(&config_path_entry);
-    top_bar.append(&load_button);
-    top_bar.append(&save_button);
+    add_icon_button.set_size_request(UI_CONTROL_HEIGHT, UI_CONTROL_HEIGHT);
+    add_icon_button.set_halign(Align::Center);
+    add_icon_button.set_valign(Align::Center);
+    let has_profiles = !profile_names.borrow().is_empty();
+    profile_dropdown.set_sensitive(has_profiles);
+    remove_profile_button.set_sensitive(has_profiles);
+    rename_profile_button.set_sensitive(has_profiles);
 
     let body = Paned::new(Orientation::Horizontal);
+    body.add_css_class("main-split");
     body.set_wide_handle(true);
-    body.set_shrink_start_child(true);
+    body.set_shrink_start_child(false);
     body.set_shrink_end_child(false);
     body.set_resize_start_child(true);
     body.set_resize_end_child(false);
-    body.set_position((PREVIEW_WIDTH as i32) + 90);
+    let compact_left_width =
+        (WINDOW_MIN_WIDTH - INSPECTOR_MIN_WIDTH - (UI_SPACING * 3)).max(DECK_MIN_WIDTH);
+    body.set_position(compact_left_width);
 
-    let left_panel = GtkBox::new(Orientation::Vertical, 10);
+    let left_panel = GtkBox::new(Orientation::Vertical, UI_SPACING);
     left_panel.set_hexpand(true);
     left_panel.set_vexpand(true);
+    left_panel.set_size_request(DECK_MIN_WIDTH + (UI_SPACING * 2) + 8, -1);
     left_panel.add_css_class("deck-card");
 
-    let deck_label = Label::new(Some("Stream Deck layout"));
+    let deck_label = Label::new(Some("Stream Deck preview"));
     deck_label.set_halign(Align::Start);
     deck_label.add_css_class("section-title");
-    let deck_header = GtkBox::new(Orientation::Horizontal, 8);
+    let deck_header = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     let deck_header_spacer = GtkBox::new(Orientation::Horizontal, 0);
     deck_header_spacer.set_hexpand(true);
     let prev_page_button = Button::with_label("Prev");
@@ -98,12 +159,13 @@ pub(crate) fn build_ui(app: &Application) {
     let next_page_button = Button::with_label("Next");
     next_page_button.add_css_class("flat");
     next_page_button.set_visible(false);
-    add_key_button.add_css_class("flat");
+    add_key_button.add_css_class("action-button");
     let page_label = Label::new(Some("Page 1/1"));
-    page_label.add_css_class("field-label");
+    page_label.add_css_class("page-indicator");
+    page_label.set_valign(Align::Start);
+    deck_label.set_valign(Align::Start);
     deck_header.append(&deck_label);
     deck_header.append(&deck_header_spacer);
-    deck_header.append(&add_key_button);
     deck_header.append(&page_label);
 
     let deck_overlay = Overlay::new();
@@ -111,6 +173,7 @@ pub(crate) fn build_ui(app: &Application) {
     deck_overlay.set_valign(Align::Fill);
     deck_overlay.set_hexpand(true);
     deck_overlay.set_vexpand(true);
+    deck_overlay.set_size_request(DECK_MIN_WIDTH, DECK_MIN_HEIGHT);
 
     let deck_picture = Picture::new();
     deck_picture.set_keep_aspect_ratio(true);
@@ -193,24 +256,27 @@ pub(crate) fn build_ui(app: &Application) {
     }
 
     let editor_scroller = ScrolledWindow::new();
+    editor_scroller.add_css_class("inspector-scroller");
     editor_scroller.set_vexpand(true);
     editor_scroller.set_hexpand(true);
     editor_scroller.set_min_content_width(INSPECTOR_MIN_WIDTH);
     editor_scroller.set_overlay_scrolling(true);
+    editor_scroller.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    editor_scroller.set_margin_end(0);
 
     let inspector_panel = GtkBox::new(Orientation::Vertical, 0);
     inspector_panel.set_hexpand(true);
     inspector_panel.set_vexpand(true);
     inspector_panel.add_css_class("inspector-card");
 
-    let editor = GtkBox::new(Orientation::Vertical, 10);
+    let editor = GtkBox::new(Orientation::Vertical, UI_SPACING);
     editor.set_hexpand(true);
-    editor.set_margin_top(8);
-    editor.set_margin_bottom(8);
-    editor.set_margin_start(8);
-    editor.set_margin_end(18);
+    editor.set_margin_top(0);
+    editor.set_margin_bottom(0);
+    editor.set_margin_start(0);
+    editor.set_margin_end(0);
 
-    let selected_label = Label::new(Some("Editing key 1"));
+    let selected_label = Label::new(Some("Editing button 1"));
     selected_label.set_halign(Align::Start);
     selected_label.add_css_class("section-title");
 
@@ -220,12 +286,15 @@ pub(crate) fn build_ui(app: &Application) {
     let action_entry = Entry::new();
     action_entry.set_hexpand(true);
     action_entry.set_width_chars(1);
+    action_entry.add_css_class("streamrs-field");
 
-    let icon_kind_label = Label::new(Some("Icon type"));
+    let icon_kind_label = Label::new(Some("Button type"));
     icon_kind_label.set_halign(Align::Start);
     icon_kind_label.add_css_class("field-label");
-    let icon_kind_dropdown = DropDown::from_strings(&["Regular", "Status", "Clock"]);
+    let icon_kind_dropdown =
+        DropDown::from_strings(&["Blank", "Regular", "Status", "Clock", "Calendar"]);
     make_dropdown_shrinkable(&icon_kind_dropdown);
+    icon_kind_dropdown.add_css_class("streamrs-field");
 
     let icon_label = Label::new(Some("Icon"));
     icon_label.set_halign(Align::Start);
@@ -235,7 +304,8 @@ pub(crate) fn build_ui(app: &Application) {
         dropdown_with_icons(&state, icons.as_slice())
     };
     make_dropdown_shrinkable(&icon_dropdown);
-    let icon_row = GtkBox::new(Orientation::Horizontal, 6);
+    icon_dropdown.add_css_class("streamrs-field");
+    let icon_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     icon_row.set_hexpand(true);
     icon_row.append(&icon_dropdown);
     icon_row.append(&add_icon_button);
@@ -248,12 +318,13 @@ pub(crate) fn build_ui(app: &Application) {
         dropdown_with_icons(&state, backgrounds.as_slice())
     };
     make_dropdown_shrinkable(&clock_background_dropdown);
+    clock_background_dropdown.add_css_class("streamrs-field");
 
     let icon_preview_label = Label::new(Some("Icon Preview"));
     icon_preview_label.set_halign(Align::Start);
     icon_preview_label.add_css_class("field-label");
     let icon_preview = Picture::new();
-    icon_preview.set_size_request(120, 120);
+    icon_preview.set_size_request(104, 104);
     icon_preview.add_css_class("icon-preview");
 
     let status_command_label = Label::new(Some("Status command (optional)"));
@@ -262,6 +333,7 @@ pub(crate) fn build_ui(app: &Application) {
     let status_entry = Entry::new();
     status_entry.set_hexpand(true);
     status_entry.set_width_chars(1);
+    status_entry.add_css_class("streamrs-field");
 
     let icon_on_label = Label::new(Some("Icon when status is on"));
     icon_on_label.set_halign(Align::Start);
@@ -271,6 +343,7 @@ pub(crate) fn build_ui(app: &Application) {
         dropdown_with_icons(&state, icons.as_slice())
     };
     make_dropdown_shrinkable(&icon_on_dropdown);
+    icon_on_dropdown.add_css_class("streamrs-field");
 
     let icon_off_label = Label::new(Some("Icon when status is off"));
     icon_off_label.set_halign(Align::Start);
@@ -280,6 +353,7 @@ pub(crate) fn build_ui(app: &Application) {
         dropdown_with_icons(&state, icons.as_slice())
     };
     make_dropdown_shrinkable(&icon_off_dropdown);
+    icon_off_dropdown.add_css_class("streamrs-field");
 
     let interval_label = Label::new(Some("Status interval (ms)"));
     interval_label.set_halign(Align::Start);
@@ -291,24 +365,17 @@ pub(crate) fn build_ui(app: &Application) {
     );
     interval_spin.set_hexpand(true);
     interval_spin.set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
+    interval_spin.add_css_class("streamrs-field");
 
-    let apply_button = Button::with_label("Apply");
+    let apply_button = Button::with_label("Save");
     apply_button.add_css_class("action-button");
     apply_button.add_css_class("apply-button");
-    apply_button.set_hexpand(true);
-    apply_button.set_size_request(1, -1);
+    apply_button.set_hexpand(false);
     let clear_button = Button::with_label("Delete");
     clear_button.set_tooltip_text(Some("Delete selected key configuration"));
     clear_button.add_css_class("action-button");
     clear_button.add_css_class("clear-button");
-    clear_button.set_hexpand(true);
-    clear_button.set_size_request(1, -1);
-    let action_buttons_row = GtkBox::new(Orientation::Horizontal, 8);
-    action_buttons_row.set_hexpand(true);
-    action_buttons_row.set_homogeneous(true);
-    action_buttons_row.set_margin_top(8);
-    action_buttons_row.append(&apply_button);
-    action_buttons_row.append(&clear_button);
+    clear_button.set_hexpand(false);
 
     let status_line = Label::new(Some("Ready"));
     status_line.set_halign(Align::Start);
@@ -333,7 +400,6 @@ pub(crate) fn build_ui(app: &Application) {
     editor.append(&icon_off_dropdown);
     editor.append(&interval_label);
     editor.append(&interval_spin);
-    editor.append(&action_buttons_row);
 
     editor_scroller.set_child(Some(&editor));
     inspector_panel.append(&editor_scroller);
@@ -344,7 +410,8 @@ pub(crate) fn build_ui(app: &Application) {
     let header_bar = HeaderBar::new();
     header_bar.add_css_class("flat");
     header_bar.add_css_class("window-titlebar");
-    let title_row = GtkBox::new(Orientation::Horizontal, 8);
+    header_bar.set_show_end_title_buttons(true);
+    let title_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     title_row.set_halign(Align::Start);
     let title_icon = if app_icon_path.is_file() {
         Image::from_file(app_icon_path)
@@ -356,23 +423,39 @@ pub(crate) fn build_ui(app: &Application) {
     title_label.add_css_class("header-title-label");
     title_row.append(&title_icon);
     title_row.append(&title_label);
-    let empty_title = GtkBox::new(Orientation::Horizontal, 0);
-    header_bar.set_title_widget(Some(&empty_title));
+
+    let profile_controls = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
+    profile_controls.set_halign(Align::Center);
+    let profile_label = Label::new(Some("Profile"));
+    profile_label.add_css_class("field-label");
+    profile_controls.append(&profile_label);
+    profile_controls.append(&profile_dropdown);
+    profile_controls.append(&add_profile_button);
+    profile_controls.append(&remove_profile_button);
+    profile_controls.append(&rename_profile_button);
+
     header_bar.pack_start(&title_row);
-    let status_bar = GtkBox::new(Orientation::Horizontal, 0);
+    header_bar.set_title_widget(Some(&profile_controls));
+    let status_bar = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     status_bar.add_css_class("status-bar");
     status_line.set_hexpand(true);
     status_line.set_halign(Align::Fill);
     status_line.set_xalign(0.0);
     status_bar.append(&status_line);
+    let status_actions = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
+    status_actions.set_homogeneous(true);
+    status_actions.append(&add_key_button);
+    status_actions.append(&apply_button);
+    status_actions.append(&clear_button);
+    status_bar.append(&status_actions);
     root.append(&header_bar);
-    root.append(&top_bar);
     root.append(&body);
     root.append(&status_bar);
     window.set_content(Some(&root));
 
     let widgets = EditorWidgets {
-        config_path_entry,
+        profile_dropdown,
+        profile_names,
         selected_label,
         action_entry,
         icon_kind_dropdown,
@@ -407,11 +490,38 @@ pub(crate) fn build_ui(app: &Application) {
         prev_page_button.clone(),
         next_page_button.clone(),
         page_label.clone(),
-        load_button.clone(),
-        save_button.clone(),
+        add_profile_button.clone(),
+        remove_profile_button.clone(),
+        rename_profile_button.clone(),
         add_key_button.clone(),
         add_icon_button.clone(),
         apply_button.clone(),
         clear_button.clone(),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn choose_startup_profile_prefers_current_when_present() {
+        let profiles = vec!["default".to_string(), "test".to_string()];
+        let selected = choose_startup_profile(&profiles, Some("test".to_string()));
+        assert_eq!(selected, "test");
+    }
+
+    #[test]
+    fn choose_startup_profile_ignores_blank_when_real_profiles_exist() {
+        let profiles = vec!["default".to_string(), "test".to_string()];
+        let selected = choose_startup_profile(&profiles, Some(BLANK_PROFILE.to_string()));
+        assert_eq!(selected, "default");
+    }
+
+    #[test]
+    fn choose_startup_profile_uses_blank_only_when_no_profiles_exist() {
+        let profiles = Vec::new();
+        let selected = choose_startup_profile(&profiles, Some(BLANK_PROFILE.to_string()));
+        assert_eq!(selected, BLANK_PROFILE);
+    }
 }

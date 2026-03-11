@@ -1,5 +1,14 @@
 use super::*;
 
+const ICON_SELECTION_PLACEHOLDER: &str = "Select icon...";
+
+fn icon_dropdown_items(icon_names: &[String]) -> Vec<String> {
+    let mut items = Vec::with_capacity(icon_names.len() + 1);
+    items.push(ICON_SELECTION_PLACEHOLDER.to_string());
+    items.extend(icon_names.iter().cloned());
+    items
+}
+
 pub(crate) fn copy_icon_into_profile(
     source_path: &Path,
     target_dir: &Path,
@@ -8,7 +17,10 @@ pub(crate) fn copy_icon_into_profile(
 }
 
 pub(crate) fn discover_icons(image_dirs: &[PathBuf]) -> Vec<String> {
-    discover_icons_generic(image_dirs, &[NAV_PREVIOUS_ICON, NAV_NEXT_ICON], "blank.png")
+    let mut icons =
+        discover_icons_generic(image_dirs, &[NAV_PREVIOUS_ICON, NAV_NEXT_ICON], "blank.png");
+    icons.retain(|name| !is_blank_background_icon_name(name));
+    icons
 }
 
 pub(crate) fn discover_clock_backgrounds(image_dirs: &[PathBuf]) -> Vec<String> {
@@ -68,6 +80,8 @@ pub(crate) fn configure_icon_dropdown(dropdown: &DropDown, state: &Rc<RefCell<Ap
         let image_dirs = state_for_bind.borrow().image_dirs.clone();
         let preview_path = if icon_is_clock(&name) {
             render_clock_icon_png(&image_dirs, Some(CLOCK_BACKGROUND_ICON))
+        } else if icon_is_calendar(&name) {
+            render_calendar_icon_png()
         } else {
             render_regular_icon_png(&image_dirs, &name)
                 .or_else(|| find_icon_file(&image_dirs, &name))
@@ -93,16 +107,22 @@ pub(crate) fn dropdown_with_icons(
     state: &Rc<RefCell<AppState>>,
     icon_names: &[String],
 ) -> DropDown {
-    let names: Vec<&str> = icon_names.iter().map(String::as_str).collect();
+    let icon_items = icon_dropdown_items(icon_names);
+    let names: Vec<&str> = icon_items.iter().map(String::as_str).collect();
     let dropdown = DropDown::from_strings(&names);
     configure_icon_dropdown(&dropdown, state);
     dropdown
 }
 
-pub(crate) fn dropdown_set_options(dropdown: &DropDown, icon_names: &[String]) {
-    let names: Vec<&str> = icon_names.iter().map(String::as_str).collect();
+pub(crate) fn dropdown_set_options(dropdown: &DropDown, names: &[String]) {
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
     let list = gtk::StringList::new(&names);
     dropdown.set_model(Some(&list));
+}
+
+pub(crate) fn dropdown_set_icon_options(dropdown: &DropDown, icon_names: &[String]) {
+    let items = icon_dropdown_items(icon_names);
+    dropdown_set_options(dropdown, items.as_slice());
 }
 
 pub(crate) fn make_dropdown_shrinkable(dropdown: &DropDown) {
@@ -122,9 +142,9 @@ pub(crate) fn refresh_icon_catalogs(
 
     {
         let icons = icon_names.borrow();
-        dropdown_set_options(&widgets.icon_dropdown, icons.as_slice());
-        dropdown_set_options(&widgets.icon_on_dropdown, icons.as_slice());
-        dropdown_set_options(&widgets.icon_off_dropdown, icons.as_slice());
+        dropdown_set_icon_options(&widgets.icon_dropdown, icons.as_slice());
+        dropdown_set_icon_options(&widgets.icon_on_dropdown, icons.as_slice());
+        dropdown_set_icon_options(&widgets.icon_off_dropdown, icons.as_slice());
     }
     {
         let backgrounds = clock_backgrounds.borrow();
@@ -133,7 +153,12 @@ pub(crate) fn refresh_icon_catalogs(
 }
 
 pub(crate) fn dropdown_selected_icon(dropdown: &DropDown, icon_names: &[String]) -> String {
-    let index = dropdown.selected() as usize;
+    let selected = dropdown.selected();
+    if selected == gtk::INVALID_LIST_POSITION || selected == 0 {
+        return default_icon_name();
+    }
+
+    let index = (selected - 1) as usize;
     icon_names
         .get(index)
         .cloned()
@@ -145,7 +170,7 @@ pub(crate) fn set_dropdown_icon(dropdown: &DropDown, icon_names: &[String], icon
         .iter()
         .position(|candidate| candidate == icon_name)
     {
-        dropdown.set_selected(index as u32);
+        dropdown.set_selected((index + 1) as u32);
     } else {
         dropdown.set_selected(0);
     }
@@ -191,6 +216,10 @@ pub(crate) fn set_picture_icon(
     let rounded = if icon_is_clock(&key.icon) {
         let background = key_clock_background_name(key, clock_backgrounds);
         render_clock_icon_png(image_dirs, Some(background))
+    } else if icon_is_calendar(&key.icon) {
+        render_calendar_icon_png()
+    } else if is_blank_background_icon_name(&key.icon) {
+        None
     } else {
         render_regular_icon_png(image_dirs, &key.icon)
     };
@@ -201,11 +230,7 @@ pub(crate) fn set_picture_icon(
         return;
     }
 
-    if let Some(fallback) = find_icon_file(image_dirs, "blank.png") {
-        update_picture_file(picture, Some(&fallback));
-    } else {
-        update_picture_file(picture, None);
-    }
+    update_picture_file(picture, None);
     picture.set_tooltip_text(Some(&key.icon));
 }
 
@@ -216,5 +241,32 @@ pub(crate) fn refresh_selected_button_state(buttons: &[Button], selected_key: us
         } else {
             button.remove_css_class("key-selected");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    fn test_temp_dir(name: &str) -> PathBuf {
+        let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("streamrs-gui-icon-catalog-tests-{name}-{id}"));
+        fs::create_dir_all(&dir).expect("test directory should be creatable");
+        dir
+    }
+
+    #[test]
+    fn discover_icons_excludes_blank_background_variants() {
+        let dir = test_temp_dir("exclude-blanks");
+        fs::write(dir.join("blank.png"), b"x").expect("blank fixture should be written");
+        fs::write(dir.join("blank_2.png"), b"x").expect("blank fixture should be written");
+        fs::write(dir.join("youtube.png"), b"x").expect("icon fixture should be written");
+
+        let icons = discover_icons(&[dir]);
+        assert_eq!(icons, vec!["youtube.png".to_string()]);
     }
 }

@@ -11,14 +11,23 @@ pub(crate) use std::env;
 pub(crate) use std::fs;
 pub(crate) use std::path::{Path, PathBuf};
 pub(crate) use std::rc::Rc;
+pub(crate) use streamrs::config::current_profile::{
+    BLANK_PROFILE, DEFAULT_PROFILE, discover_profiles as discover_profiles_generic,
+    load_current_profile, profile_display_name as profile_display_name_generic,
+    profile_slug_from_input as profile_slug_from_input_generic, save_current_profile,
+};
 pub(crate) use streamrs::config::streamrs_profile;
 pub(crate) use streamrs::config::streamrs_schema::{
     StreamrsConfig as Config, StreamrsKeyBinding as KeyBinding, default_icon_name,
 };
 pub(crate) use streamrs::image::cache_fs::{cached_png_path_if_valid, write_cached_png};
+pub(crate) use streamrs::image::calendar::{
+    CALENDAR_ICON_ALIAS, current_calendar_key, is_calendar_icon as icon_is_calendar,
+    render_calendar_svg,
+};
 pub(crate) use streamrs::image::catalog::{
     copy_supported_image_into_dir, discover_icons as discover_icons_generic,
-    discover_png_backgrounds_with_prefix,
+    discover_png_backgrounds_with_prefix, is_blank_background_icon_name,
 };
 pub(crate) use streamrs::image::clock::{
     CLOCK_BACKGROUND_ICON, CLOCK_ICON_ALIAS, current_clock_text, is_clock_icon as icon_is_clock,
@@ -45,12 +54,16 @@ pub(crate) const TEMPLATE_RENDER_WIDTH: u32 = 1560;
 pub(crate) const TEMPLATE_RENDER_HEIGHT: u32 = 1108;
 pub(crate) const PREVIEW_WIDTH: u32 = 936;
 pub(crate) const PREVIEW_HEIGHT: u32 = 665;
-pub(crate) const DECK_MIN_SCALE: f32 = 0.5;
+pub(crate) const DECK_MIN_SCALE: f32 = 0.44;
+pub(crate) const UI_SPACING: i32 = 16;
+pub(crate) const UI_SPACING_HORIZONTAL: i32 = 8;
+pub(crate) const UI_CONTROL_HEIGHT: i32 = 34;
+pub(crate) const PROFILE_DROPDOWN_WIDTH: i32 = 170;
 pub(crate) const DECK_MIN_WIDTH: i32 = (PREVIEW_WIDTH as f32 * DECK_MIN_SCALE) as i32;
 pub(crate) const DECK_MIN_HEIGHT: i32 = (PREVIEW_HEIGHT as f32 * DECK_MIN_SCALE) as i32;
-pub(crate) const INSPECTOR_MIN_WIDTH: i32 = 390;
-pub(crate) const WINDOW_MIN_WIDTH: i32 = DECK_MIN_WIDTH + INSPECTOR_MIN_WIDTH + 120;
-pub(crate) const WINDOW_MIN_HEIGHT: i32 = DECK_MIN_HEIGHT + 190;
+pub(crate) const INSPECTOR_MIN_WIDTH: i32 = 360;
+pub(crate) const WINDOW_MIN_WIDTH: i32 = DECK_MIN_WIDTH + INSPECTOR_MIN_WIDTH + (UI_SPACING * 10);
+pub(crate) const WINDOW_MIN_HEIGHT: i32 = DECK_MIN_HEIGHT + 460;
 
 #[derive(Debug, Clone)]
 pub(crate) struct AppState {
@@ -63,7 +76,8 @@ pub(crate) struct AppState {
 
 #[derive(Clone)]
 pub(crate) struct EditorWidgets {
-    pub(crate) config_path_entry: Entry,
+    pub(crate) profile_dropdown: DropDown,
+    pub(crate) profile_names: Rc<RefCell<Vec<String>>>,
     pub(crate) selected_label: Label,
     pub(crate) action_entry: Entry,
     pub(crate) icon_kind_dropdown: DropDown,
@@ -98,9 +112,11 @@ pub(crate) struct KeySlot {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum EditorMode {
+    Blank,
     Regular,
     Status,
     Clock,
+    Calendar,
 }
 
 pub(crate) fn resolve_image_dirs(profile: &str, writable_dir: &Path) -> Vec<PathBuf> {

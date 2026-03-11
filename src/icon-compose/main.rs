@@ -18,39 +18,39 @@ struct EmbeddedBlank {
 const EMBEDDED_BLANKS: &[EmbeddedBlank] = &[
     EmbeddedBlank {
         name: "blank.png",
-        png_bytes: include_bytes!("../../all_images/blank.png"),
+        png_bytes: include_bytes!("../../icons/blank.png"),
     },
     EmbeddedBlank {
         name: "blank_2.png",
-        png_bytes: include_bytes!("../../all_images/blank_2.png"),
+        png_bytes: include_bytes!("../../icons/blank_2.png"),
     },
     EmbeddedBlank {
         name: "blank_3.png",
-        png_bytes: include_bytes!("../../all_images/blank_3.png"),
+        png_bytes: include_bytes!("../../icons/blank_3.png"),
     },
     EmbeddedBlank {
         name: "blank_4.png",
-        png_bytes: include_bytes!("../../all_images/blank_4.png"),
+        png_bytes: include_bytes!("../../icons/blank_4.png"),
     },
     EmbeddedBlank {
         name: "blank_5.png",
-        png_bytes: include_bytes!("../../all_images/blank_5.png"),
+        png_bytes: include_bytes!("../../icons/blank_5.png"),
     },
     EmbeddedBlank {
         name: "blank_6.png",
-        png_bytes: include_bytes!("../../all_images/blank_6.png"),
+        png_bytes: include_bytes!("../../icons/blank_6.png"),
     },
     EmbeddedBlank {
         name: "blank_7.png",
-        png_bytes: include_bytes!("../../all_images/blank_7.png"),
+        png_bytes: include_bytes!("../../icons/blank_7.png"),
     },
     EmbeddedBlank {
         name: "blank_8.png",
-        png_bytes: include_bytes!("../../all_images/blank_8.png"),
+        png_bytes: include_bytes!("../../icons/blank_8.png"),
     },
     EmbeddedBlank {
         name: "blank_9.png",
-        png_bytes: include_bytes!("../../all_images/blank_9.png"),
+        png_bytes: include_bytes!("../../icons/blank_9.png"),
     },
 ];
 
@@ -80,7 +80,7 @@ fn print_usage(program: &str) {
     eprintln!("Usage: {program} <logo.svg|logo.png> [--output <path>] [--padding <ratio>]");
     eprintln!("  --padding defaults to {:.2} (15%)", DEFAULT_PADDING_RATIO);
     eprintln!(
-        "  default output: ~/.local/share/streamrs/default/<logo>-icon.png (auto-suffixed with -2, -3, ... if needed)"
+        "  default output: ~/.local/share/streamrs/icons/<logo>-icon.png (auto-suffixed with -2, -3, ... if needed)"
     );
 }
 
@@ -93,10 +93,7 @@ fn default_stem(path: &Path, fallback: &str) -> String {
 }
 
 fn default_output_dir() -> PathBuf {
-    let home = env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    home.join(".local/share/streamrs/default")
+    streamrs::paths::writable_icon_dir()
 }
 
 fn unique_output_path(dir: &Path, stem: &str) -> PathBuf {
@@ -119,6 +116,16 @@ fn default_output_path(logo: &Path) -> PathBuf {
     let logo_stem = default_stem(logo, "logo");
     let base_stem = format!("{logo_stem}-icon");
     unique_output_path(&default_output_dir(), &base_stem)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_output_dir_uses_shared_icons_path() {
+        assert!(default_output_dir().ends_with("streamrs/icons"));
+    }
 }
 
 fn parse_args() -> Result<CliArgs, String> {

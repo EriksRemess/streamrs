@@ -59,14 +59,43 @@ pub(crate) fn wire_primary_action_signals(
                 &editor_syncing_for_apply,
             );
             let message = if applied {
-                let key_index = {
+                let (key_index, config, config_path) = {
                     let mut state = state_for_apply.borrow_mut();
                     normalize_config(&mut state.config);
-                    key_index_for_slot(&state.config, page, slot).map(|index| index + 1)
+                    let selected_profile = {
+                        let selected = widgets_for_apply.profile_dropdown.selected() as usize;
+                        widgets_for_apply
+                            .profile_names
+                            .borrow()
+                            .get(selected)
+                            .cloned()
+                    };
+                    let config_path = if let Some(profile) = selected_profile {
+                        let path = default_config_path_for_profile(&profile);
+                        update_state_profile_paths(&mut state, &path);
+                        let _ = save_current_profile(&profile);
+                        path
+                    } else {
+                        state.config_path.clone()
+                    };
+                    (
+                        key_index_for_slot(&state.config, page, slot).map(|index| index + 1),
+                        state.config.clone(),
+                        config_path,
+                    )
                 };
-                key_index
-                    .map(|index| format!("Applied changes to key {index}"))
-                    .unwrap_or_else(|| "Applied changes".to_string())
+
+                match save_config(&config_path, &config) {
+                    Ok(()) => {
+                        if let Err(err) = signal_daemon_reload() {
+                            eprintln!("{err}");
+                        }
+                        key_index
+                            .map(|index| format!("Saved key {index}"))
+                            .unwrap_or_else(|| "Saved changes".to_string())
+                    }
+                    Err(err) => format!("Save failed: {err}"),
+                }
             } else {
                 "This slot is reserved for page navigation".to_string()
             };
@@ -129,7 +158,7 @@ pub(crate) fn wire_primary_action_signals(
             if cleared {
                 widgets_for_clear
                     .status_label
-                    .set_text("Deleted selected key");
+                    .set_text("Cleared selected button");
             } else {
                 widgets_for_clear
                     .status_label

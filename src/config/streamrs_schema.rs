@@ -98,3 +98,10 @@ impl Default for StreamrsConfig {
         }
     }
 }
+
+pub fn blank_profile_config() -> StreamrsConfig {
+    StreamrsConfig {
+        keys: Vec::new(),
+        ..StreamrsConfig::default()
+    }
+}

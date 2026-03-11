@@ -2,7 +2,7 @@ XDG_CONFIG_HOME ?= $(HOME)/.config
 XDG_DATA_HOME ?= $(HOME)/.local/share
 CONFIG_DIR ?= $(XDG_CONFIG_HOME)/streamrs
 PROFILE ?= default
-PROFILE_DIR ?= $(XDG_DATA_HOME)/streamrs/$(PROFILE)
+ICONS_DIR ?= $(XDG_DATA_HOME)/streamrs/icons
 BIN_DIR ?= $(HOME)/.local/bin
 BIN_NAME ?= streamrs
 PREVIEW_BIN_NAME ?= streamrs-preview
@@ -43,8 +43,8 @@ install-config:
 	cp "config/default.toml" "$(CONFIG_DIR)/default.toml"
 
 install-images:
-	mkdir -p "$(PROFILE_DIR)"
-	cp -a all_images/. "$(PROFILE_DIR)/"
+	mkdir -p "$(ICONS_DIR)"
+	cp -a icons/. "$(ICONS_DIR)/"
 
 install-desktop:
 	mkdir -p "$(APPLICATIONS_DIR)"
@@ -83,7 +83,7 @@ uninstall-config:
 	rm -f "$(CONFIG_DIR)/$(PROFILE).toml"
 
 uninstall-images:
-	rm -rf "$(PROFILE_DIR)"
+	rm -rf "$(ICONS_DIR)"
 
 uninstall-desktop:
 	rm -f "$(APPLICATIONS_DIR)/$(DESKTOP_FILE_NAME)"

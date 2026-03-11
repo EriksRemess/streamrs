@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::Path;
+use streamrs::image::calendar::{CALENDAR_ICON_ALIAS, is_calendar_icon, render_calendar_svg};
 use streamrs::image::clock::{
     CLOCK_ICON_ALIAS, current_clock_text, is_clock_icon, render_clock_segments_svg,
 };
@@ -73,6 +74,17 @@ fn load_icon_image(icon_name: &str, image_dir: &Path) -> Result<RgbaImage, Strin
             CLOCK_ICON_ALIAS,
             clock_svg.as_bytes(),
             Some(image_dir),
+            CLOCK_RENDER_SIZE,
+            CLOCK_RENDER_SIZE,
+        )?;
+        return Ok(img);
+    }
+    if is_calendar_icon(icon_name) {
+        let calendar_svg = render_calendar_svg();
+        let img = load_svg_data(
+            CALENDAR_ICON_ALIAS,
+            calendar_svg.as_bytes(),
+            None,
             CLOCK_RENDER_SIZE,
             CLOCK_RENDER_SIZE,
         )?;
