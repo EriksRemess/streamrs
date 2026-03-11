@@ -181,7 +181,10 @@ mod tests {
             path.ends_with("calendar-live.png"),
             "calendar output path should be the live non-cached target"
         );
-        assert!(image::open(&path).is_ok(), "calendar output should be valid");
+        assert!(
+            image::open(&path).is_ok(),
+            "calendar output should be valid"
+        );
     }
 
     #[test]
@@ -198,6 +201,9 @@ mod tests {
             first_path, second_path,
             "calendar live path should stay stable between renders"
         );
-        assert!(image::open(&second_path).is_ok(), "calendar file should remain readable");
+        assert!(
+            image::open(&second_path).is_ok(),
+            "calendar file should remain readable"
+        );
     }
 }

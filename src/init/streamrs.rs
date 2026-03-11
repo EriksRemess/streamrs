@@ -81,13 +81,20 @@ pub(crate) fn parse_args() -> Result<CliArgs, String> {
 fn resolve_default_profile() -> String {
     let profiles = discover_profiles();
 
-    if let Ok(Some(profile)) = load_current_profile() {
-        if profile == BLANK_PROFILE {
-            if profiles.is_empty() {
+    match load_current_profile() {
+        Ok(Some(profile)) => {
+            if profile == BLANK_PROFILE {
+                if profiles.is_empty() {
+                    return profile;
+                }
+            } else {
                 return profile;
             }
-        } else {
-            return profile;
+        }
+        Ok(None) => {}
+        Err(err) => {
+            eprintln!("{err}");
+            return BLANK_PROFILE.to_string();
         }
     }
 
@@ -300,8 +307,8 @@ pub(crate) fn print_post_init_service_hint() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Mutex, OnceLock};
 
     static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -417,6 +424,24 @@ mod tests {
             assert_eq!(
                 resolved, "test",
                 "saved non-blank current profile should not fall back to default"
+            );
+        });
+    }
+
+    #[test]
+    fn resolve_default_profile_uses_blank_when_current_profile_is_invalid() {
+        with_temp_xdg_config_home("resolve-invalid-current", |xdg_config_home| {
+            let streamrs_dir = xdg_config_home.join("streamrs");
+            fs::create_dir_all(&streamrs_dir).expect("streamrs config dir should be creatable");
+            fs::write(streamrs_dir.join("current_profile"), "bad profile\n")
+                .expect("invalid current profile fixture should be written");
+            fs::write(streamrs_dir.join("default.toml"), "brightness = 60\n")
+                .expect("default config fixture should be written");
+
+            let resolved = resolve_default_profile();
+            assert_eq!(
+                resolved, BLANK_PROFILE,
+                "invalid current profile should force blank fallback"
             );
         });
     }

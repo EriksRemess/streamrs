@@ -256,9 +256,9 @@ pub(crate) fn wire_management_signals(
                     let Some(profile) =
                         profile_slug_from_input(name_entry_for_response.text().as_str())
                     else {
-                        widgets_for_response.status_label.set_text(
-                            "Profile name must contain letters or numbers",
-                        );
+                        widgets_for_response
+                            .status_label
+                            .set_text("Profile name must contain letters or numbers");
                         dialog.hide();
                         return;
                     };
@@ -306,19 +306,15 @@ pub(crate) fn wire_management_signals(
                     ) {
                         Ok(_) => {
                             if is_new_profile {
-                                widgets_for_response
-                                    .status_label
-                                    .set_text(&format!(
-                                        "Created and loaded profile '{}'",
-                                        profile_display_name(&profile)
-                                    ));
+                                widgets_for_response.status_label.set_text(&format!(
+                                    "Created and loaded profile '{}'",
+                                    profile_display_name(&profile)
+                                ));
                             } else {
-                                widgets_for_response
-                                    .status_label
-                                    .set_text(&format!(
-                                        "Loaded profile '{}'",
-                                        profile_display_name(&profile)
-                                    ));
+                                widgets_for_response.status_label.set_text(&format!(
+                                    "Loaded profile '{}'",
+                                    profile_display_name(&profile)
+                                ));
                             }
                         }
                         Err(err) => widgets_for_response.status_label.set_text(&err),
@@ -406,9 +402,9 @@ pub(crate) fn wire_management_signals(
                     let Some(new_profile) =
                         profile_slug_from_input(name_entry_for_response.text().as_str())
                     else {
-                        widgets_for_response.status_label.set_text(
-                            "Profile name must contain letters or numbers",
-                        );
+                        widgets_for_response
+                            .status_label
+                            .set_text("Profile name must contain letters or numbers");
                         dialog.hide();
                         return;
                     };
@@ -438,7 +434,9 @@ pub(crate) fn wire_management_signals(
 
                     {
                         let mut names = widgets_for_response.profile_names.borrow_mut();
-                        if let Some(index) = names.iter().position(|n| n == &current_profile_for_response)
+                        if let Some(index) = names
+                            .iter()
+                            .position(|n| n == &current_profile_for_response)
                         {
                             names[index] = new_profile.clone();
                         }

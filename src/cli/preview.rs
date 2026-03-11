@@ -62,7 +62,10 @@ fn default_image_dir() -> PathBuf {
     first_readable_dir(&candidates).unwrap_or(home_default)
 }
 
-fn apply_cli_overrides(args: &mut CliArgs, mut it: impl Iterator<Item = String>) -> Result<(), String> {
+fn apply_cli_overrides(
+    args: &mut CliArgs,
+    mut it: impl Iterator<Item = String>,
+) -> Result<(), String> {
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--profile" => {

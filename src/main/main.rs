@@ -70,6 +70,7 @@ const SVG_RENDER_SIZE: u32 = 256;
 const MIN_GIF_FRAME_DELAY_MS: u64 = 66;
 const DEFAULT_STATUS_CHECK_INTERVAL_MS: u64 = 1000;
 const MIN_STATUS_CHECK_INTERVAL_MS: u64 = 100;
+const RELOAD_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ButtonAction {
@@ -714,26 +715,33 @@ pub(crate) fn run() {
         }
     }
 
-    if let Err(err) = ensure_profile_initialized(&profile, &config_path, &image_dir) {
-        eprintln!("{err}");
-        return;
+    let mut config_raw = String::new();
+    let mut config = blank_profile_config();
+
+    match ensure_profile_initialized(&profile, &config_path, &image_dir) {
+        Ok(()) => match read_config_file(&config_path) {
+            Ok(raw) => match parse_profile_config(&profile, &config_path, &raw) {
+                Ok(parsed) => {
+                    config_raw = raw;
+                    config = parsed;
+                }
+                Err(err) => {
+                    eprintln!("{err}");
+                    eprintln!(
+                        "Using blank key layout until a readable profile config is available"
+                    );
+                }
+            },
+            Err(err) => {
+                eprintln!("{err}");
+                eprintln!("Using blank key layout until a readable profile config is available");
+            }
+        },
+        Err(err) => {
+            eprintln!("{err}");
+            eprintln!("Using blank key layout until a readable profile config is available");
+        }
     }
-
-    let mut config_raw = match read_config_file(&config_path) {
-        Ok(raw) => raw,
-        Err(err) => {
-            eprintln!("{err}");
-            return;
-        }
-    };
-
-    let mut config = match parse_profile_config(&profile, &config_path, &config_raw) {
-        Ok(config) => config,
-        Err(err) => {
-            eprintln!("{err}");
-            return;
-        }
-    };
     let mut image_cache = build_image_cache(&config, &image_dir);
     let mut status_cache = StatusCache::new();
 
@@ -861,7 +869,7 @@ pub(crate) fn run() {
         }
 
         let signal_requested = take_reload_request();
-        let periodic_reload = last_reload_check.elapsed() >= Duration::from_secs(10);
+        let periodic_reload = last_reload_check.elapsed() >= RELOAD_RETRY_INTERVAL;
         if periodic_reload {
             last_reload_check = Instant::now();
         }
@@ -890,7 +898,21 @@ pub(crate) fn run() {
                         }
                     }
                     Ok(_) => {}
-                    Err(err) => eprintln!("{err}"),
+                    Err(err) => {
+                        eprintln!("{err}");
+                        let blank_profile = BLANK_PROFILE.to_string();
+                        match (
+                            default_config_path(&blank_profile),
+                            default_image_dir(&blank_profile),
+                        ) {
+                            (Ok(path), Ok(dir)) => {
+                                reload_profile = blank_profile;
+                                reload_path = path;
+                                reload_image_dir = dir;
+                            }
+                            (Err(path_err), _) | (_, Err(path_err)) => eprintln!("{path_err}"),
+                        }
+                    }
                 }
             }
 
