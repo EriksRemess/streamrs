@@ -799,6 +799,7 @@ pub(crate) fn run() {
         }
 
         let mut disconnected = false;
+        let mut reload_due_to_device_issue = false;
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
             advance_dynamic_keys(
                 device_ref,
@@ -857,6 +858,7 @@ pub(crate) fn run() {
                         eprintln!("{err}");
                     }
                     disconnected = true;
+                    reload_due_to_device_issue = true;
                 }
             }
         }
@@ -874,7 +876,10 @@ pub(crate) fn run() {
             last_reload_check = Instant::now();
         }
 
-        if signal_requested || periodic_reload {
+        if signal_requested || periodic_reload || reload_due_to_device_issue {
+            if reload_due_to_device_issue {
+                last_reload_check = Instant::now();
+            }
             let mut reload_profile = profile.clone();
             let mut reload_path = config_path.clone();
             let mut reload_image_dir = image_dir.clone();
@@ -900,18 +905,10 @@ pub(crate) fn run() {
                     Ok(_) => {}
                     Err(err) => {
                         eprintln!("{err}");
-                        let blank_profile = BLANK_PROFILE.to_string();
-                        match (
-                            default_config_path(&blank_profile),
-                            default_image_dir(&blank_profile),
-                        ) {
-                            (Ok(path), Ok(dir)) => {
-                                reload_profile = blank_profile;
-                                reload_path = path;
-                                reload_image_dir = dir;
-                            }
-                            (Err(path_err), _) | (_, Err(path_err)) => eprintln!("{path_err}"),
-                        }
+                        eprintln!(
+                            "Keeping current profile '{}' after current_profile read error",
+                            profile
+                        );
                     }
                 }
             }

@@ -20,7 +20,14 @@ pub(crate) fn save_config(path: &Path, config: &Config) -> Result<(), String> {
 
 pub(crate) fn signal_daemon_reload() -> Result<(), String> {
     let systemctl = std::process::Command::new("systemctl")
-        .args(["--user", "kill", "-s", "HUP", "streamrs.service"])
+        .args([
+            "--user",
+            "kill",
+            "-s",
+            "HUP",
+            "--kill-whom=main",
+            "streamrs.service",
+        ])
         .status();
     if let Ok(status) = &systemctl
         && status.success()

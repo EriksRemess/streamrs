@@ -46,7 +46,19 @@ pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>,
     match device.read_timeout(&mut buf, timeout_ms) {
         Ok(size) if size > 0 => Ok(get_pressed_button(&buf[4..19])),
         Ok(_) => Ok(None),
-        Err(err) => Err(format!("Failed to read key state: {err}")),
+        Err(err) => {
+            // SIGHUP used for config reload can interrupt a blocking HID read.
+            // Treat EINTR as a transient event and keep the existing device session.
+            let err_text = err.to_string();
+            if err_text
+                .to_ascii_lowercase()
+                .contains("interrupted system call")
+            {
+                Ok(None)
+            } else {
+                Err(format!("Failed to read key state: {err}"))
+            }
+        }
     }
 }
 
