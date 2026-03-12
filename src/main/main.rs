@@ -30,9 +30,11 @@ mod main_tests;
 #[path = "../image/streamrs.rs"]
 mod stream_image;
 
+#[cfg(test)]
+use config::parse_config;
 use config::{
     is_launcher_like_command, key_clock_background, key_launch_action, key_status_command,
-    key_status_icon_off, key_status_icon_on, key_status_interval, parse_config, read_config_file,
+    key_status_icon_off, key_status_icon_on, key_status_interval, load_config, read_config_file,
 };
 use init::{
     default_config_path, default_image_dir, ensure_profile_initialized, initialize_profile,
@@ -342,11 +344,8 @@ fn page_count(config: &Config) -> usize {
     paging_layout(config).page_count(config.keys.len())
 }
 
-fn parse_profile_config(profile: &str, config_path: &Path, raw: &str) -> Result<Config, String> {
-    if profile == BLANK_PROFILE {
-        return Ok(blank_profile_config());
-    }
-    parse_config(config_path, raw)
+fn load_profile_config(profile: &str, config_path: &Path) -> Result<Config, String> {
+    load_config(config_path, profile)
 }
 
 fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) -> PageLayoutPlan {
@@ -478,11 +477,11 @@ fn set_page(
                 key_number,
                 command,
             } => eprintln!(
-                "Key {} has launcher-like status command '{}' with no action; treating it as action",
+                "Button {} has launcher-like status command '{}' with no action; treating it as action",
                 key_number, command
             ),
             PagePlanWarning::LauncherLikeStatusIgnored { key_number } => eprintln!(
-                "Key {} has launcher-like status command; ignoring status polling for this key",
+                "Button {} has launcher-like status command; ignoring status polling for this button",
                 key_number
             ),
         }
@@ -720,7 +719,7 @@ pub(crate) fn run() {
 
     match ensure_profile_initialized(&profile, &config_path, &image_dir) {
         Ok(()) => match read_config_file(&config_path) {
-            Ok(raw) => match parse_profile_config(&profile, &config_path, &raw) {
+            Ok(raw) => match load_profile_config(&profile, &config_path) {
                 Ok(parsed) => {
                     config_raw = raw;
                     config = parsed;
@@ -728,18 +727,18 @@ pub(crate) fn run() {
                 Err(err) => {
                     eprintln!("{err}");
                     eprintln!(
-                        "Using blank key layout until a readable profile config is available"
+                        "Using blank button layout until a readable profile config is available"
                     );
                 }
             },
             Err(err) => {
                 eprintln!("{err}");
-                eprintln!("Using blank key layout until a readable profile config is available");
+                eprintln!("Using blank button layout until a readable profile config is available");
             }
         },
         Err(err) => {
             eprintln!("{err}");
-            eprintln!("Using blank key layout until a readable profile config is available");
+            eprintln!("Using blank button layout until a readable profile config is available");
         }
     }
     let mut image_cache = build_image_cache(&config, &image_dir);
@@ -853,7 +852,7 @@ pub(crate) fn run() {
                 }
                 Err(err) => {
                     if err.to_ascii_lowercase().contains("device disconnected") {
-                        eprintln!("Lost Stream Deck connection while reading key state");
+                        eprintln!("Lost Stream Deck connection while reading button state");
                     } else {
                         eprintln!("{err}");
                     }
@@ -928,7 +927,7 @@ pub(crate) fn run() {
                     let profile_switched = reload_path != config_path;
                     let should_parse = signal_requested || profile_switched || raw != config_raw;
                     if should_parse {
-                        match parse_profile_config(&reload_profile, &reload_path, &raw) {
+                        match load_profile_config(&reload_profile, &reload_path) {
                             Ok(new_config) => {
                                 if (
                                     new_config.vendor_id,

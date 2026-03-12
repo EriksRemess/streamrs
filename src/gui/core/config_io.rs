@@ -1,15 +1,8 @@
 use super::*;
 
 pub(crate) fn load_config(path: &Path) -> Result<Config, String> {
-    if profile_from_config_path(path) == BLANK_PROFILE {
-        return Ok(streamrs::config::streamrs_schema::blank_profile_config());
-    }
-
-    if !path.is_file() {
-        return Ok(Config::default());
-    }
-
-    let mut config = streamrs::config::toml::load_from_file::<Config>(path)?;
+    let profile = profile_from_config_path(path);
+    let mut config = streamrs_profile::load_config_for_profile(path, &profile)?;
     normalize_config(&mut config);
     Ok(config)
 }

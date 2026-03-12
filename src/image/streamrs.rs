@@ -42,7 +42,7 @@ fn encode_streamdeck_image(img: DynamicImage) -> Result<Vec<u8>, String> {
     let mut data = Vec::new();
     JpegEncoder::new_with_quality(&mut data, 100)
         .encode_image(&img)
-        .map_err(|err| format!("Failed to encode key image: {err}"))?;
+        .map_err(|err| format!("Failed to encode button image: {err}"))?;
     Ok(data)
 }
 
@@ -412,6 +412,6 @@ pub(super) fn blank_image_data() -> Result<Vec<u8>, String> {
     let mut data = Vec::new();
     JpegEncoder::new_with_quality(&mut data, 100)
         .encode_image(&img)
-        .map_err(|err| format!("Failed to encode blank key image: {err}"))?;
+        .map_err(|err| format!("Failed to encode blank button image: {err}"))?;
     Ok(data)
 }

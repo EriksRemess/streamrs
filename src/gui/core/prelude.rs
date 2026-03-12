@@ -15,6 +15,7 @@ pub(crate) use streamrs::config::current_profile::{
     BLANK_PROFILE, DEFAULT_PROFILE, discover_profiles as discover_profiles_generic,
     load_current_profile, profile_display_name as profile_display_name_generic,
     profile_slug_from_input as profile_slug_from_input_generic, save_current_profile,
+    save_current_profile_if_missing,
 };
 pub(crate) use streamrs::config::streamrs_profile;
 pub(crate) use streamrs::config::streamrs_schema::{

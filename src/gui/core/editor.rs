@@ -50,14 +50,14 @@ pub(crate) fn refresh_key_grid(
                 }
                 let tip = if is_plain_blank_key(key) {
                     format!(
-                        "Key {} (page {}, slot {}) - Blank button",
+                        "Button {} (page {}, slot {}) - Blank button",
                         key_index + 1,
                         page + 1,
                         slot + 1
                     )
                 } else {
                     format!(
-                        "Key {} (page {}, slot {})",
+                        "Button {} (page {}, slot {})",
                         key_index + 1,
                         page + 1,
                         slot + 1

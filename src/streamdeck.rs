@@ -56,7 +56,7 @@ pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>,
             {
                 Ok(None)
             } else {
-                Err(format!("Failed to read key state: {err}"))
+                Err(format!("Failed to read button state: {err}"))
             }
         }
     }
@@ -85,7 +85,7 @@ pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<()
         payload.resize(1024, 0);
         device
             .write(&payload)
-            .map_err(|err| format!("Failed to write image to key {key}: {err}"))?;
+            .map_err(|err| format!("Failed to write image to button {key}: {err}"))?;
 
         bytes_remaining -= this_length;
         page_number += 1;

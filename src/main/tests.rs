@@ -302,7 +302,7 @@ fn parse_config_rejects_empty_key_list() {
     let raw = r#"
             keys = []
         "#;
-    let err = parse_config(Path::new("test.toml"), raw).expect_err("empty key list should fail");
+    let err = parse_config(Path::new("test.toml"), raw).expect_err("empty button list should fail");
     assert!(err.contains("has no keys"));
 }
 

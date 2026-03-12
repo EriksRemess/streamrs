@@ -12,36 +12,243 @@ fn fallback_non_blank_profile(profiles: &[String]) -> Option<String> {
 }
 
 fn choose_startup_profile(profiles: &[String], current_profile: Option<String>) -> String {
+    if let Some(current_profile) = current_profile {
+        if current_profile != BLANK_PROFILE {
+            return current_profile;
+        }
+        if profiles.is_empty() {
+            return BLANK_PROFILE.to_string();
+        }
+    }
+
     if profiles.is_empty() {
         return BLANK_PROFILE.to_string();
     }
 
-    if let Some(current_profile) = current_profile
-        && profiles.iter().any(|profile| profile == &current_profile)
-    {
-        return current_profile;
-    }
-
     fallback_non_blank_profile(profiles).unwrap_or_else(|| BLANK_PROFILE.to_string())
+}
+
+fn startup_profile_names(
+    mut discovered_profiles: Vec<String>,
+    startup_profile: &str,
+) -> Vec<String> {
+    if startup_profile != BLANK_PROFILE
+        && !discovered_profiles
+            .iter()
+            .any(|profile| profile == startup_profile)
+    {
+        discovered_profiles.push(startup_profile.to_string());
+    }
+    discovered_profiles.sort_unstable();
+    discovered_profiles.dedup();
+    discovered_profiles
+}
+
+fn open_uri(uri: &str) {
+    if let Err(err) =
+        gtk::gio::AppInfo::launch_default_for_uri(uri, None::<&gtk::gio::AppLaunchContext>)
+    {
+        eprintln!("Failed to open URI '{uri}': {err}");
+    }
+}
+
+fn about_link_row(
+    label: &str,
+    trailing_icon_path: &Path,
+    fallback_icon_name: &str,
+    trailing_class: &str,
+) -> Button {
+    let button = Button::new();
+    button.add_css_class("about-link-row");
+    button.set_hexpand(true);
+    button.set_halign(Align::Fill);
+
+    let row = GtkBox::new(Orientation::Horizontal, 10);
+    row.set_hexpand(true);
+
+    let text = Label::new(Some(label));
+    text.add_css_class("about-link-label");
+    text.set_halign(Align::Start);
+    text.set_hexpand(true);
+    text.set_xalign(0.0);
+
+    let icon = if trailing_icon_path.is_file() {
+        Image::from_file(trailing_icon_path)
+    } else {
+        Image::from_icon_name(fallback_icon_name)
+    };
+    icon.add_css_class("about-link-icon");
+    icon.add_css_class(trailing_class);
+    icon.set_halign(Align::End);
+
+    row.append(&text);
+    row.append(&icon);
+    button.set_child(Some(&row));
+    button
+}
+
+fn present_about_sheet(
+    parent: &ApplicationWindow,
+    app_icon_path: &Path,
+    about_external_icon_path: &Path,
+    about_chevron_icon_path: &Path,
+) {
+    let dialog = gtk::Dialog::builder()
+        .transient_for(parent)
+        .modal(true)
+        .resizable(false)
+        .decorated(false)
+        .build();
+    dialog.add_css_class("about-sheet");
+    dialog.set_default_size(360, 590);
+
+    let content = dialog.content_area();
+    content.set_spacing(14);
+    content.set_margin_top(14);
+    content.set_margin_bottom(14);
+    content.set_margin_start(14);
+    content.set_margin_end(14);
+
+    let close_row = GtkBox::new(Orientation::Horizontal, 0);
+    let close_spacer = GtkBox::new(Orientation::Horizontal, 0);
+    close_spacer.set_hexpand(true);
+    let close_button = Button::new();
+    close_button.set_icon_name("window-close-symbolic");
+    close_button.add_css_class("flat");
+    close_button.add_css_class("about-close-button");
+    {
+        let dialog_for_close = dialog.clone();
+        close_button.connect_clicked(move |_| {
+            dialog_for_close.close();
+        });
+    }
+    close_row.append(&close_spacer);
+    close_row.append(&close_button);
+
+    let hero = GtkBox::new(Orientation::Vertical, 4);
+    hero.set_halign(Align::Center);
+    hero.add_css_class("about-hero");
+    let logo = if app_icon_path.is_file() {
+        Image::from_file(app_icon_path)
+    } else {
+        Image::from_icon_name("lv.apps.streamrs")
+    };
+    logo.set_pixel_size(112);
+    logo.add_css_class("about-logo");
+    let title = Label::new(Some("streamrs"));
+    title.add_css_class("about-title");
+    let subtitle = Label::new(Some("Stream Deck toolkit"));
+    subtitle.add_css_class("about-subtitle");
+    let version_value = env!("CARGO_PKG_VERSION");
+    let version = Button::with_label(version_value);
+    version.add_css_class("about-version-pill");
+    version.set_halign(Align::Center);
+    version.set_tooltip_text(Some("Click to copy version"));
+    {
+        let version_for_feedback = version.clone();
+        version.connect_clicked(move |_| {
+            if let Some(display) = gtk::gdk::Display::default() {
+                display.clipboard().set_text(version_value);
+                version_for_feedback.set_tooltip_text(Some("Copied"));
+            }
+        });
+    }
+    hero.append(&logo);
+    hero.append(&title);
+    hero.append(&subtitle);
+    hero.append(&version);
+
+    let links = GtkBox::new(Orientation::Vertical, UI_SPACING_HORIZONTAL);
+    links.add_css_class("about-links");
+
+    let website = about_link_row(
+        "Website",
+        about_external_icon_path,
+        "external-link-symbolic",
+        "about-link-icon-external",
+    );
+    website.connect_clicked(|_| {
+        open_uri("https://github.com/EriksRemess/streamrs");
+    });
+
+    let issues = about_link_row(
+        "Report a Problem",
+        about_external_icon_path,
+        "external-link-symbolic",
+        "about-link-icon-external",
+    );
+    issues.connect_clicked(|_| {
+        open_uri("https://github.com/EriksRemess/streamrs/issues");
+    });
+
+    let info_group = GtkBox::new(Orientation::Vertical, 0);
+    info_group.add_css_class("about-link-group");
+
+    let authors = about_link_row(
+        "Authors",
+        about_chevron_icon_path,
+        "go-next-symbolic",
+        "about-link-icon-chevron",
+    );
+    authors.add_css_class("about-link-row-grouped");
+    authors.add_css_class("about-link-row-group-top");
+    authors.connect_clicked(|_| {
+        open_uri("https://github.com/EriksRemess/streamrs/graphs/contributors");
+    });
+
+    let group_divider = gtk::Separator::new(Orientation::Horizontal);
+    group_divider.add_css_class("about-link-group-separator");
+
+    let legal = about_link_row(
+        "Legal",
+        about_chevron_icon_path,
+        "go-next-symbolic",
+        "about-link-icon-chevron",
+    );
+    legal.add_css_class("about-link-row-grouped");
+    legal.add_css_class("about-link-row-group-bottom");
+    legal.connect_clicked(|_| {
+        open_uri("https://github.com/EriksRemess/streamrs/blob/main/LICENSE");
+    });
+
+    info_group.append(&authors);
+    info_group.append(&group_divider);
+    info_group.append(&legal);
+
+    links.append(&website);
+    links.append(&issues);
+    links.append(&info_group);
+
+    content.append(&close_row);
+    content.append(&hero);
+    content.append(&links);
+
+    dialog.present();
 }
 
 pub(crate) fn build_ui(app: &Application) {
     install_css();
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let profiles = discover_profiles();
-    let startup_current = match load_current_profile() {
-        Ok(profile) => profile,
+    let discovered_profiles = discover_profiles();
+    let (startup_current, should_save_startup_profile) = match load_current_profile() {
+        Ok(profile) => {
+            let should_save = profile.is_none();
+            (profile, should_save)
+        }
         Err(err) => {
             eprintln!("{err}");
-            None
+            (None, false)
         }
     };
-    let default_profile = choose_startup_profile(&profiles, startup_current);
+    let default_profile = choose_startup_profile(&discovered_profiles, startup_current);
+    let profiles = startup_profile_names(discovered_profiles, &default_profile);
     let default_config_path = default_config_path_for_profile(&default_profile);
     let (writable_image_dir, image_dirs) = image_paths_for_profile(&default_profile);
     let deck_image_path = manifest_dir.join("scripts").join("streamdeck.svg");
     let app_icon_path = manifest_dir.join("config").join("lv.apps.streamrs.png");
+    let about_external_icon_path = manifest_dir.join("config").join("about-external-link.svg");
+    let about_chevron_icon_path = manifest_dir.join("config").join("about-chevron-right.svg");
 
     let catalog_dirs = image_dirs.clone();
     let icons = discover_icons(&catalog_dirs);
@@ -59,7 +266,7 @@ pub(crate) fn build_ui(app: &Application) {
             }
         }
     };
-    if let Err(err) = save_current_profile(&default_profile) {
+    if should_save_startup_profile && let Err(err) = save_current_profile(&default_profile) {
         eprintln!("{err}");
     }
     if default_profile == BLANK_PROFILE
@@ -200,7 +407,7 @@ pub(crate) fn build_ui(app: &Application) {
     for (index, slot) in slots.iter().copied().enumerate().take(KEY_COUNT) {
         let button = Button::new();
         button.add_css_class("key-button");
-        button.set_tooltip_text(Some(&format!("Key {}", index + 1)));
+        button.set_tooltip_text(Some(&format!("Button {}", index + 1)));
 
         let width = (slot.x1 - slot.x0) as i32;
         let height = (slot.y1 - slot.y0) as i32;
@@ -307,6 +514,7 @@ pub(crate) fn build_ui(app: &Application) {
     icon_dropdown.add_css_class("streamrs-field");
     let icon_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     icon_row.set_hexpand(true);
+    icon_row.add_css_class("icon-row");
     icon_row.append(&icon_dropdown);
     icon_row.append(&add_icon_button);
 
@@ -372,7 +580,7 @@ pub(crate) fn build_ui(app: &Application) {
     apply_button.add_css_class("apply-button");
     apply_button.set_hexpand(false);
     let clear_button = Button::with_label("Delete");
-    clear_button.set_tooltip_text(Some("Delete selected key configuration"));
+    clear_button.set_tooltip_text(Some("Delete selected button configuration"));
     clear_button.add_css_class("action-button");
     clear_button.add_css_class("clear-button");
     clear_button.set_hexpand(false);
@@ -411,6 +619,33 @@ pub(crate) fn build_ui(app: &Application) {
     header_bar.add_css_class("flat");
     header_bar.add_css_class("window-titlebar");
     header_bar.set_show_end_title_buttons(true);
+
+    let window_menu = gtk::gio::Menu::new();
+    window_menu.append(Some("About streamrs"), Some("win.show-about"));
+
+    let menu_button = gtk::MenuButton::new();
+    menu_button.set_icon_name("open-menu-symbolic");
+    menu_button.set_tooltip_text(Some("Menu"));
+    menu_button.set_menu_model(Some(&window_menu));
+    menu_button.add_css_class("flat");
+
+    let about_action = gtk::gio::SimpleAction::new("show-about", None);
+    {
+        let window_for_about = window.clone();
+        let app_icon_path_for_about = app_icon_path.clone();
+        let about_external_icon_path_for_about = about_external_icon_path.clone();
+        let about_chevron_icon_path_for_about = about_chevron_icon_path.clone();
+        about_action.connect_activate(move |_, _| {
+            present_about_sheet(
+                &window_for_about,
+                &app_icon_path_for_about,
+                &about_external_icon_path_for_about,
+                &about_chevron_icon_path_for_about,
+            );
+        });
+    }
+    window.add_action(&about_action);
+
     let title_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     title_row.set_halign(Align::Start);
     let title_icon = if app_icon_path.is_file() {
@@ -436,6 +671,7 @@ pub(crate) fn build_ui(app: &Application) {
 
     header_bar.pack_start(&title_row);
     header_bar.set_title_widget(Some(&profile_controls));
+    header_bar.pack_end(&menu_button);
     let status_bar = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     status_bar.add_css_class("status-bar");
     status_line.set_hexpand(true);
@@ -523,5 +759,19 @@ mod tests {
         let profiles = Vec::new();
         let selected = choose_startup_profile(&profiles, Some(BLANK_PROFILE.to_string()));
         assert_eq!(selected, BLANK_PROFILE);
+    }
+
+    #[test]
+    fn choose_startup_profile_keeps_non_blank_when_not_discovered() {
+        let profiles = vec!["default".to_string()];
+        let selected = choose_startup_profile(&profiles, Some("work".to_string()));
+        assert_eq!(selected, "work");
+    }
+
+    #[test]
+    fn startup_profile_names_includes_selected_non_blank_profile() {
+        let discovered = vec!["default".to_string()];
+        let names = startup_profile_names(discovered, "work");
+        assert_eq!(names, vec!["default".to_string(), "work".to_string()]);
     }
 }

@@ -154,3 +154,7 @@ Developer-focused setup, source builds, packaging, maintainer notes, and contrib
 ## Credits
 
 - Icon pack source: https://marketplace.elgato.com/product/hexaza-3d4ed1dc-bf33-4f30-9ecd-201769f10c0d
+
+## License
+
+MIT. See [LICENSE](LICENSE).

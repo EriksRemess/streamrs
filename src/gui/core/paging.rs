@@ -176,7 +176,7 @@ mod tests {
         let config = config_with_keys(36);
         for key_index in 0..config.keys.len() {
             let (page, slot) = locate_key_slot(&config, key_index)
-                .unwrap_or_else(|| panic!("missing slot for key index {key_index}"));
+                .unwrap_or_else(|| panic!("missing slot for button index {key_index}"));
             assert_eq!(key_index_for_slot(&config, page, slot), Some(key_index));
         }
         assert_eq!(locate_key_slot(&config, config.keys.len() + 1), None);
@@ -205,7 +205,7 @@ mod tests {
         assert_eq!(
             config.keys.len(),
             1,
-            "normalization must preserve actual key list length"
+            "normalization must preserve actual button list length"
         );
     }
 }

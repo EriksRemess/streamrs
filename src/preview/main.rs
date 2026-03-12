@@ -247,7 +247,7 @@ fn detect_key_slots(base: &RgbaImage, use_scaled_thresholds: bool) -> Result<Vec
     }
 
     if slots.len() != 15 {
-        return Err(format!("Expected 15 key slots, found {}", slots.len()));
+        return Err(format!("Expected 15 buttons, found {}", slots.len()));
     }
     slots.sort_by(|a, b| {
         let ar = (a.cy / 40.0).round();

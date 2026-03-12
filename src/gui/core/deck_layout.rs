@@ -117,7 +117,7 @@ pub(crate) fn detect_key_slots(base: &RgbaImage) -> Result<Vec<KeySlot>, String>
     }
 
     if slots.len() != KEY_COUNT {
-        return Err(format!("Expected 15 key slots, found {}", slots.len()));
+        return Err(format!("Expected 15 buttons, found {}", slots.len()));
     }
 
     slots.sort_by(|left, right| {
@@ -222,7 +222,7 @@ pub(crate) fn key_slots_for_deck(deck_svg_path: &Path) -> Vec<KeySlot> {
     let rendered = match rendered {
         Ok(image) => image,
         Err(err) => {
-            eprintln!("{err}; using fallback key layout");
+            eprintln!("{err}; using fallback button layout");
             return fallback_slots(PREVIEW_WIDTH, PREVIEW_HEIGHT);
         }
     };
@@ -230,7 +230,7 @@ pub(crate) fn key_slots_for_deck(deck_svg_path: &Path) -> Vec<KeySlot> {
     let template_slots = match detect_key_slots(&rendered) {
         Ok(slots) => slots,
         Err(err) => {
-            eprintln!("{err}; using fallback key layout");
+            eprintln!("{err}; using fallback button layout");
             return fallback_slots(PREVIEW_WIDTH, PREVIEW_HEIGHT);
         }
     };

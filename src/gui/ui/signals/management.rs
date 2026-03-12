@@ -82,6 +82,7 @@ fn load_profile_into_ui(
 ) -> Result<PathBuf, String> {
     let path = default_config_path_for_profile(profile);
     let config = load_config(&path)?;
+    let profile_changed = state.borrow().profile != profile;
     {
         let mut state = state.borrow_mut();
         update_state_profile_paths(&mut state, &path);
@@ -90,7 +91,15 @@ fn load_profile_into_ui(
     current_page.set(0);
     selected_key.set(0);
 
-    save_current_profile(profile)?;
+    let save_result = if profile_changed {
+        save_current_profile(profile).map(|_| true)
+    } else {
+        save_current_profile_if_missing(profile)
+    };
+    if let Err(err) = save_result {
+        eprintln!("{err}");
+        return Err(err);
+    }
     if let Err(err) = signal_daemon_reload() {
         eprintln!("{err}");
     }

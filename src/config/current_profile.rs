@@ -1,11 +1,48 @@
 use crate::paths::{current_profile_path, default_config_path_for_profile};
 use std::fs;
+use std::io::Write;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_PROFILE: &str = "default";
 pub const BLANK_PROFILE: &str = "blank";
 
 fn is_discoverable_profile_name(profile: &str) -> bool {
     profile != BLANK_PROFILE && normalize_profile_name(profile).is_some()
+}
+
+fn normalize_current_profile_candidate(raw: &str) -> Option<String> {
+    let mut candidate = raw.trim();
+    if let Some((key, value)) = candidate.split_once('=')
+        && key.trim().eq_ignore_ascii_case("profile")
+    {
+        candidate = value.trim();
+    }
+    candidate = candidate.trim_matches(|ch| ch == '"' || ch == '\'');
+    normalize_profile_name(candidate)
+}
+
+fn parse_current_profile_contents(raw: &str) -> Result<Option<String>, String> {
+    let mut first_invalid = None::<String>;
+    for line in raw.lines() {
+        let mut candidate = line.trim();
+        if candidate.is_empty() || candidate.starts_with('#') {
+            continue;
+        }
+        candidate = candidate.trim_start_matches('\u{feff}').trim_start();
+        if candidate.is_empty() || candidate.starts_with('#') {
+            continue;
+        }
+        if let Some(profile) = normalize_current_profile_candidate(candidate) {
+            return Ok(Some(profile));
+        }
+        if first_invalid.is_none() {
+            first_invalid = Some(candidate.to_string());
+        }
+    }
+    if let Some(invalid) = first_invalid {
+        return Err(invalid);
+    }
+    Ok(None)
 }
 
 pub fn normalize_profile_name(raw: &str) -> Option<String> {
@@ -102,17 +139,14 @@ pub fn load_current_profile() -> Result<Option<String>, String> {
     if !path.is_file() {
         return Ok(None);
     }
-    let raw = fs::read_to_string(&path)
+    let bytes = fs::read(&path)
         .map_err(|err| format!("Failed to read current profile '{}': {err}", path.display()))?;
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Ok(None);
-    }
-    normalize_profile_name(trimmed).map(Some).ok_or_else(|| {
+    let raw = String::from_utf8_lossy(&bytes);
+    parse_current_profile_contents(&raw).map_err(|invalid| {
         format!(
             "Current profile file '{}' contains invalid profile '{}'",
             path.display(),
-            trimmed
+            invalid
         )
     })
 }
@@ -129,12 +163,54 @@ pub fn save_current_profile(profile: &str) -> Result<(), String> {
             )
         })?;
     }
-    fs::write(&path, format!("{profile}\n")).map_err(|err| {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("current_profile");
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let tmp_path = path.with_file_name(format!(".{file_name}.tmp-{}-{unique}", std::process::id()));
+    let data = format!("{profile}\n");
+
+    let mut file = fs::File::create(&tmp_path).map_err(|err| {
+        format!(
+            "Failed to create temporary current profile '{}': {err}",
+            tmp_path.display()
+        )
+    })?;
+    file.write_all(data.as_bytes()).map_err(|err| {
+        format!(
+            "Failed to write temporary current profile '{}': {err}",
+            tmp_path.display()
+        )
+    })?;
+    file.sync_all().map_err(|err| {
+        format!(
+            "Failed to sync temporary current profile '{}': {err}",
+            tmp_path.display()
+        )
+    })?;
+
+    fs::rename(&tmp_path, &path).map_err(|err| {
+        let _ = fs::remove_file(&tmp_path);
         format!(
             "Failed to write current profile '{}': {err}",
             path.display()
         )
     })
+}
+
+pub fn save_current_profile_if_missing(profile: &str) -> Result<bool, String> {
+    match load_current_profile() {
+        Ok(Some(_)) => Ok(false),
+        Ok(None) => {
+            save_current_profile(profile)?;
+            Ok(true)
+        }
+        Err(err) => Err(err),
+    }
 }
 
 #[cfg(test)]
@@ -234,6 +310,36 @@ mod tests {
     }
 
     #[test]
+    fn load_current_profile_accepts_profile_assignment_line() {
+        with_temp_xdg_config_home("profile-assignment", || {
+            let path = current_profile_path();
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("current profile dir should be created");
+            }
+            fs::write(&path, "profile = \"test_profile\"\n")
+                .expect("assignment fixture should be written");
+
+            let loaded = load_current_profile().expect("profile assignment should load");
+            assert_eq!(loaded.as_deref(), Some("test_profile"));
+        });
+    }
+
+    #[test]
+    fn load_current_profile_ignores_comments_and_blank_lines() {
+        with_temp_xdg_config_home("comments-and-blanks", || {
+            let path = current_profile_path();
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("current profile dir should be created");
+            }
+            fs::write(&path, "\n# selected profile\n\nwork_setup\n")
+                .expect("comment fixture should be written");
+
+            let loaded = load_current_profile().expect("commented profile should load");
+            assert_eq!(loaded.as_deref(), Some("work_setup"));
+        });
+    }
+
+    #[test]
     fn profile_slug_from_input_accepts_spaces() {
         assert_eq!(
             profile_slug_from_input("My Profile").as_deref(),
@@ -250,5 +356,24 @@ mod tests {
         assert_eq!(profile_display_name("my-profile"), "My Profile");
         assert_eq!(profile_display_name("work_setup"), "Work Setup");
         assert_eq!(profile_display_name("work"), "Work");
+    }
+
+    #[test]
+    fn save_current_profile_if_missing_writes_once() {
+        with_temp_xdg_config_home("save-if-missing", || {
+            let wrote = save_current_profile_if_missing("test_profile")
+                .expect("missing current profile should be created");
+            assert!(wrote, "first write should persist profile");
+
+            let wrote_again = save_current_profile_if_missing("default")
+                .expect("existing current profile should not be overwritten");
+            assert!(
+                !wrote_again,
+                "existing current profile should remain unchanged"
+            );
+
+            let loaded = load_current_profile().expect("current profile should load");
+            assert_eq!(loaded.as_deref(), Some("test_profile"));
+        });
     }
 }

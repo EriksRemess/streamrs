@@ -2,7 +2,8 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use streamrs::config::current_profile::{
-    BLANK_PROFILE, DEFAULT_PROFILE, discover_profiles, load_current_profile, save_current_profile,
+    BLANK_PROFILE, DEFAULT_PROFILE, discover_profiles, load_current_profile,
+    save_current_profile_if_missing,
 };
 use streamrs::config::streamrs_schema::blank_profile_config;
 
@@ -83,6 +84,13 @@ fn resolve_default_profile() -> String {
     resolve_default_profile_from(&profiles, load_current_profile())
 }
 
+fn save_current_profile_with_log(profile: &str, context: &str) {
+    if let Err(err) = save_current_profile_if_missing(profile) {
+        eprintln!("{err}");
+        eprintln!("Failed to persist current profile while {context}");
+    }
+}
+
 fn resolve_default_profile_from(
     profiles: &[String],
     current_profile: Result<Option<String>, String>,
@@ -102,6 +110,13 @@ fn resolve_default_profile_from(
             eprintln!("{err}");
             return BLANK_PROFILE.to_string();
         }
+    }
+
+    if let Some(profile) = profiles
+        .iter()
+        .find(|profile| profile.as_str() != DEFAULT_PROFILE)
+    {
+        return profile.clone();
     }
 
     if let Some(profile) = profiles
@@ -257,7 +272,7 @@ pub(crate) fn initialize_profile(
         images_skipped
     );
 
-    let _ = save_current_profile(profile);
+    save_current_profile_with_log(profile, "initializing profile");
 
     Ok(())
 }
@@ -278,7 +293,7 @@ pub(crate) fn ensure_profile_initialized(
         }
         ensure_profile_images_initialized(profile, image_dir)?;
         streamrs::config::streamrs_profile::save(config_path, &blank_profile_config())?;
-        let _ = save_current_profile(profile);
+        save_current_profile_with_log(profile, "initializing blank profile");
         eprintln!(
             "Initialized blank profile config '{}'",
             config_path.display()
@@ -288,7 +303,7 @@ pub(crate) fn ensure_profile_initialized(
 
     if config_path.exists() {
         ensure_profile_images_initialized(profile, image_dir)?;
-        let _ = save_current_profile(profile);
+        save_current_profile_with_log(profile, "confirming existing profile");
         return Ok(());
     }
 
@@ -297,7 +312,7 @@ pub(crate) fn ensure_profile_initialized(
         config_path.display()
     );
     initialize_profile(profile, config_path, image_dir, false, false)?;
-    let _ = save_current_profile(profile);
+    save_current_profile_with_log(profile, "initializing missing profile config");
     Ok(())
 }
 
@@ -403,6 +418,16 @@ mod tests {
         assert_eq!(
             resolved, BLANK_PROFILE,
             "invalid current profile should force blank fallback"
+        );
+    }
+
+    #[test]
+    fn resolve_default_profile_prefers_non_default_when_current_is_missing() {
+        let profiles = vec!["default".to_string(), "main-profile".to_string()];
+        let resolved = resolve_default_profile_from(&profiles, Ok(None));
+        assert_eq!(
+            resolved, "main-profile",
+            "missing current profile should prefer an existing non-default profile"
         );
     }
 }

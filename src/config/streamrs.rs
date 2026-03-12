@@ -9,9 +9,7 @@ pub(crate) fn read_config_file(path: &Path) -> Result<String, String> {
     streamrs::config::toml::read_to_string(path)
 }
 
-pub(crate) fn parse_config(path: &Path, raw: &str) -> Result<Config, String> {
-    let config: Config = streamrs::config::toml::parse_from_str(path, raw)?;
-
+fn validate_config(path: &Path, config: &Config) -> Result<(), String> {
     if config.keys.is_empty() {
         return Err(format!("Config '{}' has no keys", path.display()));
     }
@@ -24,7 +22,19 @@ pub(crate) fn parse_config(path: &Path, raw: &str) -> Result<Config, String> {
             KEY_COUNT
         ));
     }
+    Ok(())
+}
 
+pub(crate) fn load_config(path: &Path, profile: &str) -> Result<Config, String> {
+    let config = streamrs::config::streamrs_profile::load_config_for_profile(path, profile)?;
+    validate_config(path, &config)?;
+    Ok(config)
+}
+
+#[cfg(test)]
+pub(crate) fn parse_config(path: &Path, raw: &str) -> Result<Config, String> {
+    let config: Config = streamrs::config::toml::parse_from_str(path, raw)?;
+    validate_config(path, &config)?;
     Ok(config)
 }
 

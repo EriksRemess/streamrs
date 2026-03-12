@@ -72,8 +72,16 @@ pub(crate) fn wire_primary_action_signals(
                     };
                     let config_path = if let Some(profile) = selected_profile {
                         let path = default_config_path_for_profile(&profile);
+                        let profile_changed = state.profile != profile;
                         update_state_profile_paths(&mut state, &path);
-                        let _ = save_current_profile(&profile);
+                        let save_result = if profile_changed {
+                            save_current_profile(&profile).map(|_| true)
+                        } else {
+                            save_current_profile_if_missing(&profile)
+                        };
+                        if let Err(err) = save_result {
+                            eprintln!("{err}");
+                        }
                         path
                     } else {
                         state.config_path.clone()
@@ -91,7 +99,7 @@ pub(crate) fn wire_primary_action_signals(
                             eprintln!("{err}");
                         }
                         key_index
-                            .map(|index| format!("Saved key {index}"))
+                            .map(|index| format!("Saved button {index}"))
                             .unwrap_or_else(|| "Saved changes".to_string())
                     }
                     Err(err) => format!("Save failed: {err}"),

@@ -33,10 +33,14 @@ fn first_readable_dir(candidates: &[PathBuf]) -> Option<PathBuf> {
 }
 
 fn resolve_default_profile_name() -> String {
-    load_current_profile()
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| DEFAULT_PROFILE.to_string())
+    match load_current_profile() {
+        Ok(Some(profile)) => profile,
+        Ok(None) => DEFAULT_PROFILE.to_string(),
+        Err(err) => {
+            eprintln!("{err}");
+            DEFAULT_PROFILE.to_string()
+        }
+    }
 }
 
 fn default_config_path(profile: &str) -> PathBuf {
