@@ -153,9 +153,23 @@ headerbar.window-titlebar {
     background: alpha(@accent_color, 0.80);
     color: @accent_fg_color;
 }
+.apply-button:hover {
+    background: alpha(@accent_color, 0.92);
+}
+.apply-button:active {
+    background: @accent_color;
+}
 .clear-button {
     background: alpha(#864a66, 0.45);
     color: #ffc1d5;
+}
+.clear-button:hover {
+    background: alpha(#864a66, 0.62);
+    color: #ffd8e5;
+}
+.clear-button:active {
+    background: alpha(#864a66, 0.75);
+    color: #ffe4ec;
 }
 .about-sheet {
     background: @window_bg_color;
