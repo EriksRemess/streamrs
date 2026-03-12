@@ -3,6 +3,9 @@ use crate::gui::*;
 mod signal_wiring;
 use signal_wiring::wire_ui_handlers_and_present;
 
+const ABOUT_EXTERNAL_LINK_SVG: &[u8] = include_bytes!("../../config/about-external-link.svg");
+const ABOUT_CHEVRON_RIGHT_SVG: &[u8] = include_bytes!("../../config/about-chevron-right.svg");
+
 fn fallback_non_blank_profile(profiles: &[String]) -> Option<String> {
     profiles
         .iter()
@@ -52,10 +55,20 @@ fn open_uri(uri: &str) {
     }
 }
 
+fn about_icon_from_embedded_svg(svg: &'static [u8]) -> Option<Image> {
+    let loader = gtk::gdk_pixbuf::PixbufLoader::with_type("svg").ok()?;
+    loader.write(svg).ok()?;
+    loader.close().ok()?;
+    let pixbuf = loader.pixbuf()?;
+    let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+    Some(Image::from_paintable(Some(&texture)))
+}
+
 fn about_link_row(
     label: &str,
-    trailing_icon_path: &Path,
-    fallback_icon_name: &str,
+    embedded_svg: &'static [u8],
+    icon_name: &str,
+    fallback_glyph: &str,
     trailing_class: &str,
 ) -> Button {
     let button = Button::new();
@@ -72,27 +85,35 @@ fn about_link_row(
     text.set_hexpand(true);
     text.set_xalign(0.0);
 
-    let icon = if trailing_icon_path.is_file() {
-        Image::from_file(trailing_icon_path)
-    } else {
-        Image::from_icon_name(fallback_icon_name)
-    };
-    icon.add_css_class("about-link-icon");
-    icon.add_css_class(trailing_class);
-    icon.set_halign(Align::End);
-
     row.append(&text);
-    row.append(&icon);
+    if let Some(icon) = about_icon_from_embedded_svg(embedded_svg) {
+        icon.add_css_class("about-link-icon");
+        icon.add_css_class(trailing_class);
+        icon.set_halign(Align::End);
+        row.append(&icon);
+    } else {
+        let has_icon = gtk::gdk::Display::default()
+            .map(|display| gtk::IconTheme::for_display(&display).has_icon(icon_name))
+            .unwrap_or(false);
+        if has_icon {
+            let icon = Image::from_icon_name(icon_name);
+            icon.add_css_class("about-link-icon");
+            icon.add_css_class(trailing_class);
+            icon.set_halign(Align::End);
+            row.append(&icon);
+        } else {
+            let icon = Label::new(Some(fallback_glyph));
+            icon.add_css_class("about-link-glyph-fallback");
+            icon.add_css_class(trailing_class);
+            icon.set_halign(Align::End);
+            row.append(&icon);
+        }
+    }
     button.set_child(Some(&row));
     button
 }
 
-fn present_about_sheet(
-    parent: &ApplicationWindow,
-    app_icon_path: &Path,
-    about_external_icon_path: &Path,
-    about_chevron_icon_path: &Path,
-) {
+fn present_about_sheet(parent: &ApplicationWindow, app_icon_path: &Path) {
     let dialog = gtk::Dialog::builder()
         .transient_for(parent)
         .modal(true)
@@ -163,8 +184,9 @@ fn present_about_sheet(
 
     let website = about_link_row(
         "Website",
-        about_external_icon_path,
+        ABOUT_EXTERNAL_LINK_SVG,
         "external-link-symbolic",
+        "↗",
         "about-link-icon-external",
     );
     website.connect_clicked(|_| {
@@ -173,8 +195,9 @@ fn present_about_sheet(
 
     let issues = about_link_row(
         "Report a Problem",
-        about_external_icon_path,
+        ABOUT_EXTERNAL_LINK_SVG,
         "external-link-symbolic",
+        "↗",
         "about-link-icon-external",
     );
     issues.connect_clicked(|_| {
@@ -186,8 +209,9 @@ fn present_about_sheet(
 
     let authors = about_link_row(
         "Authors",
-        about_chevron_icon_path,
+        ABOUT_CHEVRON_RIGHT_SVG,
         "go-next-symbolic",
+        "›",
         "about-link-icon-chevron",
     );
     authors.add_css_class("about-link-row-grouped");
@@ -201,8 +225,9 @@ fn present_about_sheet(
 
     let legal = about_link_row(
         "Legal",
-        about_chevron_icon_path,
+        ABOUT_CHEVRON_RIGHT_SVG,
         "go-next-symbolic",
+        "›",
         "about-link-icon-chevron",
     );
     legal.add_css_class("about-link-row-grouped");
@@ -227,6 +252,11 @@ fn present_about_sheet(
 }
 
 pub(crate) fn build_ui(app: &Application) {
+    if let Some(existing_window) = app.windows().first() {
+        existing_window.present();
+        return;
+    }
+
     install_css();
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -247,8 +277,6 @@ pub(crate) fn build_ui(app: &Application) {
     let (writable_image_dir, image_dirs) = image_paths_for_profile(&default_profile);
     let deck_image_path = manifest_dir.join("scripts").join("streamdeck.svg");
     let app_icon_path = manifest_dir.join("config").join("lv.apps.streamrs.png");
-    let about_external_icon_path = manifest_dir.join("config").join("about-external-link.svg");
-    let about_chevron_icon_path = manifest_dir.join("config").join("about-chevron-right.svg");
 
     let catalog_dirs = image_dirs.clone();
     let icons = discover_icons(&catalog_dirs);
@@ -633,15 +661,8 @@ pub(crate) fn build_ui(app: &Application) {
     {
         let window_for_about = window.clone();
         let app_icon_path_for_about = app_icon_path.clone();
-        let about_external_icon_path_for_about = about_external_icon_path.clone();
-        let about_chevron_icon_path_for_about = about_chevron_icon_path.clone();
         about_action.connect_activate(move |_, _| {
-            present_about_sheet(
-                &window_for_about,
-                &app_icon_path_for_about,
-                &about_external_icon_path_for_about,
-                &about_chevron_icon_path_for_about,
-            );
+            present_about_sheet(&window_for_about, &app_icon_path_for_about);
         });
     }
     window.add_action(&about_action);

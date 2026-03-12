@@ -252,7 +252,17 @@ headerbar.window-titlebar {
     min-width: 20px;
     min-height: 20px;
 }
+.about-link-glyph-fallback {
+    opacity: 0.86;
+    min-width: 20px;
+    min-height: 20px;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
 .about-link-row:hover .about-link-icon {
+    opacity: 1.0;
+}
+.about-link-row:hover .about-link-glyph-fallback {
     opacity: 1.0;
 }
 .about-link-icon-external {
