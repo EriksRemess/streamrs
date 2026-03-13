@@ -57,6 +57,8 @@ pub struct StreamrsConfig {
 pub struct StreamrsKeyBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shortcut: Option<String>,
     #[serde(default = "default_icon_name")]
     pub icon: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -75,6 +77,7 @@ impl Default for StreamrsKeyBinding {
     fn default() -> Self {
         Self {
             action: None,
+            shortcut: None,
             icon: default_icon_name(),
             clock_background: None,
             icon_on: None,

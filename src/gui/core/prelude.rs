@@ -80,7 +80,11 @@ pub(crate) struct EditorWidgets {
     pub(crate) profile_dropdown: DropDown,
     pub(crate) profile_names: Rc<RefCell<Vec<String>>>,
     pub(crate) selected_label: Label,
+    pub(crate) action_type_dropdown: DropDown,
+    pub(crate) action_label: Label,
     pub(crate) action_entry: Entry,
+    pub(crate) shortcut_label: Label,
+    pub(crate) shortcut_entry: Entry,
     pub(crate) icon_kind_dropdown: DropDown,
     pub(crate) icon_label: Label,
     pub(crate) icon_row: GtkBox,
@@ -118,6 +122,13 @@ pub(crate) enum EditorMode {
     Status,
     Clock,
     Calendar,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ActionMode {
+    None,
+    Launch,
+    KeyboardShortcut,
 }
 
 pub(crate) fn resolve_image_dirs(profile: &str, writable_dir: &Path) -> Vec<PathBuf> {

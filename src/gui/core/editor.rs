@@ -119,6 +119,28 @@ pub(crate) fn editor_mode_from_index(selected: u32) -> EditorMode {
     }
 }
 
+pub(crate) fn action_mode(widgets: &EditorWidgets) -> ActionMode {
+    action_mode_from_index(widgets.action_type_dropdown.selected())
+}
+
+pub(crate) fn action_mode_from_index(selected: u32) -> ActionMode {
+    match selected {
+        1 => ActionMode::Launch,
+        2 => ActionMode::KeyboardShortcut,
+        _ => ActionMode::None,
+    }
+}
+
+pub(crate) fn set_action_mode_visibility(widgets: &EditorWidgets, mode: ActionMode) {
+    let is_launch = mode == ActionMode::Launch;
+    let is_shortcut = mode == ActionMode::KeyboardShortcut;
+
+    widgets.action_label.set_visible(is_launch);
+    widgets.action_entry.set_visible(is_launch);
+    widgets.shortcut_label.set_visible(is_shortcut);
+    widgets.shortcut_entry.set_visible(is_shortcut);
+}
+
 pub(crate) fn set_editor_mode_visibility(widgets: &EditorWidgets, mode: EditorMode) {
     let is_regular = mode == EditorMode::Regular;
     let is_status = mode == EditorMode::Status;
@@ -140,7 +162,9 @@ pub(crate) fn set_editor_mode_visibility(widgets: &EditorWidgets, mode: EditorMo
 }
 
 pub(crate) fn set_editor_controls_sensitive(widgets: &EditorWidgets, enabled: bool) {
+    widgets.action_type_dropdown.set_sensitive(enabled);
     widgets.action_entry.set_sensitive(enabled);
+    widgets.shortcut_entry.set_sensitive(enabled);
     widgets.icon_kind_dropdown.set_sensitive(enabled);
     widgets.icon_row.set_sensitive(enabled);
     widgets.clock_background_dropdown.set_sensitive(enabled);
@@ -227,9 +251,35 @@ pub(crate) fn populate_editor(
             "Editing {ordinal} button",
             &[("ordinal", tr_ordinal(key_index + 1))],
         ));
+        let action_mode = if key
+            .shortcut
+            .as_deref()
+            .is_some_and(|shortcut| !shortcut.trim().is_empty())
+        {
+            ActionMode::KeyboardShortcut
+        } else if key
+            .action
+            .as_deref()
+            .is_some_and(|action| !action.trim().is_empty())
+        {
+            ActionMode::Launch
+        } else {
+            ActionMode::None
+        };
+        widgets
+            .action_type_dropdown
+            .set_selected(match action_mode {
+                ActionMode::None => 0,
+                ActionMode::Launch => 1,
+                ActionMode::KeyboardShortcut => 2,
+            });
+        set_action_mode_visibility(widgets, action_mode);
         widgets
             .action_entry
             .set_text(key.action.as_deref().unwrap_or_default());
+        widgets
+            .shortcut_entry
+            .set_text(key.shortcut.as_deref().unwrap_or_default());
 
         let mode = if icon_is_clock(&key.icon) {
             EditorMode::Clock
@@ -327,7 +377,10 @@ pub(crate) fn populate_editor(
             }
         };
         widgets.selected_label.set_text(&label);
+        widgets.action_type_dropdown.set_selected(0);
+        set_action_mode_visibility(widgets, ActionMode::None);
         widgets.action_entry.set_text("");
+        widgets.shortcut_entry.set_text("");
         widgets.status_entry.set_text("");
         widgets
             .interval_spin
@@ -355,7 +408,10 @@ pub(crate) fn populate_editor(
         ));
     } else {
         widgets.selected_label.set_text(&tr("Reserved slot"));
+        widgets.action_type_dropdown.set_selected(0);
+        set_action_mode_visibility(widgets, ActionMode::None);
         widgets.action_entry.set_text("");
+        widgets.shortcut_entry.set_text("");
         widgets.status_entry.set_text("");
         widgets
             .interval_spin
@@ -412,7 +468,9 @@ pub(crate) fn apply_editor_to_selected_key(
     icon_names: &[String],
     clock_backgrounds: &[String],
 ) -> bool {
-    let action = trimmed_or_none(widgets.action_entry.text().as_str());
+    let launch_action = trimmed_or_none(widgets.action_entry.text().as_str());
+    let shortcut = trimmed_or_none(widgets.shortcut_entry.text().as_str());
+    let action_mode = action_mode(widgets);
     let mode = editor_mode(widgets);
     let regular_icon = dropdown_selected_icon(&widgets.icon_dropdown, icon_names);
     let status = trimmed_or_none(widgets.status_entry.text().as_str());
@@ -434,7 +492,20 @@ pub(crate) fn apply_editor_to_selected_key(
         };
 
         let key = &mut state.config.keys[key_index];
-        key.action = action;
+        match action_mode {
+            ActionMode::None => {
+                key.action = None;
+                key.shortcut = None;
+            }
+            ActionMode::Launch => {
+                key.action = launch_action;
+                key.shortcut = None;
+            }
+            ActionMode::KeyboardShortcut => {
+                key.action = None;
+                key.shortcut = shortcut;
+            }
+        }
         match mode {
             EditorMode::Blank => {
                 key.icon = CLOCK_BACKGROUND_ICON.to_string();

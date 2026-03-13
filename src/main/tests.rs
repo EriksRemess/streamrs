@@ -26,6 +26,7 @@ fn write_test_png(path: &Path, rgba: [u8; 4]) {
 fn test_key(icon: &str) -> KeyBinding {
     KeyBinding {
         action: None,
+        shortcut: None,
         icon: icon.to_string(),
         clock_background: None,
         icon_on: None,
@@ -250,6 +251,23 @@ fn blank_action_is_treated_as_noop() {
 }
 
 #[test]
+fn shortcut_config_is_parsed_as_keyboard_action() {
+    let raw = r#"
+            [[keys]]
+            shortcut = "Ctrl+Shift+T"
+            icon = "blank.png"
+        "#;
+    let config =
+        parse_config(Path::new("test.toml"), raw).expect("config with shortcut should parse");
+    assert_eq!(
+        key_configured_action(&config.keys[0]),
+        Some(ConfiguredAction::KeyboardShortcut(
+            "Ctrl+Shift+T".to_string()
+        ))
+    );
+}
+
+#[test]
 fn blank_icon_family_renders_black_key_image() {
     let loaded = load_key_image(Path::new("/tmp/streamrs-unused"), "blank_3.png", None)
         .expect("blank icon alias should render as black image");
@@ -347,6 +365,7 @@ fn image_cache_warming_includes_status_and_navigation_icons() {
     for _ in 0..15 {
         keys.push(KeyBinding {
             action: None,
+            shortcut: None,
             icon: "base.png".to_string(),
             clock_background: None,
             icon_on: None,
@@ -357,6 +376,7 @@ fn image_cache_warming_includes_status_and_navigation_icons() {
     }
     keys.push(KeyBinding {
         action: None,
+        shortcut: None,
         icon: "status-default.png".to_string(),
         clock_background: None,
         icon_on: Some("status-on.png".to_string()),
@@ -563,4 +583,31 @@ fn page_layout_plan_treats_launcher_like_status_as_action_when_missing_action() 
         plan.warnings.as_slice(),
         [PagePlanWarning::LauncherLikeStatusWithoutAction { .. }]
     ));
+}
+
+#[test]
+fn page_layout_plan_uses_keyboard_shortcut_action() {
+    let mut key = test_key("default.png");
+    key.shortcut = Some("Ctrl+Shift+T".to_string());
+    let config = test_config_with_keys(vec![key]);
+
+    let plan = plan_page_layout(&config, &StatusCache::new(), 0);
+    assert_eq!(
+        plan.button_actions[0],
+        Some(ButtonAction::KeyboardShortcut("Ctrl+Shift+T".to_string()))
+    );
+}
+
+#[test]
+fn configured_shortcut_takes_precedence_over_launch_command() {
+    let mut key = test_key("default.png");
+    key.action = Some("open https://example.com".to_string());
+    key.shortcut = Some("Ctrl+Shift+T".to_string());
+
+    assert_eq!(
+        key_configured_action(&key),
+        Some(ConfiguredAction::KeyboardShortcut(
+            "Ctrl+Shift+T".to_string()
+        ))
+    );
 }

@@ -33,9 +33,12 @@ mod stream_image;
 #[cfg(test)]
 use config::parse_config;
 use config::{
-    is_launcher_like_command, key_clock_background, key_launch_action, key_status_command,
-    key_status_icon_off, key_status_icon_on, key_status_interval, load_config, read_config_file,
+    ConfiguredAction, is_launcher_like_command, key_clock_background, key_configured_action,
+    key_status_command, key_status_icon_off, key_status_icon_on, key_status_interval, load_config,
+    read_config_file,
 };
+#[cfg(test)]
+use config::key_launch_action;
 use init::{
     default_config_path, default_image_dir, ensure_profile_initialized, initialize_profile,
     parse_args, print_post_init_service_hint, print_usage,
@@ -61,7 +64,7 @@ use streamrs::config::streamrs_schema::{
     default_usage_page as schema_default_usage_page, default_vendor_id as schema_default_vendor_id,
 };
 use streamrs::paging::PagingLayout;
-use streamrs::process::{launch_split_command, run_shell_status};
+use streamrs::process::{launch_split_command, run_shell_status, send_keyboard_shortcut};
 use streamrs::streamdeck::{get_device, read_states, set_brightness, set_key_image_data};
 
 const KEY_COUNT: usize = streamrs::paging::STREAMDECK_KEY_COUNT;
@@ -77,6 +80,7 @@ const RELOAD_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ButtonAction {
     Launch(String),
+    KeyboardShortcut(String),
     PreviousPage,
     NextPage,
 }
@@ -323,6 +327,13 @@ fn launch_app(action: &str, debug: bool) {
     }
 }
 
+fn send_shortcut(shortcut: &str) {
+    eprintln!("Triggering keyboard shortcut action '{shortcut}'");
+    if let Err(err) = send_keyboard_shortcut(shortcut) {
+        eprintln!("{err}");
+    }
+}
+
 fn run_status_check(command: &str) -> Result<bool, String> {
     run_shell_status(command)
 }
@@ -370,7 +381,7 @@ fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) ->
         .enumerate()
     {
         let clock_background = key_clock_background(key);
-        let launch_action = key_launch_action(key);
+        let configured_action = key_configured_action(key);
         let status_command = key_status_command(key);
         let status_is_launcher = status_command
             .as_deref()
@@ -404,7 +415,7 @@ fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) ->
         }
 
         if status_is_launcher {
-            if launch_action.is_none() {
+            if configured_action.is_none() {
                 if let Some(command) = status_command {
                     warnings.push(PagePlanWarning::LauncherLikeStatusWithoutAction {
                         key_number: offset + index + 1,
@@ -419,8 +430,13 @@ fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) ->
             }
         }
 
-        if let Some(action) = launch_action {
-            button_actions[index] = Some(ButtonAction::Launch(action));
+        if let Some(action) = configured_action {
+            button_actions[index] = Some(match action {
+                ConfiguredAction::Launch(action) => ButtonAction::Launch(action),
+                ConfiguredAction::KeyboardShortcut(shortcut) => {
+                    ButtonAction::KeyboardShortcut(shortcut)
+                }
+            });
         }
     }
 
@@ -816,6 +832,10 @@ pub(crate) fn run() {
                         {
                             match action {
                                 ButtonAction::Launch(action) => launch_app(&action, args.debug),
+                                ButtonAction::KeyboardShortcut(shortcut) => {
+                                    eprintln!("Button {} pressed: keyboard shortcut", index + 1);
+                                    send_shortcut(&shortcut);
+                                }
                                 ButtonAction::PreviousPage => {
                                     if current_page > 0 {
                                         current_page -= 1;
