@@ -20,16 +20,27 @@ ICON_SIZE_DIR ?= 512x512
 ICON_DEST_DIR ?= $(XDG_DATA_HOME)/icons/hicolor/$(ICON_SIZE_DIR)/apps
 ICON_SOURCE ?= config/$(ICON_NAME)
 ICON_NAME ?= $(APPLICATION_ID).png
+LOCALE_ROOT ?= po/locale
+LOCALE_INSTALL_DIR ?= $(XDG_DATA_HOME)/locale
+GETTEXT_DOMAIN ?= streamrs
 MOCK_OUTPUT ?= mock.png
 DEB_VERSION ?= $(shell awk -F '"' '/^version = "/ {print $$2; exit}' Cargo.toml)
 DEB_OUTPUT_DIR ?= dist
 
 .PHONY: build install-bin install-systemd install install-config install-images install-desktop install-assets
 .PHONY: uninstall-bin uninstall-systemd uninstall-config uninstall-images uninstall-desktop uninstall-assets uninstall
-.PHONY: mock deb clean
+.PHONY: pot po-update mo install-locale uninstall-locale mock deb clean
 
 build:
 	cargo build --release --bins
+
+pot:
+	./scripts/update-po.sh
+
+po-update: pot
+
+mo: pot
+	./scripts/build-translations.sh
 
 install-bin: build
 	mkdir -p "$(BIN_DIR)"
@@ -53,7 +64,13 @@ install-desktop:
 	mkdir -p "$(ICON_DEST_DIR)"
 	install -m 0644 "$(ICON_SOURCE)" "$(ICON_DEST_DIR)/$(ICON_NAME)"
 
-install-assets: install-config install-images install-desktop
+install-locale: mo
+	@for lang in $$(cat po/LINGUAS); do \
+		mkdir -p "$(LOCALE_INSTALL_DIR)/$$lang/LC_MESSAGES"; \
+		install -m 0644 "$(LOCALE_ROOT)/$$lang/LC_MESSAGES/$(GETTEXT_DOMAIN).mo" "$(LOCALE_INSTALL_DIR)/$$lang/LC_MESSAGES/$(GETTEXT_DOMAIN).mo"; \
+	done
+
+install-assets: install-config install-images install-desktop install-locale
 
 install-systemd: install-bin
 	mkdir -p "$(SYSTEMD_USER_DIR)"
@@ -90,14 +107,19 @@ uninstall-desktop:
 	rm -f "$(APPLICATIONS_DIR)/streamrs.desktop"
 	rm -f "$(ICON_DEST_DIR)/$(ICON_NAME)"
 
-uninstall-assets: uninstall-config uninstall-images uninstall-desktop
+uninstall-locale:
+	@for lang in $$(cat po/LINGUAS); do \
+		rm -f "$(LOCALE_INSTALL_DIR)/$$lang/LC_MESSAGES/$(GETTEXT_DOMAIN).mo"; \
+	done
+
+uninstall-assets: uninstall-config uninstall-images uninstall-desktop uninstall-locale
 
 uninstall: uninstall-systemd uninstall-assets uninstall-bin
 
 mock:
 	cargo run --quiet --bin streamrs-preview -- --output "$(MOCK_OUTPUT)"
 
-deb: build
+deb: build mo
 	./scripts/build-deb.sh "$(DEB_VERSION)" "$(DEB_OUTPUT_DIR)"
 
 clean:

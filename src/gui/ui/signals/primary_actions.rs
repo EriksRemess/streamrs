@@ -99,13 +99,13 @@ pub(crate) fn wire_primary_action_signals(
                             eprintln!("{err}");
                         }
                         key_index
-                            .map(|index| format!("Saved button {index}"))
-                            .unwrap_or_else(|| "Saved changes".to_string())
+                            .map(|index| trf("Saved {ordinal} button", &[("ordinal", tr_ordinal(index))]))
+                            .unwrap_or_else(|| tr("Saved changes"))
                     }
-                    Err(err) => format!("Save failed: {err}"),
+                    Err(err) => trf("Save failed: {err}", &[("err", err)]),
                 }
             } else {
-                "This slot is reserved for page navigation".to_string()
+                tr("This slot is reserved for page navigation")
             };
             widgets_for_apply.status_label.set_text(&message);
         });
@@ -166,11 +166,11 @@ pub(crate) fn wire_primary_action_signals(
             if cleared {
                 widgets_for_clear
                     .status_label
-                    .set_text("Cleared selected button");
+                    .set_text(&tr("Cleared selected button"));
             } else {
                 widgets_for_clear
                     .status_label
-                    .set_text("Navigation buttons cannot be deleted");
+                    .set_text(&tr("Navigation buttons cannot be deleted"));
             }
         });
     }

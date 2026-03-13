@@ -32,7 +32,13 @@ fn remove_if_exists(path: &Path) -> Result<(), String> {
     match fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(format!("Failed to remove '{}': {err}", path.display())),
+        Err(err) => Err(trf(
+            "Failed to remove '{path}': {err}",
+            &[
+                ("path", path.display().to_string()),
+                ("err", err.to_string()),
+            ],
+        )),
     }
 }
 
@@ -49,17 +55,30 @@ fn rename_profile_assets(from_profile: &str, to_profile: &str) -> Result<(), Str
     let from_path = default_config_path_for_profile(from_profile);
     let to_path = default_config_path_for_profile(to_profile);
     if to_path.exists() {
-        return Err(format!("Profile '{to_profile}' already exists"));
+        return Err(trf(
+            "Profile '{profile}' already exists",
+            &[("profile", to_profile.to_string())],
+        ));
     }
     if let Some(parent) = to_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("Failed to create '{}': {err}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|err| {
+            trf(
+                "Failed to create '{path}': {err}",
+                &[
+                    ("path", parent.display().to_string()),
+                    ("err", err.to_string()),
+                ],
+            )
+        })?;
     }
     fs::rename(&from_path, &to_path).map_err(|err| {
-        format!(
-            "Failed to rename profile config '{}' -> '{}': {err}",
-            from_path.display(),
-            to_path.display()
+        trf(
+            "Failed to rename profile config '{from}' -> '{to}': {err}",
+            &[
+                ("from", from_path.display().to_string()),
+                ("to", to_path.display().to_string()),
+                ("err", err.to_string()),
+            ],
         )
     })
 }
@@ -216,12 +235,12 @@ pub(crate) fn wire_management_signals(
 
         add_profile_button.connect_clicked(move |_| {
             let dialog = gtk::Dialog::builder()
-                .title("Add profile")
+                .title(&tr("Add profile"))
                 .transient_for(&window_for_add_profile)
                 .modal(true)
                 .build();
-            dialog.add_button("Cancel", gtk::ResponseType::Cancel);
-            dialog.add_button("Add", gtk::ResponseType::Accept);
+            dialog.add_button(&tr("Cancel"), gtk::ResponseType::Cancel);
+            dialog.add_button(&tr("Add"), gtk::ResponseType::Accept);
             dialog.set_default_response(gtk::ResponseType::Accept);
 
             let content = dialog.content_area();
@@ -231,11 +250,11 @@ pub(crate) fn wire_management_signals(
             content.set_margin_start(12);
             content.set_margin_end(12);
 
-            let name_label = Label::new(Some("Profile name"));
+            let name_label = Label::new(Some(&tr("Profile name")));
             name_label.set_halign(Align::Start);
             name_label.add_css_class("field-label");
             let name_entry = Entry::new();
-            name_entry.set_placeholder_text(Some("My Profile"));
+            name_entry.set_placeholder_text(Some(&tr("My Profile")));
             name_entry.set_activates_default(true);
             content.append(&name_label);
             content.append(&name_entry);
@@ -267,7 +286,7 @@ pub(crate) fn wire_management_signals(
                     else {
                         widgets_for_response
                             .status_label
-                            .set_text("Profile name must contain letters or numbers");
+                            .set_text(&tr("Profile name must contain letters or numbers"));
                         dialog.hide();
                         return;
                     };
@@ -315,14 +334,14 @@ pub(crate) fn wire_management_signals(
                     ) {
                         Ok(_) => {
                             if is_new_profile {
-                                widgets_for_response.status_label.set_text(&format!(
-                                    "Created and loaded profile '{}'",
-                                    profile_display_name(&profile)
+                                widgets_for_response.status_label.set_text(&trf(
+                                    "Created and loaded profile '{profile}'",
+                                    &[("profile", profile_display_name(&profile))],
                                 ));
                             } else {
-                                widgets_for_response.status_label.set_text(&format!(
-                                    "Loaded profile '{}'",
-                                    profile_display_name(&profile)
+                                widgets_for_response.status_label.set_text(&trf(
+                                    "Loaded profile '{profile}'",
+                                    &[("profile", profile_display_name(&profile))],
                                 ));
                             }
                         }
@@ -356,17 +375,17 @@ pub(crate) fn wire_management_signals(
             let Some(current_profile) = selected_profile_name(&widgets_for_rename_profile) else {
                 widgets_for_rename_profile
                     .status_label
-                    .set_text("No profile selected");
+                    .set_text(&tr("No profile selected"));
                 return;
             };
 
             let dialog = gtk::Dialog::builder()
-                .title("Rename profile")
+                .title(&tr("Rename profile"))
                 .transient_for(&window_for_rename_profile)
                 .modal(true)
                 .build();
-            dialog.add_button("Cancel", gtk::ResponseType::Cancel);
-            dialog.add_button("Rename", gtk::ResponseType::Accept);
+            dialog.add_button(&tr("Cancel"), gtk::ResponseType::Cancel);
+            dialog.add_button(&tr("Rename"), gtk::ResponseType::Accept);
             dialog.set_default_response(gtk::ResponseType::Accept);
 
             let content = dialog.content_area();
@@ -376,7 +395,7 @@ pub(crate) fn wire_management_signals(
             content.set_margin_start(12);
             content.set_margin_end(12);
 
-            let name_label = Label::new(Some("New profile name"));
+            let name_label = Label::new(Some(&tr("New profile name")));
             name_label.set_halign(Align::Start);
             name_label.add_css_class("field-label");
             let name_entry = Entry::new();
@@ -413,7 +432,7 @@ pub(crate) fn wire_management_signals(
                     else {
                         widgets_for_response
                             .status_label
-                            .set_text("Profile name must contain letters or numbers");
+                            .set_text(&tr("Profile name must contain letters or numbers"));
                         dialog.hide();
                         return;
                     };
@@ -425,9 +444,10 @@ pub(crate) fn wire_management_signals(
                             .iter()
                             .any(|name| name == &new_profile);
                         if exists {
-                            widgets_for_response
-                                .status_label
-                                .set_text("Profile already exists");
+                            widgets_for_response.status_label.set_text(&trf(
+                                "Profile '{profile}' already exists",
+                                &[("profile", new_profile.clone())],
+                            ));
                             dialog.hide();
                             return;
                         }
@@ -472,10 +492,12 @@ pub(crate) fn wire_management_signals(
                         &key_pictures_for_response,
                         &editor_syncing_for_response,
                     ) {
-                        Ok(_) => widgets_for_response.status_label.set_text(&format!(
-                            "Renamed profile '{}' -> '{}'",
-                            profile_display_name(&current_profile_for_response),
-                            profile_display_name(&new_profile)
+                        Ok(_) => widgets_for_response.status_label.set_text(&trf(
+                            "Renamed profile '{from}' -> '{to}'",
+                            &[
+                                ("from", profile_display_name(&current_profile_for_response)),
+                                ("to", profile_display_name(&new_profile)),
+                            ],
                         )),
                         Err(err) => widgets_for_response.status_label.set_text(&err),
                     }
@@ -507,17 +529,17 @@ pub(crate) fn wire_management_signals(
             let Some(profile) = selected_profile_name(&widgets_for_remove_profile) else {
                 widgets_for_remove_profile
                     .status_label
-                    .set_text("No profile selected");
+                    .set_text(&tr("No profile selected"));
                 return;
             };
 
             let dialog = gtk::Dialog::builder()
-                .title("Remove profile")
+                .title(&tr("Remove profile"))
                 .transient_for(&window_for_remove_profile)
                 .modal(true)
                 .build();
-            dialog.add_button("Cancel", gtk::ResponseType::Cancel);
-            dialog.add_button("Remove", gtk::ResponseType::Accept);
+            dialog.add_button(&tr("Cancel"), gtk::ResponseType::Cancel);
+            dialog.add_button(&tr("Remove"), gtk::ResponseType::Accept);
             dialog.set_default_response(gtk::ResponseType::Cancel);
 
             let content = dialog.content_area();
@@ -526,8 +548,9 @@ pub(crate) fn wire_management_signals(
             content.set_margin_bottom(12);
             content.set_margin_start(12);
             content.set_margin_end(12);
-            let warning = Label::new(Some(&format!(
-                "Delete profile '{profile}' config? Shared icons are kept."
+            let warning = Label::new(Some(&trf(
+                "Delete profile '{profile}' config? Shared icons are kept.",
+                &[("profile", profile.clone())],
             )));
             warning.set_wrap(true);
             warning.set_xalign(0.0);
@@ -552,7 +575,7 @@ pub(crate) fn wire_management_signals(
                     let Some(profile) = selected_profile_name(&widgets_for_response) else {
                         widgets_for_response
                             .status_label
-                            .set_text("No profile selected");
+                            .set_text(&tr("No profile selected"));
                         dialog.hide();
                         return;
                     };
@@ -610,8 +633,9 @@ pub(crate) fn wire_management_signals(
                         &key_pictures_for_response,
                         &editor_syncing_for_response,
                     ) {
-                        Ok(_) => widgets_for_response.status_label.set_text(&format!(
-                            "Removed profile '{profile}', active profile is '{next_profile}'"
+                        Ok(_) => widgets_for_response.status_label.set_text(&trf(
+                            "Removed profile '{profile}', active profile is '{next_profile}'",
+                            &[("profile", profile), ("next_profile", next_profile)],
                         )),
                         Err(err) => widgets_for_response.status_label.set_text(&err),
                     }
@@ -682,9 +706,10 @@ pub(crate) fn wire_management_signals(
                 backgrounds.as_slice(),
                 &editor_syncing_for_add_key,
             );
-            widgets_for_add_key
-                .status_label
-                .set_text(&format!("Added button {}", new_key_index + 1));
+            widgets_for_add_key.status_label.set_text(&trf(
+                "Added button {index}",
+                &[("index", (new_key_index + 1).to_string())],
+            ));
         });
     }
 
@@ -705,15 +730,15 @@ pub(crate) fn wire_management_signals(
 
         add_icon_button.connect_clicked(move |_| {
             let dialog = gtk::FileChooserNative::builder()
-                .title("Add icon")
+                .title(&tr("Add icon"))
                 .transient_for(&window_for_add_icon)
                 .modal(true)
                 .action(gtk::FileChooserAction::Open)
-                .accept_label("Add")
-                .cancel_label("Cancel")
+                .accept_label(&tr("Add"))
+                .cancel_label(&tr("Cancel"))
                 .build();
             let filter = gtk::FileFilter::new();
-            filter.set_name(Some("Images"));
+            filter.set_name(Some(&tr("Images")));
             filter.add_pattern("*.png");
             filter.add_pattern("*.jpg");
             filter.add_pattern("*.jpeg");
@@ -800,10 +825,12 @@ pub(crate) fn wire_management_signals(
                                     backgrounds.as_slice(),
                                     &editor_syncing_for_response,
                                 );
-                                widgets_for_response.status_label.set_text(&format!(
-                                    "Added and selected icon '{}' in '{}'",
-                                    icon_name,
-                                    writable_image_dir.display()
+                                widgets_for_response.status_label.set_text(&trf(
+                                    "Added and selected icon '{icon}' in '{dir}'",
+                                    &[
+                                        ("icon", icon_name),
+                                        ("dir", writable_image_dir.display().to_string()),
+                                    ],
                                 ));
                             }
                             Err(err) => widgets_for_response.status_label.set_text(&err),

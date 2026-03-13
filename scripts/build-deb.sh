@@ -22,6 +22,7 @@ ICON_COMPOSE_BIN="${REPO_ROOT}/target/release/streamrs-icon-compose"
 DESKTOP_FILE="${REPO_ROOT}/config/${APPLICATION_ID}.desktop"
 APP_ICON_SOURCE="${REPO_ROOT}/config/${APPLICATION_ID}.png"
 APP_ICON_NAME="${APPLICATION_ID}.png"
+LOCALE_SOURCE_DIR="${REPO_ROOT}/po/locale"
 
 if [[ ! -x "${STREAMRS_BIN}" || ! -x "${PREVIEW_BIN}" || ! -x "${GUI_BIN}" || ! -x "${ICON_COMPOSE_BIN}" ]]; then
     echo "Missing release binaries." >&2
@@ -46,12 +47,16 @@ if [[ ! -f "${APP_ICON_SOURCE}" ]]; then
 fi
 
 rm -rf "${BUILD_ROOT}"
+if [[ -x "${REPO_ROOT}/scripts/build-translations.sh" ]]; then
+    "${REPO_ROOT}/scripts/build-translations.sh" >/dev/null
+fi
 mkdir -p \
     "${DEBIAN_DIR}" \
     "${PKG_DIR}/usr/bin" \
     "${PKG_DIR}/usr/lib/systemd/user" \
     "${PKG_DIR}/usr/share/applications" \
     "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps" \
+    "${PKG_DIR}/usr/share/locale" \
     "${PKG_DIR}/usr/share/streamrs/icons" \
     "${PKG_DIR}/usr/share/streamrs/default" \
     "${PKG_DIR}/usr/share/doc/streamrs"
@@ -68,6 +73,18 @@ install -m 0644 "${REPO_ROOT}/Readme.md" "${PKG_DIR}/usr/share/doc/streamrs/READ
 
 if [[ -d "${REPO_ROOT}/icons" ]]; then
     cp -a "${REPO_ROOT}/icons/." "${PKG_DIR}/usr/share/streamrs/icons/"
+fi
+
+if [[ -d "${LOCALE_SOURCE_DIR}" ]]; then
+    while IFS= read -r lang; do
+        [[ -n "${lang}" ]] || continue
+        source_mo="${LOCALE_SOURCE_DIR}/${lang}/LC_MESSAGES/streamrs.mo"
+        if [[ -f "${source_mo}" ]]; then
+            install_dir="${PKG_DIR}/usr/share/locale/${lang}/LC_MESSAGES"
+            mkdir -p "${install_dir}"
+            install -m 0644 "${source_mo}" "${install_dir}/streamrs.mo"
+        fi
+    done < "${REPO_ROOT}/po/LINGUAS"
 fi
 
 cat > "${DEBIAN_DIR}/control" <<EOF

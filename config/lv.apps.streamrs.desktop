@@ -2,7 +2,9 @@
 Type=Application
 Version=1.0
 Name=streamrs
+Name[lv]=streamrs
 Comment=Configure streamrs profiles for Stream Deck
+Comment[lv]=Konfigurē streamrs profilus Stream Deck ierīcēm
 Exec=streamrs-gui
 Icon=lv.apps.streamrs
 Terminal=false

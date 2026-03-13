@@ -1,10 +1,8 @@
 use super::*;
 
-const ICON_SELECTION_PLACEHOLDER: &str = "Select icon...";
-
 fn icon_dropdown_items(icon_names: &[String]) -> Vec<String> {
     let mut items = Vec::with_capacity(icon_names.len() + 1);
-    items.push(ICON_SELECTION_PLACEHOLDER.to_string());
+    items.push(tr("Select icon..."));
     items.extend(icon_names.iter().cloned());
     items
 }

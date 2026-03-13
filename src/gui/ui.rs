@@ -3,9 +3,6 @@ use crate::gui::*;
 mod signal_wiring;
 use signal_wiring::wire_ui_handlers_and_present;
 
-const ABOUT_EXTERNAL_LINK_SVG: &[u8] = include_bytes!("../../config/about-external-link.svg");
-const ABOUT_CHEVRON_RIGHT_SVG: &[u8] = include_bytes!("../../config/about-chevron-right.svg");
-
 fn fallback_non_blank_profile(profiles: &[String]) -> Option<String> {
     profiles
         .iter()
@@ -47,208 +44,38 @@ fn startup_profile_names(
     discovered_profiles
 }
 
-fn open_uri(uri: &str) {
-    if let Err(err) =
-        gtk::gio::AppInfo::launch_default_for_uri(uri, None::<&gtk::gio::AppLaunchContext>)
-    {
-        eprintln!("Failed to open URI '{uri}': {err}");
-    }
+fn present_about_dialog(parent: &ApplicationWindow) {
+    let dialog = adw::AboutDialog::new();
+    dialog.set_application_icon("lv.apps.streamrs");
+    dialog.set_application_name("streamrs");
+    dialog.set_version(env!("CARGO_PKG_VERSION"));
+    dialog.set_comments(&tr("A lightweight Rust Stream Deck toolkit for Linux."));
+    dialog.set_developer_name("Ēriks Remess");
+    dialog.set_developers(&["Ēriks Remess <eriks@remess.lv>"]);
+    dialog.set_website("https://github.com/EriksRemess/streamrs");
+    dialog.set_issue_url("https://github.com/EriksRemess/streamrs/issues");
+    dialog.set_copyright("Copyright (c) 2026 Ēriks Remess");
+    dialog.set_license_type(gtk::License::MitX11);
+    dialog.add_link(
+        &tr("Contributors"),
+        "https://github.com/EriksRemess/streamrs/graphs/contributors",
+    );
+    dialog.add_link(
+        &tr("Project License"),
+        "https://github.com/EriksRemess/streamrs/blob/main/LICENSE",
+    );
+    dialog.present(Some(parent));
 }
 
-fn about_icon_from_embedded_svg(svg: &'static [u8]) -> Option<Image> {
-    let loader = gtk::gdk_pixbuf::PixbufLoader::with_type("svg").ok()?;
-    loader.write(svg).ok()?;
-    loader.close().ok()?;
-    let pixbuf = loader.pixbuf()?;
-    let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
-    Some(Image::from_paintable(Some(&texture)))
-}
-
-fn about_link_row(
-    label: &str,
-    embedded_svg: &'static [u8],
-    icon_name: &str,
-    fallback_glyph: &str,
-    trailing_class: &str,
-) -> Button {
-    let button = Button::new();
-    button.add_css_class("about-link-row");
-    button.set_hexpand(true);
-    button.set_halign(Align::Fill);
-
-    let row = GtkBox::new(Orientation::Horizontal, 10);
-    row.set_hexpand(true);
-
-    let text = Label::new(Some(label));
-    text.add_css_class("about-link-label");
-    text.set_halign(Align::Start);
-    text.set_hexpand(true);
-    text.set_xalign(0.0);
-
-    row.append(&text);
-    if let Some(icon) = about_icon_from_embedded_svg(embedded_svg) {
-        icon.add_css_class("about-link-icon");
-        icon.add_css_class(trailing_class);
-        icon.set_halign(Align::End);
-        row.append(&icon);
+fn rebuild_window_menu(menu: &gtk::gio::Menu) {
+    menu.remove_all();
+    let daemon_label = if daemon_running() {
+        tr("Stop streamrs daemon")
     } else {
-        let has_icon = gtk::gdk::Display::default()
-            .map(|display| gtk::IconTheme::for_display(&display).has_icon(icon_name))
-            .unwrap_or(false);
-        if has_icon {
-            let icon = Image::from_icon_name(icon_name);
-            icon.add_css_class("about-link-icon");
-            icon.add_css_class(trailing_class);
-            icon.set_halign(Align::End);
-            row.append(&icon);
-        } else {
-            let icon = Label::new(Some(fallback_glyph));
-            icon.add_css_class("about-link-glyph-fallback");
-            icon.add_css_class(trailing_class);
-            icon.set_halign(Align::End);
-            row.append(&icon);
-        }
-    }
-    button.set_child(Some(&row));
-    button
-}
-
-fn present_about_sheet(parent: &ApplicationWindow, app_icon_path: &Path) {
-    let dialog = gtk::Dialog::builder()
-        .transient_for(parent)
-        .modal(true)
-        .resizable(false)
-        .decorated(false)
-        .build();
-    dialog.add_css_class("about-sheet");
-    dialog.set_default_size(360, 590);
-
-    let content = dialog.content_area();
-    content.set_spacing(14);
-    content.set_margin_top(14);
-    content.set_margin_bottom(14);
-    content.set_margin_start(14);
-    content.set_margin_end(14);
-
-    let close_row = GtkBox::new(Orientation::Horizontal, 0);
-    let close_spacer = GtkBox::new(Orientation::Horizontal, 0);
-    close_spacer.set_hexpand(true);
-    let close_button = Button::new();
-    close_button.set_icon_name("window-close-symbolic");
-    close_button.add_css_class("flat");
-    close_button.add_css_class("about-close-button");
-    {
-        let dialog_for_close = dialog.clone();
-        close_button.connect_clicked(move |_| {
-            dialog_for_close.close();
-        });
-    }
-    close_row.append(&close_spacer);
-    close_row.append(&close_button);
-
-    let hero = GtkBox::new(Orientation::Vertical, 4);
-    hero.set_halign(Align::Center);
-    hero.add_css_class("about-hero");
-    let logo = if app_icon_path.is_file() {
-        Image::from_file(app_icon_path)
-    } else {
-        Image::from_icon_name("lv.apps.streamrs")
+        tr("Start streamrs daemon")
     };
-    logo.set_pixel_size(112);
-    logo.add_css_class("about-logo");
-    let title = Label::new(Some("streamrs"));
-    title.add_css_class("about-title");
-    let subtitle = Label::new(Some("Stream Deck toolkit"));
-    subtitle.add_css_class("about-subtitle");
-    let version_value = env!("CARGO_PKG_VERSION");
-    let version = Button::with_label(version_value);
-    version.add_css_class("about-version-pill");
-    version.set_halign(Align::Center);
-    version.set_tooltip_text(Some("Click to copy version"));
-    {
-        let version_for_feedback = version.clone();
-        version.connect_clicked(move |_| {
-            if let Some(display) = gtk::gdk::Display::default() {
-                display.clipboard().set_text(version_value);
-                version_for_feedback.set_tooltip_text(Some("Copied"));
-            }
-        });
-    }
-    hero.append(&logo);
-    hero.append(&title);
-    hero.append(&subtitle);
-    hero.append(&version);
-
-    let links = GtkBox::new(Orientation::Vertical, UI_SPACING_HORIZONTAL);
-    links.add_css_class("about-links");
-
-    let website = about_link_row(
-        "Website",
-        ABOUT_EXTERNAL_LINK_SVG,
-        "external-link-symbolic",
-        "↗",
-        "about-link-icon-external",
-    );
-    website.connect_clicked(|_| {
-        open_uri("https://github.com/EriksRemess/streamrs");
-    });
-
-    let issues = about_link_row(
-        "Report a Problem",
-        ABOUT_EXTERNAL_LINK_SVG,
-        "external-link-symbolic",
-        "↗",
-        "about-link-icon-external",
-    );
-    issues.connect_clicked(|_| {
-        open_uri("https://github.com/EriksRemess/streamrs/issues");
-    });
-
-    let info_group = GtkBox::new(Orientation::Vertical, 0);
-    info_group.add_css_class("about-link-group");
-
-    let authors = about_link_row(
-        "Authors",
-        ABOUT_CHEVRON_RIGHT_SVG,
-        "go-next-symbolic",
-        "›",
-        "about-link-icon-chevron",
-    );
-    authors.add_css_class("about-link-row-grouped");
-    authors.add_css_class("about-link-row-group-top");
-    authors.connect_clicked(|_| {
-        open_uri("https://github.com/EriksRemess/streamrs/graphs/contributors");
-    });
-
-    let group_divider = gtk::Separator::new(Orientation::Horizontal);
-    group_divider.add_css_class("about-link-group-separator");
-
-    let legal = about_link_row(
-        "Legal",
-        ABOUT_CHEVRON_RIGHT_SVG,
-        "go-next-symbolic",
-        "›",
-        "about-link-icon-chevron",
-    );
-    legal.add_css_class("about-link-row-grouped");
-    legal.add_css_class("about-link-row-group-bottom");
-    legal.connect_clicked(|_| {
-        open_uri("https://github.com/EriksRemess/streamrs/blob/main/LICENSE");
-    });
-
-    info_group.append(&authors);
-    info_group.append(&group_divider);
-    info_group.append(&legal);
-
-    links.append(&website);
-    links.append(&issues);
-    links.append(&info_group);
-
-    content.append(&close_row);
-    content.append(&hero);
-    content.append(&links);
-
-    dialog.present();
+    menu.append(Some(&daemon_label), Some("win.toggle-daemon"));
+    menu.append(Some(&tr("About streamrs")), Some("win.show-about"));
 }
 
 pub(crate) fn build_ui(app: &Application) {
@@ -324,8 +151,8 @@ pub(crate) fn build_ui(app: &Application) {
         .build();
     window.set_size_request(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT);
 
-    let root = GtkBox::new(Orientation::Vertical, UI_SPACING);
-    root.add_css_class("streamrs-root");
+    let content_root = GtkBox::new(Orientation::Vertical, 0);
+    content_root.add_css_class("streamrs-root");
 
     let profile_dropdown = {
         let profiles = profile_names.borrow();
@@ -346,16 +173,16 @@ pub(crate) fn build_ui(app: &Application) {
     {
         profile_dropdown.set_selected(initial_profile_index as u32);
     }
-    let add_profile_button = Button::with_label("Add");
-    let remove_profile_button = Button::with_label("Remove");
-    let rename_profile_button = Button::with_label("Rename");
+    let add_profile_button = Button::with_label(&tr("Add"));
+    let remove_profile_button = Button::with_label(&tr("Remove"));
+    let rename_profile_button = Button::with_label(&tr("Rename"));
     add_profile_button.add_css_class("profile-action-button");
     remove_profile_button.add_css_class("profile-action-button");
     rename_profile_button.add_css_class("profile-action-button");
 
-    let add_key_button = Button::with_label("Add a button");
+    let add_key_button = Button::with_label(&tr("Add a button"));
     let add_icon_button = Button::with_label("+");
-    add_icon_button.set_tooltip_text(Some("Add icon"));
+    add_icon_button.set_tooltip_text(Some(&tr("Add icon")));
     add_icon_button.add_css_class("icon-add-button");
     add_icon_button.set_size_request(UI_CONTROL_HEIGHT, UI_CONTROL_HEIGHT);
     add_icon_button.set_halign(Align::Center);
@@ -382,20 +209,23 @@ pub(crate) fn build_ui(app: &Application) {
     left_panel.set_size_request(DECK_MIN_WIDTH + (UI_SPACING * 2) + 8, -1);
     left_panel.add_css_class("deck-card");
 
-    let deck_label = Label::new(Some("Stream Deck preview"));
+    let deck_label = Label::new(Some(&tr("Stream Deck preview")));
     deck_label.set_halign(Align::Start);
     deck_label.add_css_class("section-title");
     let deck_header = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     let deck_header_spacer = GtkBox::new(Orientation::Horizontal, 0);
     deck_header_spacer.set_hexpand(true);
-    let prev_page_button = Button::with_label("Prev");
+    let prev_page_button = Button::with_label(&tr("Prev"));
     prev_page_button.add_css_class("flat");
     prev_page_button.set_visible(false);
-    let next_page_button = Button::with_label("Next");
+    let next_page_button = Button::with_label(&tr("Next"));
     next_page_button.add_css_class("flat");
     next_page_button.set_visible(false);
     add_key_button.add_css_class("action-button");
-    let page_label = Label::new(Some("Page 1/1"));
+    let page_label = Label::new(Some(&trf(
+        "Page {current}/{total}",
+        &[("current", "1".to_string()), ("total", "1".to_string())],
+    )));
     page_label.add_css_class("page-indicator");
     page_label.set_valign(Align::Start);
     deck_label.set_valign(Align::Start);
@@ -435,7 +265,10 @@ pub(crate) fn build_ui(app: &Application) {
     for (index, slot) in slots.iter().copied().enumerate().take(KEY_COUNT) {
         let button = Button::new();
         button.add_css_class("key-button");
-        button.set_tooltip_text(Some(&format!("Button {}", index + 1)));
+        button.set_tooltip_text(Some(&trf(
+            "Button {index}",
+            &[("index", (index + 1).to_string())],
+        )));
 
         let width = (slot.x1 - slot.x0) as i32;
         let height = (slot.y1 - slot.y0) as i32;
@@ -511,11 +344,14 @@ pub(crate) fn build_ui(app: &Application) {
     editor.set_margin_start(0);
     editor.set_margin_end(0);
 
-    let selected_label = Label::new(Some("Editing button 1"));
+    let selected_label = Label::new(Some(&trf(
+        "Editing {ordinal} button",
+        &[("ordinal", tr_ordinal(1))],
+    )));
     selected_label.set_halign(Align::Start);
     selected_label.add_css_class("section-title");
 
-    let action_label = Label::new(Some("Action"));
+    let action_label = Label::new(Some(&tr("Action")));
     action_label.set_halign(Align::Start);
     action_label.add_css_class("field-label");
     let action_entry = Entry::new();
@@ -523,15 +359,22 @@ pub(crate) fn build_ui(app: &Application) {
     action_entry.set_width_chars(1);
     action_entry.add_css_class("streamrs-field");
 
-    let icon_kind_label = Label::new(Some("Button type"));
+    let icon_kind_label = Label::new(Some(&tr("Button type")));
     icon_kind_label.set_halign(Align::Start);
     icon_kind_label.add_css_class("field-label");
-    let icon_kind_dropdown =
-        DropDown::from_strings(&["Blank", "Regular", "Status", "Clock", "Calendar"]);
+    let mode_labels = vec![
+        tr("Blank"),
+        tr("Regular"),
+        tr("Status"),
+        tr("Clock"),
+        tr("Calendar"),
+    ];
+    let mode_label_refs: Vec<&str> = mode_labels.iter().map(String::as_str).collect();
+    let icon_kind_dropdown = DropDown::from_strings(&mode_label_refs);
     make_dropdown_shrinkable(&icon_kind_dropdown);
     icon_kind_dropdown.add_css_class("streamrs-field");
 
-    let icon_label = Label::new(Some("Icon"));
+    let icon_label = Label::new(Some(&tr("Icon")));
     icon_label.set_halign(Align::Start);
     icon_label.add_css_class("field-label");
     let icon_dropdown = {
@@ -546,7 +389,7 @@ pub(crate) fn build_ui(app: &Application) {
     icon_row.append(&icon_dropdown);
     icon_row.append(&add_icon_button);
 
-    let clock_background_label = Label::new(Some("Clock background"));
+    let clock_background_label = Label::new(Some(&tr("Clock background")));
     clock_background_label.set_halign(Align::Start);
     clock_background_label.add_css_class("field-label");
     let clock_background_dropdown = {
@@ -556,14 +399,14 @@ pub(crate) fn build_ui(app: &Application) {
     make_dropdown_shrinkable(&clock_background_dropdown);
     clock_background_dropdown.add_css_class("streamrs-field");
 
-    let icon_preview_label = Label::new(Some("Icon Preview"));
+    let icon_preview_label = Label::new(Some(&tr("Icon Preview")));
     icon_preview_label.set_halign(Align::Start);
     icon_preview_label.add_css_class("field-label");
     let icon_preview = Picture::new();
     icon_preview.set_size_request(104, 104);
     icon_preview.add_css_class("icon-preview");
 
-    let status_command_label = Label::new(Some("Status command (optional)"));
+    let status_command_label = Label::new(Some(&tr("Status command (optional)")));
     status_command_label.set_halign(Align::Start);
     status_command_label.add_css_class("field-label");
     let status_entry = Entry::new();
@@ -571,7 +414,7 @@ pub(crate) fn build_ui(app: &Application) {
     status_entry.set_width_chars(1);
     status_entry.add_css_class("streamrs-field");
 
-    let icon_on_label = Label::new(Some("Icon when status is on"));
+    let icon_on_label = Label::new(Some(&tr("Icon when status is on")));
     icon_on_label.set_halign(Align::Start);
     icon_on_label.add_css_class("field-label");
     let icon_on_dropdown = {
@@ -581,7 +424,7 @@ pub(crate) fn build_ui(app: &Application) {
     make_dropdown_shrinkable(&icon_on_dropdown);
     icon_on_dropdown.add_css_class("streamrs-field");
 
-    let icon_off_label = Label::new(Some("Icon when status is off"));
+    let icon_off_label = Label::new(Some(&tr("Icon when status is off")));
     icon_off_label.set_halign(Align::Start);
     icon_off_label.add_css_class("field-label");
     let icon_off_dropdown = {
@@ -591,7 +434,7 @@ pub(crate) fn build_ui(app: &Application) {
     make_dropdown_shrinkable(&icon_off_dropdown);
     icon_off_dropdown.add_css_class("streamrs-field");
 
-    let interval_label = Label::new(Some("Status interval (ms)"));
+    let interval_label = Label::new(Some(&tr("Status interval (ms)")));
     interval_label.set_halign(Align::Start);
     interval_label.add_css_class("field-label");
     let interval_spin = SpinButton::with_range(
@@ -603,17 +446,17 @@ pub(crate) fn build_ui(app: &Application) {
     interval_spin.set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
     interval_spin.add_css_class("streamrs-field");
 
-    let apply_button = Button::with_label("Save");
+    let apply_button = Button::with_label(&tr("Save"));
     apply_button.add_css_class("action-button");
     apply_button.add_css_class("apply-button");
     apply_button.set_hexpand(false);
-    let clear_button = Button::with_label("Delete");
-    clear_button.set_tooltip_text(Some("Delete selected button configuration"));
+    let clear_button = Button::with_label(&tr("Delete"));
+    clear_button.set_tooltip_text(Some(&tr("Delete selected button configuration")));
     clear_button.add_css_class("action-button");
     clear_button.add_css_class("clear-button");
     clear_button.set_hexpand(false);
 
-    let status_line = Label::new(Some("Ready"));
+    let status_line = Label::new(Some(&tr("Ready")));
     status_line.set_halign(Align::Start);
     status_line.add_css_class("status-label");
 
@@ -649,23 +492,50 @@ pub(crate) fn build_ui(app: &Application) {
     header_bar.set_show_end_title_buttons(true);
 
     let window_menu = gtk::gio::Menu::new();
-    window_menu.append(Some("About streamrs"), Some("win.show-about"));
+    rebuild_window_menu(&window_menu);
 
     let menu_button = gtk::MenuButton::new();
     menu_button.set_icon_name("open-menu-symbolic");
-    menu_button.set_tooltip_text(Some("Menu"));
+    menu_button.set_tooltip_text(Some(&tr("Menu")));
     menu_button.set_menu_model(Some(&window_menu));
     menu_button.add_css_class("flat");
+    {
+        let window_menu_for_open = window_menu.clone();
+        menu_button.set_create_popup_func(move |_| {
+            rebuild_window_menu(&window_menu_for_open);
+        });
+    }
 
     let about_action = gtk::gio::SimpleAction::new("show-about", None);
     {
         let window_for_about = window.clone();
-        let app_icon_path_for_about = app_icon_path.clone();
         about_action.connect_activate(move |_, _| {
-            present_about_sheet(&window_for_about, &app_icon_path_for_about);
+            present_about_dialog(&window_for_about);
         });
     }
     window.add_action(&about_action);
+
+    let daemon_action = gtk::gio::SimpleAction::new("toggle-daemon", None);
+    {
+        let status_line_for_daemon = status_line.clone();
+        let window_menu_for_daemon = window_menu.clone();
+        daemon_action.connect_activate(move |_, _| {
+            let should_run = !daemon_running();
+            let message = match set_daemon_running(should_run) {
+                Ok(()) => {
+                    if should_run {
+                        tr("Started streamrs daemon")
+                    } else {
+                        tr("Stopped streamrs daemon")
+                    }
+                }
+                Err(err) => err,
+            };
+            status_line_for_daemon.set_text(&message);
+            rebuild_window_menu(&window_menu_for_daemon);
+        });
+    }
+    window.add_action(&daemon_action);
 
     let title_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     title_row.set_halign(Align::Start);
@@ -682,7 +552,7 @@ pub(crate) fn build_ui(app: &Application) {
 
     let profile_controls = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     profile_controls.set_halign(Align::Center);
-    let profile_label = Label::new(Some("Profile"));
+    let profile_label = Label::new(Some(&tr("Profile")));
     profile_label.add_css_class("field-label");
     profile_controls.append(&profile_label);
     profile_controls.append(&profile_dropdown);
@@ -705,10 +575,13 @@ pub(crate) fn build_ui(app: &Application) {
     status_actions.append(&apply_button);
     status_actions.append(&clear_button);
     status_bar.append(&status_actions);
-    root.append(&header_bar);
-    root.append(&body);
-    root.append(&status_bar);
-    window.set_content(Some(&root));
+    content_root.append(&body);
+
+    let toolbar_view = adw::ToolbarView::new();
+    toolbar_view.add_top_bar(&header_bar);
+    toolbar_view.set_content(Some(&content_root));
+    toolbar_view.add_bottom_bar(&status_bar);
+    window.set_content(Some(&toolbar_view));
 
     let widgets = EditorWidgets {
         profile_dropdown,

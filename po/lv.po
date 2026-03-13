@@ -1,0 +1,398 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: streamrs\n"
+"POT-Creation-Date: 2026-03-13 17:53+0000\n"
+"PO-Revision-Date: 2026-03-13 18:05+0000\n"
+"Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
+"Language-Team: Latvian\n"
+"Language: lv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : "
+"2);\n"
+
+#: src/gui/ui.rs
+msgid "A lightweight Rust Stream Deck toolkit for Linux."
+msgstr "Viegla Rust rīkkopa Stream Deck ierīcēm Linux videi."
+
+#: src/gui/ui.rs
+msgid "About streamrs"
+msgstr "Par streamrs"
+
+#: src/gui/ui.rs
+msgid "Action"
+msgstr "Darbība"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Add"
+msgstr "Pievienot"
+
+#: src/gui/ui.rs
+msgid "Add a button"
+msgstr "Pievienot pogu"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Add icon"
+msgstr "Pievienot ikonu"
+
+#: src/gui/ui/signals/management.rs
+msgid "Add profile"
+msgstr "Pievienot profilu"
+
+#: src/gui/ui/signals/management.rs
+msgid "Added and selected icon '{icon}' in '{dir}'"
+msgstr "Ikona '{icon}' pievienota un atlasīta mapē '{dir}'"
+
+#: src/gui/ui/signals/management.rs
+msgid "Added button {index}"
+msgstr "Pievienota poga {index}"
+
+#: src/gui/main.rs
+msgid "Another streamrs-gui instance is already running (lock '{path}')."
+msgstr "Jau darbojas cits streamrs-gui eksemplārs (slēgs '{path}')."
+
+#: src/gui/ui.rs
+msgid "Blank"
+msgstr "Tukša"
+
+#: src/gui/ui.rs
+msgid "Button type"
+msgstr "Pogas veids"
+
+#: src/gui/core/editor.rs
+msgid "Button {button} (page {page}, slot {slot})"
+msgstr "Poga {button} (lapa {page}, vieta {slot})"
+
+#: src/gui/core/editor.rs
+msgid "Button {button} (page {page}, slot {slot}) - Blank button"
+msgstr "Poga {button} (lapa {page}, vieta {slot}) - tukša poga"
+
+#: src/gui/ui.rs
+msgid "Button {index}"
+msgstr "Poga {index}"
+
+#: src/gui/ui.rs
+msgid "Calendar"
+msgstr "Kalendārs"
+
+#: src/gui/ui/signals/management.rs
+msgid "Cancel"
+msgstr "Atcelt"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Cleared selected button"
+msgstr "Izvēlētā poga notīrīta"
+
+#: src/gui/ui.rs
+msgid "Clock"
+msgstr "Pulkstenis"
+
+#: src/gui/ui.rs
+msgid "Clock background"
+msgstr "Pulksteņa fons"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Clock background updated"
+msgstr "Pulksteņa fons atjaunināts"
+
+#: src/gui/ui.rs
+msgid "Contributors"
+msgstr "Līdzautori"
+
+#: src/gui/ui/signals/management.rs
+msgid "Created and loaded profile '{profile}'"
+msgstr "Izveidots un ielādēts profils '{profile}'"
+
+#: src/gui/ui.rs
+msgid "Delete"
+msgstr "Dzēst"
+
+#: src/gui/ui/signals/management.rs
+msgid "Delete profile '{profile}' config? Shared icons are kept."
+msgstr "Dzēst profilu '{profile}'?"
+
+#: src/gui/ui.rs
+msgid "Delete selected button configuration"
+msgstr "Dzēst izvēlētās pogas konfigurāciju"
+
+#: src/gui/core/editor.rs src/gui/ui.rs
+msgid "Editing {ordinal} button"
+msgstr "{ordinal} pogas rediģēšana"
+
+#: src/gui/ui/signals/management.rs
+msgid "Failed to create '{path}': {err}"
+msgstr "Neizdevās izveidot '{path}': {err}"
+
+#: src/gui/main.rs
+msgid "Failed to create GUI lock '{path}': {err}"
+msgstr "Neizdevās izveidot GUI slēga failu '{path}': {err}"
+
+#: src/gui/ui/signals/management.rs
+msgid "Failed to remove '{path}': {err}"
+msgstr "Neizdevās noņemt '{path}': {err}"
+
+#: src/gui/ui/signals/management.rs
+msgid "Failed to rename profile config '{from}' -> '{to}': {err}"
+msgstr "Neizdevās pārdēvēt profila konfigurāciju '{from}' -> '{to}': {err}"
+
+#: src/gui/core/config_io.rs
+msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr ""
+"Neizdevās nosūtīt signālu streamrs dēmonam ({systemctl_err}; {pkill_err})"
+
+#: src/gui/core/config_io.rs
+msgid "Failed to start streamrs daemon (systemctl exit status {status})"
+msgstr "Neizdevās palaist streamrs dēmonu (systemctl izejas statuss {status})"
+
+#: src/gui/core/config_io.rs
+msgid "Failed to start streamrs daemon (systemctl failed: {err})"
+msgstr "Neizdevās palaist streamrs dēmonu (systemctl kļūda: {err})"
+
+#: src/gui/core/config_io.rs
+msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr "Neizdevās apturēt streamrs dēmonu ({systemctl_err}; {pkill_err})"
+
+#: src/gui/main.rs
+msgid "Failed to write GUI lock '{path}': {err}"
+msgstr "Neizdevās ierakstīt GUI slēga failu '{path}': {err}"
+
+#: src/gui/core/editor.rs
+msgid "Go to next page"
+msgstr "Pāriet uz nākamo lapu"
+
+#: src/gui/core/editor.rs
+msgid "Go to previous page"
+msgstr "Pāriet uz iepriekšējo lapu"
+
+#: src/gui/ui.rs
+msgid "Icon"
+msgstr "Ikona"
+
+#: src/gui/ui.rs
+msgid "Icon Preview"
+msgstr "Ikonas priekšskatījums"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Icon updated"
+msgstr "Ikona atjaunināta"
+
+#: src/gui/ui.rs
+msgid "Icon when status is off"
+msgstr "Ikona, kad statuss ir izslēgts"
+
+#: src/gui/ui.rs
+msgid "Icon when status is on"
+msgstr "Ikona, kad statuss ir ieslēgts"
+
+#: src/gui/ui/signals/management.rs
+msgid "Images"
+msgstr "Attēli"
+
+#: src/gui/ui/signals/navigation.rs
+msgid "Inserted button after target"
+msgstr "Poga ievietota aiz mērķa pogas"
+
+#: src/gui/ui/signals/navigation.rs
+msgid "Inserted button before target"
+msgstr "Poga ievietota pirms mērķa pogas"
+
+#: src/gui/ui/signals/management.rs
+msgid "Loaded profile '{profile}'"
+msgstr "Ielādēts profils '{profile}'"
+
+#: src/gui/ui.rs
+msgid "Menu"
+msgstr "Izvēlne"
+
+#: src/gui/ui/signals/management.rs
+msgid "My Profile"
+msgstr "Mans profils"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Navigation buttons cannot be deleted"
+msgstr "Navigācijas pogas nevar dzēst"
+
+#: src/gui/ui/signals/management.rs
+msgid "New profile name"
+msgstr "Jaunais profila nosaukums"
+
+#: src/gui/ui.rs
+msgid "Next"
+msgstr "Nāk."
+
+#: src/gui/core/editor.rs
+msgid "Next page"
+msgstr "Nākamā lapa"
+
+#: src/gui/ui/signals/management.rs
+msgid "No profile selected"
+msgstr "Nav izvēlēts profils"
+
+#: src/gui/core/editor.rs
+msgid "Page navigation: Next"
+msgstr "Lapu navigācija: nākamā lapa"
+
+#: src/gui/core/editor.rs
+msgid "Page navigation: Previous"
+msgstr "Lapu navigācija: iepriekšējā lapa"
+
+#: src/gui/core/paging.rs src/gui/ui.rs src/gui/ui/signals/navigation.rs
+msgid "Page {current}/{total}"
+msgstr "Lapa {current}/{total}"
+
+#: src/gui/ui.rs
+msgid "Prev"
+msgstr "Iepr."
+
+#: src/gui/core/editor.rs
+msgid "Previous page"
+msgstr "Iepriekšējā lapa"
+
+#: src/gui/ui.rs
+msgid "Profile"
+msgstr "Profils"
+
+#: src/gui/ui/signals/management.rs
+msgid "Profile '{profile}' already exists"
+msgstr "Profils '{profile}' jau pastāv"
+
+#: src/gui/ui/signals/management.rs
+msgid "Profile name"
+msgstr "Profila nosaukums"
+
+#: src/gui/ui/signals/management.rs
+msgid "Profile name must contain letters or numbers"
+msgstr "Profila nosaukumā jābūt burtiem vai cipariem"
+
+#: src/gui/ui.rs
+msgid "Project License"
+msgstr "Projekta licence"
+
+#: src/gui/ui.rs
+msgid "Ready"
+msgstr "Gatavs"
+
+#: src/gui/ui.rs
+msgid "Regular"
+msgstr "Parasta"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Remove"
+msgstr "Dzēst"
+
+#: src/gui/ui/signals/management.rs
+msgid "Remove profile"
+msgstr "Dzēst profilu"
+
+#: src/gui/ui/signals/management.rs
+msgid "Removed profile '{profile}', active profile is '{next_profile}'"
+msgstr "Profils '{profile}' noņemts, aktīvais profils ir '{next_profile}'"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Rename"
+msgstr "Pārdēvēt"
+
+#: src/gui/ui/signals/management.rs
+msgid "Rename profile"
+msgstr "Pārdēvēt profilu"
+
+#: src/gui/ui/signals/management.rs
+msgid "Renamed profile '{from}' -> '{to}'"
+msgstr "Profils '{from}' pārdēvēts par '{to}'"
+
+#: src/gui/core/editor.rs
+msgid "Reserved for page navigation in streamrs"
+msgstr "Rezervēts lapu navigācijai streamrs"
+
+#: src/gui/core/editor.rs
+msgid "Reserved slot"
+msgstr "Rezervēta vieta"
+
+#: src/gui/ui.rs
+msgid "Save"
+msgstr "Saglabāt"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Save failed: {err}"
+msgstr "Saglabāšana neizdevās: {err}"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Saved changes"
+msgstr "Izmaiņas saglabātas"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Saved {ordinal} button"
+msgstr "{ordinal} poga saglabāta"
+
+#: src/gui/core/icon_catalog.rs
+msgid "Select icon..."
+msgstr "Izvēlieties ikonu..."
+
+#: src/gui/ui.rs
+msgid "Start streamrs daemon"
+msgstr "Palaist streamrs dēmonu"
+
+#: src/gui/ui.rs
+msgid "Started streamrs daemon"
+msgstr "Streamrs dēmons palaists"
+
+#: src/gui/ui.rs
+msgid "Status"
+msgstr "Statuss"
+
+#: src/gui/ui.rs
+msgid "Status command (optional)"
+msgstr "Statusa komanda (neobligāta)"
+
+#: src/gui/ui.rs
+msgid "Status interval (ms)"
+msgstr "Statusa intervāls (ms)"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Status-off icon updated"
+msgstr "Izslēgta statusa ikona atjaunināta"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Status-on icon updated"
+msgstr "Ieslēgta statusa ikona atjaunināta"
+
+#: src/gui/ui.rs
+msgid "Stop streamrs daemon"
+msgstr "Apturēt streamrs dēmonu"
+
+#: src/gui/ui.rs
+msgid "Stopped streamrs daemon"
+msgstr "Streamrs dēmons apturēts"
+
+#: src/gui/ui.rs
+msgid "Stream Deck preview"
+msgstr "Stream Deck priekšskatījums"
+
+#: src/gui/ui/signals/navigation.rs
+msgid "Swapped buttons"
+msgstr "Pogas samainītas"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "This slot is reserved for page navigation"
+msgstr "Šī vieta ir rezervēta lapu navigācijai"
+
+#: src/gui/core/config_io.rs
+msgid "pkill exit status {status}"
+msgstr "pkill izejas statuss {status}"
+
+#: src/gui/core/config_io.rs
+msgid "pkill failed: {err}"
+msgstr "pkill neizdevās: {err}"
+
+#: src/gui/core/config_io.rs
+msgid "systemctl exit status {status}"
+msgstr "systemctl izejas statuss {status}"
+
+#: src/gui/core/config_io.rs
+msgid "systemctl failed: {err}"
+msgstr "systemctl neizdevās: {err}"
+
+#: src/gui/core/editor.rs
+msgid "{tooltip} ({page}/{total})"
+msgstr "{tooltip} ({page}/{total})"

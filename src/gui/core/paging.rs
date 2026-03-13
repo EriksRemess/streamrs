@@ -92,7 +92,13 @@ pub(crate) fn refresh_page_controls(
     current_page.set(page);
     prev_button.set_sensitive(page > 0);
     next_button.set_sensitive(page + 1 < total_pages);
-    page_label.set_text(&format!("Page {}/{}", page + 1, total_pages));
+    page_label.set_text(&trf(
+        "Page {current}/{total}",
+        &[
+            ("current", (page + 1).to_string()),
+            ("total", total_pages.to_string()),
+        ],
+    ));
 }
 
 #[cfg(test)]

@@ -49,18 +49,22 @@ pub(crate) fn refresh_key_grid(
                     key_buttons[slot].remove_css_class("key-blank-binding");
                 }
                 let tip = if is_plain_blank_key(key) {
-                    format!(
-                        "Button {} (page {}, slot {}) - Blank button",
-                        key_index + 1,
-                        page + 1,
-                        slot + 1
+                    trf(
+                        "Button {button} (page {page}, slot {slot}) - Blank button",
+                        &[
+                            ("button", (key_index + 1).to_string()),
+                            ("page", (page + 1).to_string()),
+                            ("slot", (slot + 1).to_string()),
+                        ],
                     )
                 } else {
-                    format!(
-                        "Button {} (page {}, slot {})",
-                        key_index + 1,
-                        page + 1,
-                        slot + 1
+                    trf(
+                        "Button {button} (page {page}, slot {slot})",
+                        &[
+                            ("button", (key_index + 1).to_string()),
+                            ("page", (page + 1).to_string()),
+                            ("slot", (slot + 1).to_string()),
+                        ],
                     )
                 };
                 key_buttons[slot].set_tooltip_text(Some(&tip));
@@ -82,11 +86,11 @@ pub(crate) fn refresh_key_grid(
             let icon_path = find_icon_file(&image_dirs, icon_name);
             update_picture_file(picture, icon_path.as_deref());
             let tip = match nav_slot {
-                ReservedNavigationSlot::PreviousPage => "Previous page",
-                ReservedNavigationSlot::NextPage => "Next page",
+                ReservedNavigationSlot::PreviousPage => tr("Previous page"),
+                ReservedNavigationSlot::NextPage => tr("Next page"),
             };
-            key_buttons[slot].set_tooltip_text(Some(tip));
-            picture.set_tooltip_text(Some(tip));
+            key_buttons[slot].set_tooltip_text(Some(&tip));
+            picture.set_tooltip_text(Some(&tip));
             continue;
         }
 
@@ -95,7 +99,7 @@ pub(crate) fn refresh_key_grid(
         key_buttons[slot].remove_css_class("key-blank-binding");
         key_buttons[slot].remove_css_class("key-navigation-slot");
         key_buttons[slot].add_css_class("key-empty-slot");
-        key_buttons[slot].set_tooltip_text(Some("Reserved for page navigation in streamrs"));
+        key_buttons[slot].set_tooltip_text(Some(&tr("Reserved for page navigation in streamrs")));
         picture.set_tooltip_text(None);
         update_picture_file(picture, None);
     }
@@ -219,9 +223,10 @@ pub(crate) fn populate_editor(
     set_editor_controls_sensitive(widgets, key_index.is_some());
 
     if let Some(key_index) = key_index {
-        widgets
-            .selected_label
-            .set_text(&format!("Editing button {}", key_index + 1));
+        widgets.selected_label.set_text(&trf(
+            "Editing {ordinal} button",
+            &[("ordinal", tr_ordinal(key_index + 1))],
+        ));
         widgets
             .action_entry
             .set_text(key.action.as_deref().unwrap_or_default());
@@ -315,11 +320,13 @@ pub(crate) fn populate_editor(
     } else if let Some(nav_slot) = nav_slot {
         let (label, tooltip) = match nav_slot {
             ReservedNavigationSlot::PreviousPage => {
-                ("Page navigation: Previous", "Go to previous page")
+                (tr("Page navigation: Previous"), tr("Go to previous page"))
             }
-            ReservedNavigationSlot::NextPage => ("Page navigation: Next", "Go to next page"),
+            ReservedNavigationSlot::NextPage => {
+                (tr("Page navigation: Next"), tr("Go to next page"))
+            }
         };
-        widgets.selected_label.set_text(label);
+        widgets.selected_label.set_text(&label);
         widgets.action_entry.set_text("");
         widgets.status_entry.set_text("");
         widgets
@@ -338,11 +345,16 @@ pub(crate) fn populate_editor(
         let icon_name = navigation_icon_name(nav_slot);
         let icon_path = find_icon_file(&image_dirs, icon_name);
         update_picture_file(&widgets.icon_preview, icon_path.as_deref());
-        widgets
-            .status_label
-            .set_text(&format!("{tooltip} ({}/{})", page + 1, total_pages));
+        widgets.status_label.set_text(&trf(
+            "{tooltip} ({page}/{total})",
+            &[
+                ("tooltip", tooltip),
+                ("page", (page + 1).to_string()),
+                ("total", total_pages.to_string()),
+            ],
+        ));
     } else {
-        widgets.selected_label.set_text("Reserved slot");
+        widgets.selected_label.set_text(&tr("Reserved slot"));
         widgets.action_entry.set_text("");
         widgets.status_entry.set_text("");
         widgets

@@ -1,0 +1,398 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: streamrs\n"
+"POT-Creation-Date: 2026-03-13 17:53+0000\n"
+"PO-Revision-Date: 2026-03-13 17:11+0000\n"
+"Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/gui/ui.rs
+msgid "A lightweight Rust Stream Deck toolkit for Linux."
+msgstr "A lightweight Rust Stream Deck toolkit for Linux."
+
+#: src/gui/ui.rs
+msgid "About streamrs"
+msgstr "About streamrs"
+
+#: src/gui/ui.rs
+msgid "Action"
+msgstr "Action"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Add"
+msgstr "Add"
+
+#: src/gui/ui.rs
+msgid "Add a button"
+msgstr "Add a button"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Add icon"
+msgstr "Add icon"
+
+#: src/gui/ui/signals/management.rs
+msgid "Add profile"
+msgstr "Add profile"
+
+#: src/gui/ui/signals/management.rs
+msgid "Added and selected icon '{icon}' in '{dir}'"
+msgstr "Added and selected icon '{icon}' in '{dir}'"
+
+#: src/gui/ui/signals/management.rs
+msgid "Added button {index}"
+msgstr "Added button {index}"
+
+#: src/gui/main.rs
+msgid "Another streamrs-gui instance is already running (lock '{path}')."
+msgstr "Another streamrs-gui instance is already running (lock '{path}')."
+
+#: src/gui/ui.rs
+msgid "Blank"
+msgstr "Blank"
+
+#: src/gui/ui.rs
+msgid "Button type"
+msgstr "Button type"
+
+#: src/gui/core/editor.rs
+msgid "Button {button} (page {page}, slot {slot})"
+msgstr "Button {button} (page {page}, slot {slot})"
+
+#: src/gui/core/editor.rs
+msgid "Button {button} (page {page}, slot {slot}) - Blank button"
+msgstr "Button {button} (page {page}, slot {slot}) - Blank button"
+
+#: src/gui/ui.rs
+msgid "Button {index}"
+msgstr "Button {index}"
+
+#: src/gui/ui.rs
+msgid "Calendar"
+msgstr "Calendar"
+
+#: src/gui/ui/signals/management.rs
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Cleared selected button"
+msgstr "Cleared selected button"
+
+#: src/gui/ui.rs
+msgid "Clock"
+msgstr "Clock"
+
+#: src/gui/ui.rs
+msgid "Clock background"
+msgstr "Clock background"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Clock background updated"
+msgstr "Clock background updated"
+
+#: src/gui/ui.rs
+msgid "Contributors"
+msgstr "Contributors"
+
+#: src/gui/ui/signals/management.rs
+msgid "Created and loaded profile '{profile}'"
+msgstr "Created and loaded profile '{profile}'"
+
+#: src/gui/ui.rs
+msgid "Delete"
+msgstr "Delete"
+
+#: src/gui/ui/signals/management.rs
+msgid "Delete profile '{profile}' config? Shared icons are kept."
+msgstr "Delete profile '{profile}' config? Shared icons are kept."
+
+#: src/gui/ui.rs
+msgid "Delete selected button configuration"
+msgstr "Delete selected button configuration"
+
+#: src/gui/core/editor.rs src/gui/ui.rs
+msgid "Editing {ordinal} button"
+msgstr "Editing {ordinal} button"
+
+#: src/gui/ui/signals/management.rs
+msgid "Failed to create '{path}': {err}"
+msgstr "Failed to create '{path}': {err}"
+
+#: src/gui/main.rs
+msgid "Failed to create GUI lock '{path}': {err}"
+msgstr "Failed to create GUI lock '{path}': {err}"
+
+#: src/gui/ui/signals/management.rs
+msgid "Failed to remove '{path}': {err}"
+msgstr "Failed to remove '{path}': {err}"
+
+#: src/gui/ui/signals/management.rs
+msgid "Failed to rename profile config '{from}' -> '{to}': {err}"
+msgstr "Failed to rename profile config '{from}' -> '{to}': {err}"
+
+#: src/gui/core/config_io.rs
+msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+
+#: src/gui/core/config_io.rs
+#, fuzzy
+msgid "Failed to start streamrs daemon (systemctl exit status {status})"
+msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+
+#: src/gui/core/config_io.rs
+#, fuzzy
+msgid "Failed to start streamrs daemon (systemctl failed: {err})"
+msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+
+#: src/gui/core/config_io.rs
+#, fuzzy
+msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+
+#: src/gui/main.rs
+msgid "Failed to write GUI lock '{path}': {err}"
+msgstr "Failed to write GUI lock '{path}': {err}"
+
+#: src/gui/core/editor.rs
+msgid "Go to next page"
+msgstr "Go to next page"
+
+#: src/gui/core/editor.rs
+msgid "Go to previous page"
+msgstr "Go to previous page"
+
+#: src/gui/ui.rs
+msgid "Icon"
+msgstr "Icon"
+
+#: src/gui/ui.rs
+msgid "Icon Preview"
+msgstr "Icon Preview"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Icon updated"
+msgstr "Icon updated"
+
+#: src/gui/ui.rs
+msgid "Icon when status is off"
+msgstr "Icon when status is off"
+
+#: src/gui/ui.rs
+msgid "Icon when status is on"
+msgstr "Icon when status is on"
+
+#: src/gui/ui/signals/management.rs
+msgid "Images"
+msgstr "Images"
+
+#: src/gui/ui/signals/navigation.rs
+msgid "Inserted button after target"
+msgstr "Inserted button after target"
+
+#: src/gui/ui/signals/navigation.rs
+msgid "Inserted button before target"
+msgstr "Inserted button before target"
+
+#: src/gui/ui/signals/management.rs
+msgid "Loaded profile '{profile}'"
+msgstr "Loaded profile '{profile}'"
+
+#: src/gui/ui.rs
+msgid "Menu"
+msgstr "Menu"
+
+#: src/gui/ui/signals/management.rs
+msgid "My Profile"
+msgstr "My Profile"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Navigation buttons cannot be deleted"
+msgstr "Navigation buttons cannot be deleted"
+
+#: src/gui/ui/signals/management.rs
+msgid "New profile name"
+msgstr "New profile name"
+
+#: src/gui/ui.rs
+msgid "Next"
+msgstr "Next"
+
+#: src/gui/core/editor.rs
+msgid "Next page"
+msgstr "Next page"
+
+#: src/gui/ui/signals/management.rs
+msgid "No profile selected"
+msgstr "No profile selected"
+
+#: src/gui/core/editor.rs
+msgid "Page navigation: Next"
+msgstr "Page navigation: Next"
+
+#: src/gui/core/editor.rs
+msgid "Page navigation: Previous"
+msgstr "Page navigation: Previous"
+
+#: src/gui/core/paging.rs src/gui/ui.rs src/gui/ui/signals/navigation.rs
+msgid "Page {current}/{total}"
+msgstr "Page {current}/{total}"
+
+#: src/gui/ui.rs
+msgid "Prev"
+msgstr "Prev"
+
+#: src/gui/core/editor.rs
+msgid "Previous page"
+msgstr "Previous page"
+
+#: src/gui/ui.rs
+msgid "Profile"
+msgstr "Profile"
+
+#: src/gui/ui/signals/management.rs
+msgid "Profile '{profile}' already exists"
+msgstr "Profile '{profile}' already exists"
+
+#: src/gui/ui/signals/management.rs
+msgid "Profile name"
+msgstr "Profile name"
+
+#: src/gui/ui/signals/management.rs
+msgid "Profile name must contain letters or numbers"
+msgstr "Profile name must contain letters or numbers"
+
+#: src/gui/ui.rs
+msgid "Project License"
+msgstr "Project License"
+
+#: src/gui/ui.rs
+msgid "Ready"
+msgstr "Ready"
+
+#: src/gui/ui.rs
+msgid "Regular"
+msgstr "Regular"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Remove"
+msgstr "Remove"
+
+#: src/gui/ui/signals/management.rs
+msgid "Remove profile"
+msgstr "Remove profile"
+
+#: src/gui/ui/signals/management.rs
+msgid "Removed profile '{profile}', active profile is '{next_profile}'"
+msgstr "Removed profile '{profile}', active profile is '{next_profile}'"
+
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
+msgid "Rename"
+msgstr "Rename"
+
+#: src/gui/ui/signals/management.rs
+msgid "Rename profile"
+msgstr "Rename profile"
+
+#: src/gui/ui/signals/management.rs
+msgid "Renamed profile '{from}' -> '{to}'"
+msgstr "Renamed profile '{from}' -> '{to}'"
+
+#: src/gui/core/editor.rs
+msgid "Reserved for page navigation in streamrs"
+msgstr "Reserved for page navigation in streamrs"
+
+#: src/gui/core/editor.rs
+msgid "Reserved slot"
+msgstr "Reserved slot"
+
+#: src/gui/ui.rs
+msgid "Save"
+msgstr "Save"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Save failed: {err}"
+msgstr "Save failed: {err}"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Saved changes"
+msgstr "Saved changes"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "Saved {ordinal} button"
+msgstr "Saved {ordinal} button"
+
+#: src/gui/core/icon_catalog.rs
+msgid "Select icon..."
+msgstr "Select icon..."
+
+#: src/gui/ui.rs
+msgid "Start streamrs daemon"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Started streamrs daemon"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Status"
+msgstr "Status"
+
+#: src/gui/ui.rs
+msgid "Status command (optional)"
+msgstr "Status command (optional)"
+
+#: src/gui/ui.rs
+msgid "Status interval (ms)"
+msgstr "Status interval (ms)"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Status-off icon updated"
+msgstr "Status-off icon updated"
+
+#: src/gui/ui/signals/editor.rs
+msgid "Status-on icon updated"
+msgstr "Status-on icon updated"
+
+#: src/gui/ui.rs
+msgid "Stop streamrs daemon"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Stopped streamrs daemon"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Stream Deck preview"
+msgstr "Stream Deck preview"
+
+#: src/gui/ui/signals/navigation.rs
+msgid "Swapped buttons"
+msgstr "Swapped buttons"
+
+#: src/gui/ui/signals/primary_actions.rs
+msgid "This slot is reserved for page navigation"
+msgstr "This slot is reserved for page navigation"
+
+#: src/gui/core/config_io.rs
+msgid "pkill exit status {status}"
+msgstr "pkill exit status {status}"
+
+#: src/gui/core/config_io.rs
+msgid "pkill failed: {err}"
+msgstr "pkill failed: {err}"
+
+#: src/gui/core/config_io.rs
+msgid "systemctl exit status {status}"
+msgstr "systemctl exit status {status}"
+
+#: src/gui/core/config_io.rs
+msgid "systemctl failed: {err}"
+msgstr "systemctl failed: {err}"
+
+#: src/gui/core/editor.rs
+msgid "{tooltip} ({page}/{total})"
+msgstr "{tooltip} ({page}/{total})"

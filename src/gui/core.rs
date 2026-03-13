@@ -4,6 +4,8 @@ mod config_io;
 mod deck_layout;
 #[path = "core/editor.rs"]
 mod editor;
+#[path = "core/i18n.rs"]
+mod i18n;
 #[path = "core/icon_cache.rs"]
 mod icon_cache;
 #[path = "core/icon_catalog.rs"]
@@ -18,6 +20,7 @@ mod style;
 pub(crate) use config_io::*;
 pub(crate) use deck_layout::*;
 pub(crate) use editor::*;
+pub(crate) use i18n::*;
 pub(crate) use icon_cache::*;
 pub(crate) use icon_catalog::*;
 pub(crate) use paging::*;

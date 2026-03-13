@@ -124,7 +124,7 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
                 backgrounds.as_slice(),
             );
             if applied {
-                widgets_for_icon.status_label.set_text("Icon updated");
+                widgets_for_icon.status_label.set_text(&tr("Icon updated"));
             }
         });
     }
@@ -173,7 +173,7 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
                 if applied {
                     widgets_for_background
                         .status_label
-                        .set_text("Clock background updated");
+                        .set_text(&tr("Clock background updated"));
                 }
             });
     }
@@ -213,7 +213,7 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
                 );
                 widgets_for_icon_on
                     .status_label
-                    .set_text("Status-on icon updated");
+                    .set_text(&tr("Status-on icon updated"));
             }
         });
     }
@@ -253,7 +253,7 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
                 );
                 widgets_for_icon_off
                     .status_label
-                    .set_text("Status-off icon updated");
+                    .set_text(&tr("Status-off icon updated"));
             }
         });
     }

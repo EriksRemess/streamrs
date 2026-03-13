@@ -38,15 +38,98 @@ pub(crate) fn signal_daemon_reload() -> Result<(), String> {
     }
 
     let systemctl_err = match systemctl {
-        Ok(status) => format!("systemctl exit status {status}"),
-        Err(err) => format!("systemctl failed: {err}"),
+        Ok(status) => trf(
+            "systemctl exit status {status}",
+            &[("status", status.to_string())],
+        ),
+        Err(err) => trf("systemctl failed: {err}", &[("err", err.to_string())]),
     };
     let pkill_err = match pkill {
-        Ok(status) => format!("pkill exit status {status}"),
-        Err(err) => format!("pkill failed: {err}"),
+        Ok(status) => trf(
+            "pkill exit status {status}",
+            &[("status", status.to_string())],
+        ),
+        Err(err) => trf("pkill failed: {err}", &[("err", err.to_string())]),
     };
-    Err(format!(
-        "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+    Err(trf(
+        "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})",
+        &[("systemctl_err", systemctl_err), ("pkill_err", pkill_err)],
+    ))
+}
+
+pub(crate) fn daemon_running() -> bool {
+    if let Ok(status) = std::process::Command::new("systemctl")
+        .args(["--user", "is-active", "--quiet", "streamrs.service"])
+        .status()
+        && status.success()
+    {
+        return true;
+    }
+
+    if let Ok(status) = std::process::Command::new("pgrep")
+        .args(["-x", "streamrs"])
+        .status()
+        && status.success()
+    {
+        return true;
+    }
+
+    false
+}
+
+pub(crate) fn set_daemon_running(should_run: bool) -> Result<(), String> {
+    if should_run {
+        return match std::process::Command::new("systemctl")
+            .args(["--user", "start", "streamrs.service"])
+            .status()
+        {
+            Ok(status) if status.success() => Ok(()),
+            Ok(status) => Err(trf(
+                "Failed to start streamrs daemon (systemctl exit status {status})",
+                &[("status", status.to_string())],
+            )),
+            Err(err) => Err(trf(
+                "Failed to start streamrs daemon (systemctl failed: {err})",
+                &[("err", err.to_string())],
+            )),
+        };
+    }
+
+    let systemctl = std::process::Command::new("systemctl")
+        .args(["--user", "stop", "streamrs.service"])
+        .status();
+    if let Ok(status) = &systemctl
+        && status.success()
+    {
+        return Ok(());
+    }
+
+    let pkill = std::process::Command::new("pkill")
+        .args(["-TERM", "-x", "streamrs"])
+        .status();
+    if let Ok(status) = &pkill
+        && status.success()
+    {
+        return Ok(());
+    }
+
+    let systemctl_err = match systemctl {
+        Ok(status) => trf(
+            "systemctl exit status {status}",
+            &[("status", status.to_string())],
+        ),
+        Err(err) => trf("systemctl failed: {err}", &[("err", err.to_string())]),
+    };
+    let pkill_err = match pkill {
+        Ok(status) => trf(
+            "pkill exit status {status}",
+            &[("status", status.to_string())],
+        ),
+        Err(err) => trf("pkill failed: {err}", &[("err", err.to_string())]),
+    };
+    Err(trf(
+        "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})",
+        &[("systemctl_err", systemctl_err), ("pkill_err", pkill_err)],
     ))
 }
 

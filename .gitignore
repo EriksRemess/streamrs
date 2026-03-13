@@ -4,5 +4,7 @@
 !/all_images/stream-deck-next-page.png
 !/all_images/stream-deck-previous-page.png
 /dist
+/po/locale/
+/po/*.po~
 .DS_Store
 *.pyc

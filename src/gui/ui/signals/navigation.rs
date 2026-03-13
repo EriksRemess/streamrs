@@ -116,10 +116,12 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
                         backgrounds.as_slice(),
                         &editor_syncing_for_click,
                     );
-                    widgets_for_click.status_label.set_text(&format!(
-                        "Page {}/{}",
-                        current_page_for_click.get() + 1,
-                        total_pages
+                    widgets_for_click.status_label.set_text(&trf(
+                        "Page {current}/{total}",
+                        &[
+                            ("current", (current_page_for_click.get() + 1).to_string()),
+                            ("total", total_pages.to_string()),
+                        ],
                     ));
                 }
                 return;
@@ -203,18 +205,18 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
 
                 let operation_message = if x < insert_before_threshold {
                     if move_key_between_slots(&state_for_drop, page, source_slot, index, false) {
-                        "Inserted button before target"
+                        tr("Inserted button before target")
                     } else {
                         return false;
                     }
                 } else if x > insert_after_threshold {
                     if move_key_between_slots(&state_for_drop, page, source_slot, index, true) {
-                        "Inserted button after target"
+                        tr("Inserted button after target")
                     } else {
                         return false;
                     }
                 } else if swap_keys_between_slots(&state_for_drop, page, source_slot, index) {
-                    "Swapped buttons"
+                    tr("Swapped buttons")
                 } else {
                     return false;
                 };
@@ -239,7 +241,7 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
                     backgrounds.as_slice(),
                     &editor_syncing_for_drop,
                 );
-                widgets_for_drop.status_label.set_text(operation_message);
+                widgets_for_drop.status_label.set_text(&operation_message);
                 true
             });
             button.add_controller(drop_target);

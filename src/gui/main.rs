@@ -33,8 +33,15 @@ fn try_acquire_gui_lock(path: &Path) -> Result<GuiInstanceLock, String> {
     match OpenOptions::new().write(true).create_new(true).open(path) {
         Ok(mut file) => {
             let pid = std::process::id();
-            file.write_all(pid.to_string().as_bytes())
-                .map_err(|err| format!("Failed to write GUI lock '{}': {err}", path.display()))?;
+            file.write_all(pid.to_string().as_bytes()).map_err(|err| {
+                trf(
+                    "Failed to write GUI lock '{path}': {err}",
+                    &[
+                        ("path", path.display().to_string()),
+                        ("err", err.to_string()),
+                    ],
+                )
+            })?;
             Ok(GuiInstanceLock {
                 path: path.to_path_buf(),
             })
@@ -48,19 +55,24 @@ fn try_acquire_gui_lock(path: &Path) -> Result<GuiInstanceLock, String> {
                 let _ = fs::remove_file(path);
                 return try_acquire_gui_lock(path);
             }
-            Err(format!(
-                "Another streamrs-gui instance is already running (lock '{}').",
-                path.display()
+            Err(trf(
+                "Another streamrs-gui instance is already running (lock '{path}').",
+                &[("path", path.display().to_string())],
             ))
         }
-        Err(err) => Err(format!(
-            "Failed to create GUI lock '{}': {err}",
-            path.display()
+        Err(err) => Err(trf(
+            "Failed to create GUI lock '{path}': {err}",
+            &[
+                ("path", path.display().to_string()),
+                ("err", err.to_string()),
+            ],
         )),
     }
 }
 
 pub(crate) fn run() {
+    init_i18n();
+
     let lock_path = gui_lock_path();
     let _gui_lock = match try_acquire_gui_lock(&lock_path) {
         Ok(lock) => lock,
