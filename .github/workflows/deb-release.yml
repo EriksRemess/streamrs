@@ -13,7 +13,7 @@ jobs:
       version: ${{ steps.version.outputs.value }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,7 +47,7 @@ jobs:
         run: bash scripts/build-deb.sh "${{ steps.version.outputs.value }}" dist
 
       - name: Upload Debian Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: streamrs-deb-${{ steps.version.outputs.value }}
           path: dist/*.deb
@@ -61,13 +61,20 @@ jobs:
       contents: write
     steps:
       - name: Download Debian Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: streamrs-deb-${{ needs.build-deb.outputs.version }}
           path: dist
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.deb
-          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v${{ needs.build-deb.outputs.version }}"
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" dist/*.deb --clobber
+          else
+            gh release create "${tag}" dist/*.deb --generate-notes
+          fi
