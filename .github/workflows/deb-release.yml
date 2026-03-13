@@ -69,12 +69,13 @@ jobs:
       - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           tag="v${{ needs.build-deb.outputs.version }}"
 
-          if gh release view "${tag}" >/dev/null 2>&1; then
-            gh release upload "${tag}" dist/*.deb --clobber
+          if gh release view "${tag}" --repo "${GH_REPO}" >/dev/null 2>&1; then
+            gh release upload "${tag}" dist/*.deb --repo "${GH_REPO}" --clobber
           else
-            gh release create "${tag}" dist/*.deb --generate-notes
+            gh release create "${tag}" dist/*.deb --repo "${GH_REPO}" --generate-notes
           fi
