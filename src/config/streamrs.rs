@@ -5,6 +5,12 @@ use super::{
 use std::path::Path;
 use std::time::Duration;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ConfiguredAction {
+    Launch(String),
+    KeyboardShortcut(String),
+}
+
 pub(crate) fn read_config_file(path: &Path) -> Result<String, String> {
     streamrs::config::toml::read_to_string(path)
 }
@@ -47,6 +53,18 @@ pub(crate) fn key_launch_action(key: &KeyBinding) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+pub(crate) fn key_keyboard_shortcut(key: &KeyBinding) -> Option<String> {
+    trimmed_non_empty(key.shortcut.as_deref())
+}
+
+pub(crate) fn key_configured_action(key: &KeyBinding) -> Option<ConfiguredAction> {
+    if let Some(shortcut) = key_keyboard_shortcut(key) {
+        return Some(ConfiguredAction::KeyboardShortcut(shortcut));
+    }
+
+    key_launch_action(key).map(ConfiguredAction::Launch)
 }
 
 fn trimmed_non_empty(value: Option<&str>) -> Option<String> {

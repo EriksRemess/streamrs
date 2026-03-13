@@ -99,7 +99,9 @@ pub(crate) fn wire_primary_action_signals(
                             eprintln!("{err}");
                         }
                         key_index
-                            .map(|index| trf("Saved {ordinal} button", &[("ordinal", tr_ordinal(index))]))
+                            .map(|index| {
+                                trf("Saved {ordinal} button", &[("ordinal", tr_ordinal(index))])
+                            })
                             .unwrap_or_else(|| tr("Saved changes"))
                     }
                     Err(err) => trf("Save failed: {err}", &[("err", err)]),
