@@ -11,6 +11,20 @@ pub(crate) fn wire_editor_dropdown_signals(ctx: &UiCtx) {
     let key_pictures = &ctx.key_pictures;
     let editor_syncing = &ctx.editor_syncing;
     {
+        let widgets_for_action_type = widgets.clone();
+        let editor_syncing_for_action_type = editor_syncing.clone();
+        widgets
+            .action_type_dropdown
+            .connect_selected_notify(move |_| {
+                if editor_syncing_for_action_type.get() {
+                    return;
+                }
+                let mode = action_mode(&widgets_for_action_type);
+                set_action_mode_visibility(&widgets_for_action_type, mode);
+            });
+    }
+
+    {
         let state_for_kind = state.clone();
         let current_page_for_kind = current_page.clone();
         let selected_for_kind = selected_key.clone();

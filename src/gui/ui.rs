@@ -363,13 +363,32 @@ pub(crate) fn build_ui(app: &Application) {
     selected_label.set_halign(Align::Start);
     selected_label.add_css_class("section-title");
 
-    let action_label = Label::new(Some(&tr("Action")));
+    let action_type_label = Label::new(Some(&tr("Action type")));
+    action_type_label.set_halign(Align::Start);
+    action_type_label.add_css_class("field-label");
+    let action_mode_labels = vec![tr("None"), tr("Launch command"), tr("Keyboard shortcut")];
+    let action_mode_label_refs: Vec<&str> = action_mode_labels.iter().map(String::as_str).collect();
+    let action_type_dropdown = DropDown::from_strings(&action_mode_label_refs);
+    make_dropdown_shrinkable(&action_type_dropdown);
+    action_type_dropdown.add_css_class("streamrs-field");
+
+    let action_label = Label::new(Some(&tr("Launch command")));
     action_label.set_halign(Align::Start);
     action_label.add_css_class("field-label");
     let action_entry = Entry::new();
     action_entry.set_hexpand(true);
     action_entry.set_width_chars(1);
+    action_entry.set_placeholder_text(Some("open https://example.com"));
     action_entry.add_css_class("streamrs-field");
+
+    let shortcut_label = Label::new(Some(&tr("Keyboard shortcut")));
+    shortcut_label.set_halign(Align::Start);
+    shortcut_label.add_css_class("field-label");
+    let shortcut_entry = Entry::new();
+    shortcut_entry.set_hexpand(true);
+    shortcut_entry.set_width_chars(1);
+    shortcut_entry.set_placeholder_text(Some("Ctrl+Shift+T"));
+    shortcut_entry.add_css_class("streamrs-field");
 
     let icon_kind_label = Label::new(Some(&tr("Button type")));
     icon_kind_label.set_halign(Align::Start);
@@ -473,8 +492,12 @@ pub(crate) fn build_ui(app: &Application) {
     status_line.add_css_class("status-label");
 
     editor.append(&selected_label);
+    editor.append(&action_type_label);
+    editor.append(&action_type_dropdown);
     editor.append(&action_label);
     editor.append(&action_entry);
+    editor.append(&shortcut_label);
+    editor.append(&shortcut_entry);
     editor.append(&icon_kind_label);
     editor.append(&icon_kind_dropdown);
     editor.append(&icon_label);
@@ -633,7 +656,11 @@ pub(crate) fn build_ui(app: &Application) {
         profile_dropdown,
         profile_names,
         selected_label,
+        action_type_dropdown,
+        action_label,
         action_entry,
+        shortcut_label,
+        shortcut_entry,
         icon_kind_dropdown,
         icon_label,
         icon_row,
