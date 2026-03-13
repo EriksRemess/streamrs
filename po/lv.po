@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-13 17:53+0000\n"
+"POT-Creation-Date: 2026-03-13 18:49+0000\n"
 "PO-Revision-Date: 2026-03-13 18:05+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
@@ -310,6 +310,14 @@ msgid "Reserved slot"
 msgstr "Rezervēta vieta"
 
 #: src/gui/ui.rs
+msgid "Restart"
+msgstr "Pārstartēt"
+
+#: src/gui/ui.rs
+msgid "Restarted streamrs daemon"
+msgstr "Streamrs dēmons pārstartēts"
+
+#: src/gui/ui.rs
 msgid "Save"
 msgstr "Saglabāt"
 
@@ -330,8 +338,8 @@ msgid "Select icon..."
 msgstr "Izvēlieties ikonu..."
 
 #: src/gui/ui.rs
-msgid "Start streamrs daemon"
-msgstr "Palaist streamrs dēmonu"
+msgid "Start"
+msgstr "Palaist"
 
 #: src/gui/ui.rs
 msgid "Started streamrs daemon"
@@ -358,8 +366,8 @@ msgid "Status-on icon updated"
 msgstr "Ieslēgta statusa ikona atjaunināta"
 
 #: src/gui/ui.rs
-msgid "Stop streamrs daemon"
-msgstr "Apturēt streamrs dēmonu"
+msgid "Stop"
+msgstr "Apturēt"
 
 #: src/gui/ui.rs
 msgid "Stopped streamrs daemon"
@@ -384,6 +392,10 @@ msgstr "pkill izejas statuss {status}"
 #: src/gui/core/config_io.rs
 msgid "pkill failed: {err}"
 msgstr "pkill neizdevās: {err}"
+
+#: src/gui/ui.rs
+msgid "streamrs service"
+msgstr "streamrs serviss"
 
 #: src/gui/core/config_io.rs
 msgid "systemctl exit status {status}"

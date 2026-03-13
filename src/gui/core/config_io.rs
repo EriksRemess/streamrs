@@ -133,6 +133,13 @@ pub(crate) fn set_daemon_running(should_run: bool) -> Result<(), String> {
     ))
 }
 
+pub(crate) fn restart_daemon() -> Result<(), String> {
+    if daemon_running() {
+        set_daemon_running(false)?;
+    }
+    set_daemon_running(true)
+}
+
 pub(crate) fn profile_slug_from_input(raw: &str) -> Option<String> {
     profile_slug_from_input_generic(raw)
 }

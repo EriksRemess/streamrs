@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-13 17:53+0000\n"
+"POT-Creation-Date: 2026-03-13 18:50+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -313,6 +313,14 @@ msgid "Reserved slot"
 msgstr ""
 
 #: src/gui/ui.rs
+msgid "Restart"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Restarted streamrs daemon"
+msgstr ""
+
+#: src/gui/ui.rs
 msgid "Save"
 msgstr ""
 
@@ -333,7 +341,7 @@ msgid "Select icon..."
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Start streamrs daemon"
+msgid "Start"
 msgstr ""
 
 #: src/gui/ui.rs
@@ -361,7 +369,7 @@ msgid "Status-on icon updated"
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Stop streamrs daemon"
+msgid "Stop"
 msgstr ""
 
 #: src/gui/ui.rs
@@ -386,6 +394,10 @@ msgstr ""
 
 #: src/gui/core/config_io.rs
 msgid "pkill failed: {err}"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "streamrs service"
 msgstr ""
 
 #: src/gui/core/config_io.rs

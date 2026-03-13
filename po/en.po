@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-13 17:53+0000\n"
+"POT-Creation-Date: 2026-03-13 18:49+0000\n"
 "PO-Revision-Date: 2026-03-13 17:11+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
@@ -139,19 +139,16 @@ msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
 
 #: src/gui/core/config_io.rs
-#, fuzzy
 msgid "Failed to start streamrs daemon (systemctl exit status {status})"
-msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr "Failed to start streamrs daemon (systemctl exit status {status})"
 
 #: src/gui/core/config_io.rs
-#, fuzzy
 msgid "Failed to start streamrs daemon (systemctl failed: {err})"
-msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr "Failed to start streamrs daemon (systemctl failed: {err})"
 
 #: src/gui/core/config_io.rs
-#, fuzzy
 msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
-msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
 
 #: src/gui/main.rs
 msgid "Failed to write GUI lock '{path}': {err}"
@@ -310,6 +307,14 @@ msgid "Reserved slot"
 msgstr "Reserved slot"
 
 #: src/gui/ui.rs
+msgid "Restart"
+msgstr "Restart"
+
+#: src/gui/ui.rs
+msgid "Restarted streamrs daemon"
+msgstr "Restarted streamrs daemon"
+
+#: src/gui/ui.rs
 msgid "Save"
 msgstr "Save"
 
@@ -330,12 +335,12 @@ msgid "Select icon..."
 msgstr "Select icon..."
 
 #: src/gui/ui.rs
-msgid "Start streamrs daemon"
-msgstr ""
+msgid "Start"
+msgstr "Start"
 
 #: src/gui/ui.rs
 msgid "Started streamrs daemon"
-msgstr ""
+msgstr "Started streamrs daemon"
 
 #: src/gui/ui.rs
 msgid "Status"
@@ -358,12 +363,12 @@ msgid "Status-on icon updated"
 msgstr "Status-on icon updated"
 
 #: src/gui/ui.rs
-msgid "Stop streamrs daemon"
-msgstr ""
+msgid "Stop"
+msgstr "Stop"
 
 #: src/gui/ui.rs
 msgid "Stopped streamrs daemon"
-msgstr ""
+msgstr "Stopped streamrs daemon"
 
 #: src/gui/ui.rs
 msgid "Stream Deck preview"
@@ -384,6 +389,10 @@ msgstr "pkill exit status {status}"
 #: src/gui/core/config_io.rs
 msgid "pkill failed: {err}"
 msgstr "pkill failed: {err}"
+
+#: src/gui/ui.rs
+msgid "streamrs service"
+msgstr "streamrs service"
 
 #: src/gui/core/config_io.rs
 msgid "systemctl exit status {status}"

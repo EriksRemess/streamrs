@@ -69,13 +69,25 @@ fn present_about_dialog(parent: &ApplicationWindow) {
 
 fn rebuild_window_menu(menu: &gtk::gio::Menu) {
     menu.remove_all();
-    let daemon_label = if daemon_running() {
-        tr("Stop streamrs daemon")
-    } else {
-        tr("Start streamrs daemon")
-    };
-    menu.append(Some(&daemon_label), Some("win.toggle-daemon"));
-    menu.append(Some(&tr("About streamrs")), Some("win.show-about"));
+
+    let daemon_section = gtk::gio::Menu::new();
+    daemon_section.append(Some(&tr("Start")), Some("win.start-daemon"));
+    daemon_section.append(Some(&tr("Stop")), Some("win.stop-daemon"));
+    daemon_section.append(Some(&tr("Restart")), Some("win.restart-daemon"));
+    menu.append_section(Some(&tr("streamrs service")), &daemon_section);
+
+    let app_section = gtk::gio::Menu::new();
+    app_section.append(Some(&tr("About streamrs")), Some("win.show-about"));
+    menu.append_section(None, &app_section);
+}
+
+fn sync_daemon_actions(
+    start_action: &gtk::gio::SimpleAction,
+    stop_action: &gtk::gio::SimpleAction,
+) {
+    let running = daemon_running();
+    start_action.set_enabled(!running);
+    stop_action.set_enabled(running);
 }
 
 pub(crate) fn build_ui(app: &Application) {
@@ -499,12 +511,6 @@ pub(crate) fn build_ui(app: &Application) {
     menu_button.set_tooltip_text(Some(&tr("Menu")));
     menu_button.set_menu_model(Some(&window_menu));
     menu_button.add_css_class("flat");
-    {
-        let window_menu_for_open = window_menu.clone();
-        menu_button.set_create_popup_func(move |_| {
-            rebuild_window_menu(&window_menu_for_open);
-        });
-    }
 
     let about_action = gtk::gio::SimpleAction::new("show-about", None);
     {
@@ -515,27 +521,67 @@ pub(crate) fn build_ui(app: &Application) {
     }
     window.add_action(&about_action);
 
-    let daemon_action = gtk::gio::SimpleAction::new("toggle-daemon", None);
+    let start_daemon_action = gtk::gio::SimpleAction::new("start-daemon", None);
+    let stop_daemon_action = gtk::gio::SimpleAction::new("stop-daemon", None);
+    let restart_daemon_action = gtk::gio::SimpleAction::new("restart-daemon", None);
+    sync_daemon_actions(&start_daemon_action, &stop_daemon_action);
     {
-        let status_line_for_daemon = status_line.clone();
-        let window_menu_for_daemon = window_menu.clone();
-        daemon_action.connect_activate(move |_, _| {
-            let should_run = !daemon_running();
-            let message = match set_daemon_running(should_run) {
-                Ok(()) => {
-                    if should_run {
-                        tr("Started streamrs daemon")
-                    } else {
-                        tr("Stopped streamrs daemon")
-                    }
-                }
-                Err(err) => err,
-            };
-            status_line_for_daemon.set_text(&message);
-            rebuild_window_menu(&window_menu_for_daemon);
+        let start_daemon_action_for_open = start_daemon_action.clone();
+        let stop_daemon_action_for_open = stop_daemon_action.clone();
+        menu_button.connect_notify_local(Some("active"), move |button, _| {
+            if button.property::<bool>("active") {
+                sync_daemon_actions(&start_daemon_action_for_open, &stop_daemon_action_for_open);
+            }
         });
     }
-    window.add_action(&daemon_action);
+    {
+        let status_line_for_start = status_line.clone();
+        let start_daemon_action_for_start = start_daemon_action.clone();
+        let stop_daemon_action_for_start = stop_daemon_action.clone();
+        start_daemon_action.connect_activate(move |_, _| {
+            let message = match set_daemon_running(true) {
+                Ok(()) => tr("Started streamrs daemon"),
+                Err(err) => err,
+            };
+            status_line_for_start.set_text(&message);
+            sync_daemon_actions(
+                &start_daemon_action_for_start,
+                &stop_daemon_action_for_start,
+            );
+        });
+    }
+    {
+        let status_line_for_stop = status_line.clone();
+        let start_daemon_action_for_stop = start_daemon_action.clone();
+        let stop_daemon_action_for_stop = stop_daemon_action.clone();
+        stop_daemon_action.connect_activate(move |_, _| {
+            let message = match set_daemon_running(false) {
+                Ok(()) => tr("Stopped streamrs daemon"),
+                Err(err) => err,
+            };
+            status_line_for_stop.set_text(&message);
+            sync_daemon_actions(&start_daemon_action_for_stop, &stop_daemon_action_for_stop);
+        });
+    }
+    {
+        let status_line_for_restart = status_line.clone();
+        let start_daemon_action_for_restart = start_daemon_action.clone();
+        let stop_daemon_action_for_restart = stop_daemon_action.clone();
+        restart_daemon_action.connect_activate(move |_, _| {
+            let message = match restart_daemon() {
+                Ok(()) => tr("Restarted streamrs daemon"),
+                Err(err) => err,
+            };
+            status_line_for_restart.set_text(&message);
+            sync_daemon_actions(
+                &start_daemon_action_for_restart,
+                &stop_daemon_action_for_restart,
+            );
+        });
+    }
+    window.add_action(&start_daemon_action);
+    window.add_action(&stop_daemon_action);
+    window.add_action(&restart_daemon_action);
 
     let title_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     title_row.set_halign(Align::Start);
