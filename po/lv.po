@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-13 18:49+0000\n"
-"PO-Revision-Date: 2026-03-13 18:05+0000\n"
+"POT-Creation-Date: 2026-03-15 14:24+0000\n"
+"PO-Revision-Date: 2026-03-15 15:01+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -21,8 +21,8 @@ msgid "About streamrs"
 msgstr "Par streamrs"
 
 #: src/gui/ui.rs
-msgid "Action"
-msgstr "Darbība"
+msgid "Action type"
+msgstr "Darbības veids"
 
 #: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Add"
@@ -197,6 +197,14 @@ msgstr "Poga ievietota aiz mērķa pogas"
 msgid "Inserted button before target"
 msgstr "Poga ievietota pirms mērķa pogas"
 
+#: src/gui/ui.rs
+msgid "Keyboard shortcut"
+msgstr "Tastatūras saīsne"
+
+#: src/gui/ui.rs
+msgid "Launch command"
+msgstr "Palaišanas komanda"
+
 #: src/gui/ui/signals/management.rs
 msgid "Loaded profile '{profile}'"
 msgstr "Ielādēts profils '{profile}'"
@@ -228,6 +236,10 @@ msgstr "Nākamā lapa"
 #: src/gui/ui/signals/management.rs
 msgid "No profile selected"
 msgstr "Nav izvēlēts profils"
+
+#: src/gui/ui.rs
+msgid "None"
+msgstr "Nav"
 
 #: src/gui/core/editor.rs
 msgid "Page navigation: Next"
@@ -408,3 +420,6 @@ msgstr "systemctl neizdevās: {err}"
 #: src/gui/core/editor.rs
 msgid "{tooltip} ({page}/{total})"
 msgstr "{tooltip} ({page}/{total})"
+
+#~ msgid "Action"
+#~ msgstr "Darbība"

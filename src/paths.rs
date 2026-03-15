@@ -25,10 +25,28 @@ pub fn xdg_data_home() -> Result<PathBuf, String> {
     Ok(home_dir()?.join(".local/share"))
 }
 
+pub fn xdg_state_home() -> Result<PathBuf, String> {
+    if let Some(path) = env::var_os("XDG_STATE_HOME") {
+        return Ok(PathBuf::from(path));
+    }
+    Ok(home_dir()?.join(".local/state"))
+}
+
 pub fn current_profile_path() -> PathBuf {
     streamrs_config_dir()
         .unwrap_or_else(|_| PathBuf::from("/tmp").join("streamrs"))
         .join("current_profile")
+}
+
+pub fn streamrs_state_dir() -> Result<PathBuf, String> {
+    Ok(xdg_state_home()?.join("streamrs"))
+}
+
+pub fn streamrs_state_path() -> PathBuf {
+    xdg_state_home()
+        .unwrap_or_else(|_| PathBuf::from("/tmp").join("streamrs"))
+        .join("streamrs")
+        .join("state.toml")
 }
 
 pub fn profile_from_config_path(path: &Path) -> String {
@@ -108,5 +126,11 @@ mod tests {
                 .any(|path| path == Path::new("/usr/share/streamrs/icons")),
             "packaged shared icon dir should be part of candidates"
         );
+    }
+
+    #[test]
+    fn state_path_uses_streamrs_state_dir() {
+        let path = streamrs_state_path();
+        assert!(path.ends_with("state/streamrs/state.toml"));
     }
 }

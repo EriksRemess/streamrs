@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-13 18:50+0000\n"
+"POT-Creation-Date: 2026-03-15 14:35+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgid "About streamrs"
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Action"
+msgid "Action type"
 msgstr ""
 
 #: src/gui/ui.rs
@@ -196,6 +196,14 @@ msgstr ""
 msgid "Inserted button before target"
 msgstr ""
 
+#: src/gui/ui.rs
+msgid "Keyboard shortcut"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Launch command"
+msgstr ""
+
 #: src/gui/ui/signals/management.rs
 msgid "Loaded profile '{profile}'"
 msgstr ""
@@ -226,6 +234,10 @@ msgstr ""
 
 #: src/gui/ui/signals/management.rs
 msgid "No profile selected"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "None"
 msgstr ""
 
 #: src/gui/core/editor.rs

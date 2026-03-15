@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-13 18:49+0000\n"
+"POT-Creation-Date: 2026-03-15 14:24+0000\n"
 "PO-Revision-Date: 2026-03-13 17:11+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
@@ -19,8 +19,9 @@ msgid "About streamrs"
 msgstr "About streamrs"
 
 #: src/gui/ui.rs
-msgid "Action"
-msgstr "Action"
+#, fuzzy
+msgid "Action type"
+msgstr "Button type"
 
 #: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Add"
@@ -194,6 +195,14 @@ msgstr "Inserted button after target"
 msgid "Inserted button before target"
 msgstr "Inserted button before target"
 
+#: src/gui/ui.rs
+msgid "Keyboard shortcut"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Launch command"
+msgstr ""
+
 #: src/gui/ui/signals/management.rs
 msgid "Loaded profile '{profile}'"
 msgstr "Loaded profile '{profile}'"
@@ -225,6 +234,10 @@ msgstr "Next page"
 #: src/gui/ui/signals/management.rs
 msgid "No profile selected"
 msgstr "No profile selected"
+
+#: src/gui/ui.rs
+msgid "None"
+msgstr ""
 
 #: src/gui/core/editor.rs
 msgid "Page navigation: Next"
@@ -405,3 +418,6 @@ msgstr "systemctl failed: {err}"
 #: src/gui/core/editor.rs
 msgid "{tooltip} ({page}/{total})"
 msgstr "{tooltip} ({page}/{total})"
+
+#~ msgid "Action"
+#~ msgstr "Action"

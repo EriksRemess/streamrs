@@ -31,14 +31,14 @@ mod main_tests;
 mod stream_image;
 
 #[cfg(test)]
+use config::key_launch_action;
+#[cfg(test)]
 use config::parse_config;
 use config::{
     ConfiguredAction, is_launcher_like_command, key_clock_background, key_configured_action,
     key_status_command, key_status_icon_off, key_status_icon_on, key_status_interval, load_config,
     read_config_file,
 };
-#[cfg(test)]
-use config::key_launch_action;
 use init::{
     default_config_path, default_image_dir, ensure_profile_initialized, initialize_profile,
     parse_args, print_post_init_service_hint, print_usage,
