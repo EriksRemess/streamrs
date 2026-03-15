@@ -33,6 +33,7 @@ Feature highlights:
 - Animated icons: GIF, APNG, animated WebP
 - Built-in clock icon (`clock.svg`)
 - Status-driven toggle icons via polling commands
+- Keyboard shortcut actions
 - Automatic pagination when config has more than 15 keys
 
 ## Download
@@ -94,6 +95,7 @@ systemctl --user stop streamrs.service
 Default profile files live in:
 - Config: `~/.config/streamrs/default.toml`
 - Images: `~/.local/share/streamrs/icons/`
+- Runtime state: `~/.local/state/streamrs/state.toml`
 
 Additional profiles use:
 - `~/.config/streamrs/<name>.toml`
@@ -102,6 +104,7 @@ Additional profiles use:
 Notes:
 - If the config is missing, `streamrs` auto-initializes the profile from bundled defaults
 - `streamrs --init --force` refreshes config and bundled images from package defaults
+- Runtime state such as persisted portal permission restore tokens is stored separately from editable profile config
 
 ### CLI Basics
 
@@ -111,6 +114,32 @@ Common `streamrs` flags:
 - `--debug`: inherit child process stdout/stderr
 - `--init`: initialize profile files and exit
 - `--force`: with `--init`, overwrite existing config/images
+
+### Actions
+
+Each key can either launch a command or trigger a keyboard shortcut.
+
+Example command action:
+
+```toml
+[[keys]]
+action = "open https://github.com/EriksRemess/streamrs"
+icon = "github.png"
+```
+
+Example keyboard shortcut action:
+
+```toml
+[[keys]]
+shortcut = "Ctrl+Shift+T"
+icon = "shortcut-example.png"
+```
+
+Notes:
+- If both `action` and `shortcut` are set, `shortcut` takes precedence
+- Shortcuts support common modifiers and keys such as `Ctrl`, `Alt`, `Shift`, `Meta`, function keys, arrows, `Return`, and single characters
+- On GNOME Wayland, shortcut injection uses the RemoteDesktop portal and may show a permission prompt the first time
+- If the portal backend grants persistence, `streamrs` stores the restore token in `~/.local/state/streamrs/state.toml` to reduce future prompts
 
 ### Preview Renderer
 

@@ -71,6 +71,7 @@ This installs:
 - Binaries into `~/.local/bin/`
 - Default profile config into `~/.config/streamrs/default.toml`
 - Default images into `~/.local/share/streamrs/icons/`
+- Runtime state into `~/.local/state/streamrs/state.toml`
 - Desktop entry + icon
 - User systemd service into `~/.config/systemd/user/streamrs.service`
 
@@ -104,3 +105,10 @@ Output path:
 - Default packaged config template: `config/default.toml`
 - Packaged systemd user unit: `systemd/streamrs.service`
 - Debian packaging script: `scripts/build-deb.sh`
+
+## Keyboard Shortcut Notes
+
+- Keyboard shortcut actions are configured with the `shortcut` field in profile TOML
+- On GNOME Wayland, `streamrs` uses the RemoteDesktop portal for virtual keyboard injection
+- Portal restore tokens are stored in `XDG_STATE_HOME/streamrs/state.toml` so they are kept out of the editable profile config files
+- If you need to bypass the portal backend while debugging, run with `STREAMRS_DISABLE_PORTAL_KEYBOARD=1`
