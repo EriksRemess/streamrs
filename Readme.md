@@ -141,6 +141,26 @@ Notes:
 - On GNOME Wayland, shortcut injection uses the RemoteDesktop portal and may show a permission prompt the first time
 - If the portal backend grants persistence, `streamrs` stores the restore token in `~/.local/state/streamrs/state.toml` to reduce future prompts
 
+### Status Buttons
+
+Status buttons can poll a shell command and swap icons based on its exit code.
+
+Example:
+
+```toml
+[[keys]]
+action = "playerctl play-pause"
+status = "playerctl status | grep -q Playing"
+status_interval_seconds = 5
+icon_on = "pause.png"
+icon_off = "play.png"
+```
+
+Notes:
+- `status_interval_seconds` controls the regular polling interval in seconds
+- Existing `status_interval_ms` values are still supported for older configs
+- Pressing a button with an action triggers a status refresh 1 second after the action command succeeds
+
 ### Preview Renderer
 
 Generate a mock image from your current profile:

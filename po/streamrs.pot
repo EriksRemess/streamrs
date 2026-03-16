@@ -333,7 +333,15 @@ msgid "Restarted streamrs daemon"
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Save"
+msgid "Save and Apply"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Remove selected button configuration"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Remove selected"
 msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs
@@ -369,7 +377,7 @@ msgid "Status command (optional)"
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Status interval (ms)"
+msgid "Status interval (seconds)"
 msgstr ""
 
 #: src/gui/ui/signals/editor.rs
@@ -423,4 +431,3 @@ msgstr ""
 #: src/gui/core/editor.rs
 msgid "{tooltip} ({page}/{total})"
 msgstr ""
-

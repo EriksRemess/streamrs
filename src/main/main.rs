@@ -11,6 +11,8 @@ use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::thread;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 #[cfg(test)]
@@ -64,17 +66,20 @@ use streamrs::config::streamrs_schema::{
     default_usage_page as schema_default_usage_page, default_vendor_id as schema_default_vendor_id,
 };
 use streamrs::paging::PagingLayout;
-use streamrs::process::{launch_split_command, run_shell_status, send_keyboard_shortcut};
+use streamrs::process::{run_shell_status, send_keyboard_shortcut, wait_argv_command_success};
 use streamrs::streamdeck::{get_device, read_states, set_brightness, set_key_image_data};
 
 const KEY_COUNT: usize = streamrs::paging::STREAMDECK_KEY_COUNT;
+const MAX_KEYS_PER_PAGE: usize = KEY_COUNT;
 const MIN_KEYS_PER_PAGE: usize = streamrs::paging::MIN_KEYS_PER_PAGE;
 const NEXT_PAGE_ICON: &str = "stream-deck-next-page.png";
 const PREVIOUS_PAGE_ICON: &str = "stream-deck-previous-page.png";
 const SVG_RENDER_SIZE: u32 = 256;
 const MIN_GIF_FRAME_DELAY_MS: u64 = 66;
-const DEFAULT_STATUS_CHECK_INTERVAL_MS: u64 = 1000;
-const MIN_STATUS_CHECK_INTERVAL_MS: u64 = 100;
+const DEFAULT_STATUS_CHECK_INTERVAL_SECONDS: u64 = 1;
+const MIN_STATUS_CHECK_INTERVAL_SECONDS: u64 = 1;
+const MAX_STATUS_CHECK_INTERVAL_SECONDS: u64 = 60;
+const POST_ACTION_STATUS_CHECK_DELAY: Duration = Duration::from_secs(1);
 const RELOAD_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -321,21 +326,40 @@ fn next_midnight_instant() -> Instant {
     Instant::now() + duration_until_next_midnight_local(Local::now())
 }
 
-fn launch_app(action: &str, debug: bool) {
-    if let Err(err) = launch_split_command(action, debug) {
-        eprintln!("{err}");
-    }
+fn watch_action_completion(
+    action: &str,
+    debug: bool,
+    key_index: usize,
+    refresh_sender: &mpsc::Sender<usize>,
+) {
+    let action = action.to_string();
+    let refresh_sender = refresh_sender.clone();
+    thread::spawn(
+        move || match wait_argv_command_success(action.as_str(), debug) {
+            Ok(true) => {
+                let _ = refresh_sender.send(key_index);
+            }
+            Ok(false) => {
+                eprintln!("Action command '{action}' exited with a non-zero status");
+            }
+            Err(err) => eprintln!("{err}"),
+        },
+    );
 }
 
-fn send_shortcut(shortcut: &str) {
+fn send_shortcut(shortcut: &str) -> Result<(), String> {
     eprintln!("Triggering keyboard shortcut action '{shortcut}'");
-    if let Err(err) = send_keyboard_shortcut(shortcut) {
-        eprintln!("{err}");
-    }
+    send_keyboard_shortcut(shortcut)
 }
 
 fn run_status_check(command: &str) -> Result<bool, String> {
     run_shell_status(command)
+}
+
+fn request_immediate_status_check(state: &mut PageState, key_index: usize) {
+    if let Some(status) = state.status_states[key_index].as_mut() {
+        status.next_check_at = Instant::now() + POST_ACTION_STATUS_CHECK_DELAY;
+    }
 }
 
 fn apply_icon_to_key(
@@ -776,6 +800,7 @@ pub(crate) fn run() {
     let mut last_pressed_button = None;
     let mut last_device_probe = Instant::now() - Duration::from_secs(1);
     let mut waiting_for_device_logged = false;
+    let (status_refresh_tx, status_refresh_rx) = mpsc::channel::<usize>();
 
     loop {
         if device.is_none() && last_device_probe.elapsed() >= Duration::from_millis(500) {
@@ -816,6 +841,10 @@ pub(crate) fn run() {
         let mut disconnected = false;
         let mut reload_due_to_device_issue = false;
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
+            while let Ok(key_index) = status_refresh_rx.try_recv() {
+                request_immediate_status_check(page_state_ref, key_index);
+            }
+
             advance_dynamic_keys(
                 device_ref,
                 &image_dir,
@@ -831,10 +860,20 @@ pub(crate) fn run() {
                             && let Some(action) = page_state_ref.button_actions[index].clone()
                         {
                             match action {
-                                ButtonAction::Launch(action) => launch_app(&action, args.debug),
+                                ButtonAction::Launch(action) => {
+                                    watch_action_completion(
+                                        &action,
+                                        args.debug,
+                                        index,
+                                        &status_refresh_tx,
+                                    );
+                                }
                                 ButtonAction::KeyboardShortcut(shortcut) => {
-                                    eprintln!("Button {} pressed: keyboard shortcut", index + 1);
-                                    send_shortcut(&shortcut);
+                                    if let Err(err) = send_shortcut(&shortcut) {
+                                        eprintln!("{err}");
+                                    } else {
+                                        request_immediate_status_check(page_state_ref, index);
+                                    }
                                 }
                                 ButtonAction::PreviousPage => {
                                     if current_page > 0 {

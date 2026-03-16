@@ -20,7 +20,7 @@ use std::io::ErrorKind;
 use std::os::unix::fs::PermissionsExt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -43,10 +43,10 @@ const PORTAL_PERSIST_MODE_PERSISTENT: u32 = 2;
 static PORTAL_TOKEN_COUNTER: AtomicU64 = AtomicU64::new(1);
 static PORTAL_KEYBOARD_BACKEND: OnceLock<Mutex<Option<PortalKeyboardBackend>>> = OnceLock::new();
 
-pub fn launch_split_command(command_line: &str, debug: bool) -> Result<(), String> {
+fn spawn_argv_command(command_line: &str, debug: bool) -> Result<Option<Child>, String> {
     let parts: Vec<&str> = command_line.split_whitespace().collect();
     if parts.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
 
     let mut cmd = Command::new(parts[0]);
@@ -59,8 +59,22 @@ pub fn launch_split_command(command_line: &str, debug: bool) -> Result<(), Strin
     }
 
     cmd.spawn()
-        .map(|_| ())
+        .map(Some)
         .map_err(|e| format!("Error launching '{command_line}': {e}"))
+}
+
+pub fn launch_argv_command(command_line: &str, debug: bool) -> Result<(), String> {
+    spawn_argv_command(command_line, debug).map(|_| ())
+}
+
+pub fn wait_argv_command_success(command_line: &str, debug: bool) -> Result<bool, String> {
+    let Some(mut child) = spawn_argv_command(command_line, debug)? else {
+        return Ok(true);
+    };
+    let status = child
+        .wait()
+        .map_err(|err| format!("Failed waiting for '{command_line}': {err}"))?;
+    Ok(status.success())
 }
 
 pub fn run_shell_status(command: &str) -> Result<bool, String> {
@@ -896,14 +910,25 @@ mod tests {
 
     #[test]
     fn empty_launch_command_is_noop() {
-        launch_split_command("   ", false).expect("blank launch command should be a no-op");
+        launch_argv_command("   ", false).expect("blank launch command should be a no-op");
     }
 
     #[test]
     fn launch_errors_are_reported() {
-        let err = launch_split_command("streamrs-test-command-that-should-not-exist", false)
+        let err = launch_argv_command("streamrs-test-command-that-should-not-exist", false)
             .expect_err("missing executable should return an error");
         assert!(err.contains("Error launching"));
+    }
+
+    #[test]
+    fn waited_launch_reports_success_and_failure() {
+        assert!(
+            wait_argv_command_success("true", false).expect("true should complete successfully")
+        );
+        assert!(
+            !wait_argv_command_success("false", false)
+                .expect("false should complete with a failure status")
+        );
     }
 
     #[test]

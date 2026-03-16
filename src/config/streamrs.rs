@@ -1,6 +1,6 @@
 use super::{
-    Config, DEFAULT_STATUS_CHECK_INTERVAL_MS, KEY_COUNT, KeyBinding, MIN_KEYS_PER_PAGE,
-    MIN_STATUS_CHECK_INTERVAL_MS,
+    Config, DEFAULT_STATUS_CHECK_INTERVAL_SECONDS, KeyBinding, MAX_KEYS_PER_PAGE,
+    MAX_STATUS_CHECK_INTERVAL_SECONDS, MIN_KEYS_PER_PAGE, MIN_STATUS_CHECK_INTERVAL_SECONDS,
 };
 use std::path::Path;
 use std::time::Duration;
@@ -19,13 +19,13 @@ fn validate_config(path: &Path, config: &Config) -> Result<(), String> {
     if config.keys.is_empty() {
         return Err(format!("Config '{}' has no keys", path.display()));
     }
-    if !(MIN_KEYS_PER_PAGE..=KEY_COUNT).contains(&config.keys_per_page) {
+    if !(MIN_KEYS_PER_PAGE..=MAX_KEYS_PER_PAGE).contains(&config.keys_per_page) {
         return Err(format!(
             "Config '{}' has invalid keys_per_page {}; expected {}..={}",
             path.display(),
             config.keys_per_page,
             MIN_KEYS_PER_PAGE,
-            KEY_COUNT
+            MAX_KEYS_PER_PAGE
         ));
     }
     Ok(())
@@ -98,12 +98,21 @@ pub(crate) fn key_status_icon_off(key: &KeyBinding) -> String {
     trimmed_non_empty(key.icon_off.as_deref()).unwrap_or_else(|| key.icon.clone())
 }
 
+pub(crate) fn key_status_interval_seconds(key: &KeyBinding) -> u64 {
+    key.status_interval_seconds
+        .or_else(|| {
+            key.status_interval_ms
+                .map(|interval_ms| interval_ms.saturating_add(999) / 1000)
+        })
+        .unwrap_or(DEFAULT_STATUS_CHECK_INTERVAL_SECONDS)
+        .clamp(
+            MIN_STATUS_CHECK_INTERVAL_SECONDS,
+            MAX_STATUS_CHECK_INTERVAL_SECONDS,
+        )
+}
+
 pub(crate) fn key_status_interval(key: &KeyBinding) -> Duration {
-    let interval_ms = key
-        .status_interval_ms
-        .unwrap_or(DEFAULT_STATUS_CHECK_INTERVAL_MS)
-        .max(MIN_STATUS_CHECK_INTERVAL_MS);
-    Duration::from_millis(interval_ms)
+    Duration::from_secs(key_status_interval_seconds(key))
 }
 
 pub(crate) fn key_clock_background(key: &KeyBinding) -> Option<String> {

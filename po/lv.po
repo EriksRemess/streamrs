@@ -330,8 +330,16 @@ msgid "Restarted streamrs daemon"
 msgstr "Streamrs dēmons pārstartēts"
 
 #: src/gui/ui.rs
-msgid "Save"
-msgstr "Saglabāt"
+msgid "Save and Apply"
+msgstr "Saglabāt un pielietot"
+
+#: src/gui/ui.rs
+msgid "Remove selected button configuration"
+msgstr "Noņemt izvēlētās pogas konfigurāciju"
+
+#: src/gui/ui.rs
+msgid "Remove selected"
+msgstr "Noņemt izvēlēto"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Save failed: {err}"
@@ -366,8 +374,8 @@ msgid "Status command (optional)"
 msgstr "Statusa komanda (neobligāta)"
 
 #: src/gui/ui.rs
-msgid "Status interval (ms)"
-msgstr "Statusa intervāls (ms)"
+msgid "Status interval (seconds)"
+msgstr "Statusa intervāls (sekundēs)"
 
 #: src/gui/ui/signals/editor.rs
 msgid "Status-off icon updated"

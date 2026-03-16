@@ -44,9 +44,9 @@ pub(crate) use streamrs::paths::{
 };
 
 pub(crate) const KEY_COUNT: usize = STREAMDECK_KEY_COUNT;
-pub(crate) const DEFAULT_STATUS_INTERVAL_MS: u64 = 1000;
-pub(crate) const MIN_STATUS_INTERVAL_MS: u64 = 100;
-pub(crate) const MAX_STATUS_INTERVAL_MS: u64 = 60_000;
+pub(crate) const DEFAULT_STATUS_INTERVAL_SECONDS: u64 = 1;
+pub(crate) const MIN_STATUS_INTERVAL_SECONDS: u64 = 1;
+pub(crate) const MAX_STATUS_INTERVAL_SECONDS: u64 = 60;
 
 pub(crate) const NAV_PREVIOUS_ICON: &str = "stream-deck-previous-page.png";
 pub(crate) const NAV_NEXT_ICON: &str = "stream-deck-next-page.png";

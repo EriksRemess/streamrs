@@ -193,6 +193,7 @@ pub(crate) fn build_ui(app: &Application) {
     rename_profile_button.add_css_class("profile-action-button");
 
     let add_key_button = Button::with_label(&tr("Add a button"));
+    add_key_button.set_tooltip_text(Some(&tr("Add a button")));
     let add_icon_button = Button::with_label("+");
     add_icon_button.set_tooltip_text(Some(&tr("Add icon")));
     add_icon_button.add_css_class("icon-add-button");
@@ -465,24 +466,24 @@ pub(crate) fn build_ui(app: &Application) {
     make_dropdown_shrinkable(&icon_off_dropdown);
     icon_off_dropdown.add_css_class("streamrs-field");
 
-    let interval_label = Label::new(Some(&tr("Status interval (ms)")));
+    let interval_label = Label::new(Some(&tr("Status interval (seconds)")));
     interval_label.set_halign(Align::Start);
     interval_label.add_css_class("field-label");
     let interval_spin = SpinButton::with_range(
-        MIN_STATUS_INTERVAL_MS as f64,
-        MAX_STATUS_INTERVAL_MS as f64,
-        100.0,
+        MIN_STATUS_INTERVAL_SECONDS as f64,
+        MAX_STATUS_INTERVAL_SECONDS as f64,
+        1.0,
     );
     interval_spin.set_hexpand(true);
-    interval_spin.set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
+    interval_spin.set_value(DEFAULT_STATUS_INTERVAL_SECONDS as f64);
     interval_spin.add_css_class("streamrs-field");
 
-    let apply_button = Button::with_label(&tr("Save"));
+    let apply_button = Button::with_label(&tr("Save and Apply"));
     apply_button.add_css_class("action-button");
     apply_button.add_css_class("apply-button");
     apply_button.set_hexpand(false);
-    let clear_button = Button::with_label(&tr("Delete"));
-    clear_button.set_tooltip_text(Some(&tr("Delete selected button configuration")));
+    let clear_button = Button::with_label(&tr("Remove selected"));
+    clear_button.set_tooltip_text(Some(&tr("Remove selected button configuration")));
     clear_button.add_css_class("action-button");
     clear_button.add_css_class("clear-button");
     clear_button.set_hexpand(false);
@@ -639,10 +640,16 @@ pub(crate) fn build_ui(app: &Application) {
     status_line.set_xalign(0.0);
     status_bar.append(&status_line);
     let status_actions = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
-    status_actions.set_homogeneous(true);
-    status_actions.append(&add_key_button);
+    status_actions.add_css_class("status-actions");
+    let button_actions = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
+    button_actions.add_css_class("status-button-actions");
+    button_actions.append(&add_key_button);
+    button_actions.append(&clear_button);
+    let status_actions_separator = gtk::Separator::new(Orientation::Vertical);
+    status_actions_separator.add_css_class("status-actions-separator");
+    status_actions.append(&button_actions);
+    status_actions.append(&status_actions_separator);
     status_actions.append(&apply_button);
-    status_actions.append(&clear_button);
     status_bar.append(&status_actions);
     content_root.append(&body);
 

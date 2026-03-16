@@ -70,6 +70,8 @@ pub struct StreamrsKeyBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_interval_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status_interval_ms: Option<u64>,
 }
 
@@ -83,6 +85,7 @@ impl Default for StreamrsKeyBinding {
             icon_on: None,
             icon_off: None,
             status: None,
+            status_interval_seconds: None,
             status_interval_ms: None,
         }
     }

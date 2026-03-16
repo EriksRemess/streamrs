@@ -32,6 +32,7 @@ fn test_key(icon: &str) -> KeyBinding {
         icon_on: None,
         icon_off: None,
         status: None,
+        status_interval_seconds: None,
         status_interval_ms: None,
     }
 }
@@ -304,15 +305,30 @@ fn status_interval_is_clamped() {
             [[keys]]
             icon = "default.png"
             status = "test-command"
-            status_interval_ms = 1
+            status_interval_seconds = 0
         "#;
     let config =
         parse_config(Path::new("test.toml"), raw).expect("status interval config should parse");
     let key = &config.keys[0];
     assert_eq!(
         key_status_interval(key),
-        Duration::from_millis(MIN_STATUS_CHECK_INTERVAL_MS)
+        Duration::from_secs(MIN_STATUS_CHECK_INTERVAL_SECONDS)
     );
+}
+
+#[test]
+fn legacy_status_interval_ms_is_supported() {
+    let raw = r#"
+            [[keys]]
+            icon = "default.png"
+            status = "test-command"
+            status_interval_ms = 2500
+        "#;
+    let config = parse_config(Path::new("test.toml"), raw)
+        .expect("legacy millisecond status interval config should parse");
+    let key = &config.keys[0];
+    assert_eq!(config::key_status_interval_seconds(key), 3);
+    assert_eq!(key_status_interval(key), Duration::from_secs(3));
 }
 
 #[test]
@@ -371,6 +387,7 @@ fn image_cache_warming_includes_status_and_navigation_icons() {
             icon_on: None,
             icon_off: None,
             status: None,
+            status_interval_seconds: None,
             status_interval_ms: None,
         });
     }
@@ -382,6 +399,7 @@ fn image_cache_warming_includes_status_and_navigation_icons() {
         icon_on: Some("status-on.png".to_string()),
         icon_off: Some("status-off.png".to_string()),
         status: Some("test-status".to_string()),
+        status_interval_seconds: None,
         status_interval_ms: None,
     });
 
@@ -528,7 +546,7 @@ fn page_layout_plan_uses_cached_status_for_initial_icon_and_poll_timing() {
     key.status = Some("test-status".to_string());
     key.icon_on = Some("on.png".to_string());
     key.icon_off = Some("off.png".to_string());
-    key.status_interval_ms = Some(2500);
+    key.status_interval_seconds = Some(3);
     let config = test_config_with_keys(vec![key]);
 
     let no_cache_plan = plan_page_layout(&config, &StatusCache::new(), 0);
@@ -537,6 +555,7 @@ fn page_layout_plan_uses_cached_status_for_initial_icon_and_poll_timing() {
         .expect("status slot should be planned");
     assert_eq!(no_cache_status.current_on, None);
     assert!(no_cache_status.poll_now);
+    assert_eq!(no_cache_status.check_interval, Duration::from_secs(3));
     assert_eq!(
         no_cache_plan.icons[0]
             .as_ref()
@@ -552,10 +571,40 @@ fn page_layout_plan_uses_cached_status_for_initial_icon_and_poll_timing() {
         .expect("status slot should be planned");
     assert_eq!(cached_status.current_on, Some(true));
     assert!(!cached_status.poll_now);
+    assert_eq!(cached_status.check_interval, Duration::from_secs(3));
     assert_eq!(
         cached_plan.icons[0].as_ref().map(|(icon, _)| icon.as_str()),
         Some("on.png")
     );
+}
+
+#[test]
+fn immediate_status_refresh_schedules_status_key_one_second_later() {
+    let mut state = PageState {
+        button_actions: std::array::from_fn(|_| None),
+        dynamic_states: std::array::from_fn(|_| None),
+        status_states: std::array::from_fn(|_| None),
+    };
+    state.status_states[0] = Some(StatusKeyState {
+        command: "echo ok".to_string(),
+        icon_on: "on.png".to_string(),
+        icon_off: "off.png".to_string(),
+        clock_background: None,
+        check_interval: Duration::from_secs(5),
+        next_check_at: Instant::now() + Duration::from_secs(5),
+        current_on: Some(false),
+    });
+
+    let before = Instant::now();
+    request_immediate_status_check(&mut state, 0);
+    let after = Instant::now();
+
+    let scheduled = state.status_states[0]
+        .as_ref()
+        .expect("status slot should remain present")
+        .next_check_at;
+    assert!(scheduled >= before + Duration::from_secs(1));
+    assert!(scheduled <= after + Duration::from_secs(1));
 }
 
 #[test]

@@ -328,8 +328,16 @@ msgid "Restarted streamrs daemon"
 msgstr "Restarted streamrs daemon"
 
 #: src/gui/ui.rs
-msgid "Save"
-msgstr "Save"
+msgid "Save and Apply"
+msgstr "Save and Apply"
+
+#: src/gui/ui.rs
+msgid "Remove selected button configuration"
+msgstr "Remove selected button configuration"
+
+#: src/gui/ui.rs
+msgid "Remove selected"
+msgstr "Remove selected"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Save failed: {err}"
@@ -364,8 +372,8 @@ msgid "Status command (optional)"
 msgstr "Status command (optional)"
 
 #: src/gui/ui.rs
-msgid "Status interval (ms)"
-msgstr "Status interval (ms)"
+msgid "Status interval (seconds)"
+msgstr "Status interval (seconds)"
 
 #: src/gui/ui/signals/editor.rs
 msgid "Status-off icon updated"

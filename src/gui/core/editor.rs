@@ -360,10 +360,7 @@ pub(crate) fn populate_editor(
             }
         }
 
-        let interval = key
-            .status_interval_ms
-            .unwrap_or(DEFAULT_STATUS_INTERVAL_MS)
-            .clamp(MIN_STATUS_INTERVAL_MS, MAX_STATUS_INTERVAL_MS);
+        let interval = key_status_interval_seconds_value(&key);
         widgets.interval_spin.set_value(interval as f64);
 
         set_picture_icon(&widgets.icon_preview, &image_dirs, &key, clock_backgrounds);
@@ -384,7 +381,7 @@ pub(crate) fn populate_editor(
         widgets.status_entry.set_text("");
         widgets
             .interval_spin
-            .set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
+            .set_value(DEFAULT_STATUS_INTERVAL_SECONDS as f64);
         widgets.icon_kind_dropdown.set_selected(0);
         set_editor_mode_visibility(widgets, EditorMode::Blank);
         widgets.icon_dropdown.set_selected(0);
@@ -415,7 +412,7 @@ pub(crate) fn populate_editor(
         widgets.status_entry.set_text("");
         widgets
             .interval_spin
-            .set_value(DEFAULT_STATUS_INTERVAL_MS as f64);
+            .set_value(DEFAULT_STATUS_INTERVAL_SECONDS as f64);
         widgets.icon_kind_dropdown.set_selected(0);
         set_editor_mode_visibility(widgets, EditorMode::Blank);
         widgets.icon_dropdown.set_selected(0);
@@ -460,6 +457,17 @@ pub(crate) fn trimmed_or_none(value: &str) -> Option<String> {
     }
 }
 
+fn legacy_status_interval_seconds(interval_ms: u64) -> u64 {
+    interval_ms.saturating_add(999) / 1000
+}
+
+fn key_status_interval_seconds_value(key: &KeyBinding) -> u64 {
+    key.status_interval_seconds
+        .or_else(|| key.status_interval_ms.map(legacy_status_interval_seconds))
+        .unwrap_or(DEFAULT_STATUS_INTERVAL_SECONDS)
+        .clamp(MIN_STATUS_INTERVAL_SECONDS, MAX_STATUS_INTERVAL_SECONDS)
+}
+
 pub(crate) fn apply_editor_to_selected_key(
     state: &Rc<RefCell<AppState>>,
     current_page: usize,
@@ -476,12 +484,10 @@ pub(crate) fn apply_editor_to_selected_key(
     let status = trimmed_or_none(widgets.status_entry.text().as_str());
     let icon_on_selected = dropdown_selected_icon(&widgets.icon_on_dropdown, icon_names);
     let icon_off_selected = dropdown_selected_icon(&widgets.icon_off_dropdown, icon_names);
-    let interval = widgets
-        .interval_spin
-        .value()
-        .round()
-        .clamp(MIN_STATUS_INTERVAL_MS as f64, MAX_STATUS_INTERVAL_MS as f64)
-        as u64;
+    let interval = widgets.interval_spin.value().round().clamp(
+        MIN_STATUS_INTERVAL_SECONDS as f64,
+        MAX_STATUS_INTERVAL_SECONDS as f64,
+    ) as u64;
 
     {
         let mut state = state.borrow_mut();
@@ -511,6 +517,7 @@ pub(crate) fn apply_editor_to_selected_key(
                 key.icon = CLOCK_BACKGROUND_ICON.to_string();
                 key.clock_background = None;
                 key.status = None;
+                key.status_interval_seconds = None;
                 key.status_interval_ms = None;
                 key.icon_on = None;
                 key.icon_off = None;
@@ -525,6 +532,7 @@ pub(crate) fn apply_editor_to_selected_key(
                     Some(selected_bg)
                 };
                 key.status = None;
+                key.status_interval_seconds = None;
                 key.status_interval_ms = None;
                 key.icon_on = None;
                 key.icon_off = None;
@@ -533,6 +541,7 @@ pub(crate) fn apply_editor_to_selected_key(
                 key.icon = CALENDAR_ICON_ALIAS.to_string();
                 key.clock_background = None;
                 key.status = None;
+                key.status_interval_seconds = None;
                 key.status_interval_ms = None;
                 key.icon_on = None;
                 key.icon_off = None;
@@ -541,6 +550,7 @@ pub(crate) fn apply_editor_to_selected_key(
                 key.icon = regular_icon;
                 key.clock_background = None;
                 key.status = None;
+                key.status_interval_seconds = None;
                 key.status_interval_ms = None;
                 key.icon_on = None;
                 key.icon_off = None;
@@ -549,7 +559,8 @@ pub(crate) fn apply_editor_to_selected_key(
                 key.icon = icon_off_selected.clone();
                 key.clock_background = None;
                 key.status = status;
-                key.status_interval_ms = key.status.as_ref().map(|_| interval);
+                key.status_interval_seconds = key.status.as_ref().map(|_| interval);
+                key.status_interval_ms = None;
                 key.icon_on = Some(icon_on_selected);
                 key.icon_off = Some(icon_off_selected);
             }
