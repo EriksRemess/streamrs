@@ -20,6 +20,7 @@ PREVIEW_BIN="${REPO_ROOT}/target/release/streamrs-preview"
 GUI_BIN="${REPO_ROOT}/target/release/streamrs-gui"
 ICON_COMPOSE_BIN="${REPO_ROOT}/target/release/streamrs-icon-compose"
 DESKTOP_FILE="${REPO_ROOT}/config/${APPLICATION_ID}.desktop"
+METAINFO_FILE="${REPO_ROOT}/config/${APPLICATION_ID}.metainfo.xml"
 APP_ICON_SOURCE="${REPO_ROOT}/config/${APPLICATION_ID}.png"
 APP_ICON_NAME="${APPLICATION_ID}.png"
 LOCALE_SOURCE_DIR="${REPO_ROOT}/po/locale"
@@ -41,6 +42,11 @@ if [[ ! -f "${DESKTOP_FILE}" ]]; then
     exit 1
 fi
 
+if [[ ! -f "${METAINFO_FILE}" ]]; then
+    echo "Missing metainfo file: ${METAINFO_FILE}" >&2
+    exit 1
+fi
+
 if [[ ! -f "${APP_ICON_SOURCE}" ]]; then
     echo "Missing app icon source: ${APP_ICON_SOURCE}" >&2
     exit 1
@@ -55,6 +61,7 @@ mkdir -p \
     "${PKG_DIR}/usr/bin" \
     "${PKG_DIR}/usr/lib/systemd/user" \
     "${PKG_DIR}/usr/share/applications" \
+    "${PKG_DIR}/usr/share/metainfo" \
     "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps" \
     "${PKG_DIR}/usr/share/locale" \
     "${PKG_DIR}/usr/share/streamrs/icons" \
@@ -68,6 +75,7 @@ install -m 0755 "${ICON_COMPOSE_BIN}" "${PKG_DIR}/usr/bin/streamrs-icon-compose"
 install -m 0644 "${REPO_ROOT}/config/default.toml" "${PKG_DIR}/usr/share/streamrs/default/default.toml"
 install -m 0644 "${REPO_ROOT}/systemd/streamrs.service" "${PKG_DIR}/usr/lib/systemd/user/streamrs.service"
 install -m 0644 "${DESKTOP_FILE}" "${PKG_DIR}/usr/share/applications/${APPLICATION_ID}.desktop"
+install -m 0644 "${METAINFO_FILE}" "${PKG_DIR}/usr/share/metainfo/${APPLICATION_ID}.metainfo.xml"
 install -m 0644 "${APP_ICON_SOURCE}" "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps/${APP_ICON_NAME}"
 install -m 0644 "${REPO_ROOT}/Readme.md" "${PKG_DIR}/usr/share/doc/streamrs/README.md"
 

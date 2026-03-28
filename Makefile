@@ -15,7 +15,10 @@ SERVICE_TEMPLATE ?= systemd/streamrs.service
 APPLICATION_ID ?= lv.apps.streamrs
 DESKTOP_FILE_NAME ?= $(APPLICATION_ID).desktop
 DESKTOP_TEMPLATE ?= config/$(APPLICATION_ID).desktop
+METAINFO_FILE_NAME ?= $(APPLICATION_ID).metainfo.xml
+METAINFO_TEMPLATE ?= config/$(METAINFO_FILE_NAME)
 APPLICATIONS_DIR ?= $(XDG_DATA_HOME)/applications
+METAINFO_DIR ?= $(XDG_DATA_HOME)/metainfo
 ICON_SIZE_DIR ?= 512x512
 ICON_DEST_DIR ?= $(XDG_DATA_HOME)/icons/hicolor/$(ICON_SIZE_DIR)/apps
 ICON_SOURCE ?= config/$(ICON_NAME)
@@ -61,6 +64,8 @@ install-desktop:
 	mkdir -p "$(APPLICATIONS_DIR)"
 	rm -f "$(APPLICATIONS_DIR)/streamrs.desktop"
 	install -m 0644 "$(DESKTOP_TEMPLATE)" "$(APPLICATIONS_DIR)/$(DESKTOP_FILE_NAME)"
+	mkdir -p "$(METAINFO_DIR)"
+	install -m 0644 "$(METAINFO_TEMPLATE)" "$(METAINFO_DIR)/$(METAINFO_FILE_NAME)"
 	mkdir -p "$(ICON_DEST_DIR)"
 	install -m 0644 "$(ICON_SOURCE)" "$(ICON_DEST_DIR)/$(ICON_NAME)"
 
@@ -105,6 +110,7 @@ uninstall-images:
 uninstall-desktop:
 	rm -f "$(APPLICATIONS_DIR)/$(DESKTOP_FILE_NAME)"
 	rm -f "$(APPLICATIONS_DIR)/streamrs.desktop"
+	rm -f "$(METAINFO_DIR)/$(METAINFO_FILE_NAME)"
 	rm -f "$(ICON_DEST_DIR)/$(ICON_NAME)"
 
 uninstall-locale:

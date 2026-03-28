@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>lv.apps.streamrs</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>MIT</project_license>
+  <name>streamrs</name>
+  <summary>Stream Deck daemon and GUI configurator in Rust</summary>
+  <developer id="lv.remess.eriks">
+    <name>Ēriks Remess</name>
+  </developer>
+  <update_contact>eriks@remess.lv</update_contact>
+  <launchable type="desktop-id">lv.apps.streamrs.desktop</launchable>
+  <url type="homepage">https://github.com/EriksRemess/streamrs</url>
+  <url type="bugtracker">https://github.com/EriksRemess/streamrs/issues</url>
+  <description>
+    <p>
+      streamrs is a lightweight Linux-first toolkit for configuring Stream Deck keys,
+      icons, and actions with a native GTK 4 and libadwaita interface.
+    </p>
+    <p>
+      It includes a background daemon, a graphical profile editor, live preview tooling,
+      bundled starter icons, and support for regular launcher buttons, status-driven icon
+      toggles, clock buttons, and calendar buttons.
+    </p>
+  </description>
+  <screenshots>
+    <screenshot type="default">
+      <caption>streamrs profile editor with live Stream Deck preview</caption>
+      <image type="source">https://raw.githubusercontent.com/EriksRemess/streamrs/main/screenshot_streamrs-gui.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+</component>
