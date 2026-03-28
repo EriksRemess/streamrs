@@ -6,6 +6,7 @@ fn icon_display_name(name: &str) -> String {
         .and_then(|stem| stem.to_str())
         .unwrap_or(name)
         .replace('-', " ")
+        .replace('_', " ")
 }
 
 fn icon_dropdown_items(icon_names: &[String]) -> Vec<String> {
@@ -286,7 +287,8 @@ mod tests {
     }
 
     #[test]
-    fn icon_display_name_strips_extension_and_replaces_hyphens() {
+    fn icon_display_name_strips_extension_and_replaces_separators() {
         assert_eq!(icon_display_name("floor-lamp-off.png"), "floor lamp off");
+        assert_eq!(icon_display_name("ikea_ceiling_lamp_off_icon.png"), "ikea ceiling lamp off icon");
     }
 }
