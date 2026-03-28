@@ -166,7 +166,7 @@ pub(crate) fn wire_management_signals(
     remove_profile_button: &Button,
     rename_profile_button: &Button,
     add_key_button: &Button,
-    add_icon_button: &Button,
+    add_icon_buttons: &[Button],
 ) {
     let state = &ctx.state;
     let current_page = &ctx.current_page;
@@ -210,7 +210,7 @@ pub(crate) fn wire_management_signals(
                     &key_pictures_for_select,
                     &editor_syncing_for_select,
                 ) {
-                    widgets_for_select.status_label.set_text(&err);
+                    announce_status(&widgets_for_select, &err);
                 }
             }
         });
@@ -234,35 +234,15 @@ pub(crate) fn wire_management_signals(
         let rename_button_for_add_profile = rename_profile_button.clone();
 
         add_profile_button.connect_clicked(move |_| {
-            let dialog = gtk::Dialog::builder()
-                .title(&tr("Add profile"))
-                .transient_for(&window_for_add_profile)
-                .modal(true)
-                .build();
-            dialog.add_button(&tr("Cancel"), gtk::ResponseType::Cancel);
-            dialog.add_button(&tr("Add"), gtk::ResponseType::Accept);
-            dialog.set_default_response(gtk::ResponseType::Accept);
+            let dialog = adw::AlertDialog::new(Some(&tr("Add profile")), None);
+            dialog.add_response("cancel", &tr("Cancel"));
+            dialog.add_response("add", &tr("Add"));
+            dialog.set_default_response(Some("add"));
+            dialog.set_close_response("cancel");
 
-            let content = dialog.content_area();
-            content.set_spacing(8);
-            content.set_margin_top(12);
-            content.set_margin_bottom(12);
-            content.set_margin_start(12);
-            content.set_margin_end(12);
-
-            let name_label = Label::new(Some(&tr("Profile name")));
-            name_label.set_halign(Align::Start);
-            name_label.add_css_class("field-label");
-            let name_entry = Entry::new();
-            name_entry.set_placeholder_text(Some(&tr("My Profile")));
-            name_entry.set_activates_default(true);
-            content.append(&name_label);
-            content.append(&name_entry);
-
-            let dialog_for_activate = dialog.clone();
-            name_entry.connect_activate(move |_| {
-                dialog_for_activate.response(gtk::ResponseType::Accept);
-            });
+            let name_entry = EntryRow::new();
+            name_entry.set_title(&tr("Profile name"));
+            dialog.set_extra_child(Some(&name_entry));
 
             let state_for_response = state_for_add_profile.clone();
             let selected_for_response = selected_for_add_profile.clone();
@@ -279,15 +259,15 @@ pub(crate) fn wire_management_signals(
             let remove_button_for_response = remove_button_for_add_profile.clone();
             let rename_button_for_response = rename_button_for_add_profile.clone();
             let name_entry_for_response = name_entry.clone();
-            dialog.connect_response(move |dialog, response| {
-                if response == gtk::ResponseType::Accept {
+            dialog.connect_response(None, move |_, response| {
+                if response == "add" {
                     let Some(profile) =
                         profile_slug_from_input(name_entry_for_response.text().as_str())
                     else {
-                        widgets_for_response
-                            .status_label
-                            .set_text(&tr("Profile name must contain letters or numbers"));
-                        dialog.hide();
+                        announce_status(
+                            &widgets_for_response,
+                            &tr("Profile name must contain letters or numbers"),
+                        );
                         return;
                     };
 
@@ -299,8 +279,7 @@ pub(crate) fn wire_management_signals(
                     if is_new_profile {
                         let path = default_config_path_for_profile(&profile);
                         if let Err(err) = save_config(&path, &Config::default()) {
-                            widgets_for_response.status_label.set_text(&err);
-                            dialog.hide();
+                            announce_status(&widgets_for_response, &err);
                             return;
                         }
                     }
@@ -334,23 +313,22 @@ pub(crate) fn wire_management_signals(
                     ) {
                         Ok(_) => {
                             if is_new_profile {
-                                widgets_for_response.status_label.set_text(&trf(
+                                announce_status(&widgets_for_response, &trf(
                                     "Created and loaded profile '{profile}'",
                                     &[("profile", profile_display_name(&profile))],
                                 ));
                             } else {
-                                widgets_for_response.status_label.set_text(&trf(
+                                announce_status(&widgets_for_response, &trf(
                                     "Loaded profile '{profile}'",
                                     &[("profile", profile_display_name(&profile))],
                                 ));
                             }
                         }
-                        Err(err) => widgets_for_response.status_label.set_text(&err),
+                        Err(err) => announce_status(&widgets_for_response, &err),
                     }
                 }
-                dialog.hide();
             });
-            dialog.show();
+            dialog.present(Some(&window_for_add_profile));
         });
     }
 
@@ -373,41 +351,20 @@ pub(crate) fn wire_management_signals(
 
         rename_profile_button.connect_clicked(move |_| {
             let Some(current_profile) = selected_profile_name(&widgets_for_rename_profile) else {
-                widgets_for_rename_profile
-                    .status_label
-                    .set_text(&tr("No profile selected"));
+                announce_status(&widgets_for_rename_profile, &tr("No profile selected"));
                 return;
             };
 
-            let dialog = gtk::Dialog::builder()
-                .title(&tr("Rename profile"))
-                .transient_for(&window_for_rename_profile)
-                .modal(true)
-                .build();
-            dialog.add_button(&tr("Cancel"), gtk::ResponseType::Cancel);
-            dialog.add_button(&tr("Rename"), gtk::ResponseType::Accept);
-            dialog.set_default_response(gtk::ResponseType::Accept);
+            let dialog = adw::AlertDialog::new(Some(&tr("Rename profile")), None);
+            dialog.add_response("cancel", &tr("Cancel"));
+            dialog.add_response("rename", &tr("Rename"));
+            dialog.set_default_response(Some("rename"));
+            dialog.set_close_response("cancel");
 
-            let content = dialog.content_area();
-            content.set_spacing(8);
-            content.set_margin_top(12);
-            content.set_margin_bottom(12);
-            content.set_margin_start(12);
-            content.set_margin_end(12);
-
-            let name_label = Label::new(Some(&tr("New profile name")));
-            name_label.set_halign(Align::Start);
-            name_label.add_css_class("field-label");
-            let name_entry = Entry::new();
+            let name_entry = EntryRow::new();
+            name_entry.set_title(&tr("New profile name"));
             name_entry.set_text(&profile_display_name(&current_profile));
-            name_entry.set_activates_default(true);
-            content.append(&name_label);
-            content.append(&name_entry);
-
-            let dialog_for_activate = dialog.clone();
-            name_entry.connect_activate(move |_| {
-                dialog_for_activate.response(gtk::ResponseType::Accept);
-            });
+            dialog.set_extra_child(Some(&name_entry));
 
             let state_for_response = state_for_rename_profile.clone();
             let selected_for_response = selected_for_rename_profile.clone();
@@ -425,15 +382,15 @@ pub(crate) fn wire_management_signals(
             let rename_button_for_response = rename_button_for_rename_profile.clone();
             let current_profile_for_response = current_profile.clone();
             let name_entry_for_response = name_entry.clone();
-            dialog.connect_response(move |dialog, response| {
-                if response == gtk::ResponseType::Accept {
+            dialog.connect_response(None, move |_, response| {
+                if response == "rename" {
                     let Some(new_profile) =
                         profile_slug_from_input(name_entry_for_response.text().as_str())
                     else {
-                        widgets_for_response
-                            .status_label
-                            .set_text(&tr("Profile name must contain letters or numbers"));
-                        dialog.hide();
+                        announce_status(
+                            &widgets_for_response,
+                            &tr("Profile name must contain letters or numbers"),
+                        );
                         return;
                     };
 
@@ -444,19 +401,17 @@ pub(crate) fn wire_management_signals(
                             .iter()
                             .any(|name| name == &new_profile);
                         if exists {
-                            widgets_for_response.status_label.set_text(&trf(
+                            announce_status(&widgets_for_response, &trf(
                                 "Profile '{profile}' already exists",
                                 &[("profile", new_profile.clone())],
                             ));
-                            dialog.hide();
                             return;
                         }
 
                         if let Err(err) =
                             rename_profile_assets(&current_profile_for_response, &new_profile)
                         {
-                            widgets_for_response.status_label.set_text(&err);
-                            dialog.hide();
+                            announce_status(&widgets_for_response, &err);
                             return;
                         }
                     }
@@ -492,19 +447,18 @@ pub(crate) fn wire_management_signals(
                         &key_pictures_for_response,
                         &editor_syncing_for_response,
                     ) {
-                        Ok(_) => widgets_for_response.status_label.set_text(&trf(
+                        Ok(_) => announce_status(&widgets_for_response, &trf(
                             "Renamed profile '{from}' -> '{to}'",
                             &[
                                 ("from", profile_display_name(&current_profile_for_response)),
                                 ("to", profile_display_name(&new_profile)),
                             ],
                         )),
-                        Err(err) => widgets_for_response.status_label.set_text(&err),
+                        Err(err) => announce_status(&widgets_for_response, &err),
                     }
                 }
-                dialog.hide();
             });
-            dialog.show();
+            dialog.present(Some(&window_for_rename_profile));
         });
     }
 
@@ -527,34 +481,22 @@ pub(crate) fn wire_management_signals(
 
         remove_profile_button.connect_clicked(move |_| {
             let Some(profile) = selected_profile_name(&widgets_for_remove_profile) else {
-                widgets_for_remove_profile
-                    .status_label
-                    .set_text(&tr("No profile selected"));
+                announce_status(&widgets_for_remove_profile, &tr("No profile selected"));
                 return;
             };
 
-            let dialog = gtk::Dialog::builder()
-                .title(&tr("Remove profile"))
-                .transient_for(&window_for_remove_profile)
-                .modal(true)
-                .build();
-            dialog.add_button(&tr("Cancel"), gtk::ResponseType::Cancel);
-            dialog.add_button(&tr("Remove"), gtk::ResponseType::Accept);
-            dialog.set_default_response(gtk::ResponseType::Cancel);
-
-            let content = dialog.content_area();
-            content.set_spacing(8);
-            content.set_margin_top(12);
-            content.set_margin_bottom(12);
-            content.set_margin_start(12);
-            content.set_margin_end(12);
-            let warning = Label::new(Some(&trf(
+            let dialog = adw::AlertDialog::new(
+                Some(&tr("Remove profile")),
+                Some(&trf(
                 "Delete profile '{profile}' config? Shared icons are kept.",
                 &[("profile", profile.clone())],
-            )));
-            warning.set_wrap(true);
-            warning.set_xalign(0.0);
-            content.append(&warning);
+                )),
+            );
+            dialog.add_response("cancel", &tr("Cancel"));
+            dialog.add_response("remove", &tr("Remove"));
+            dialog.set_default_response(Some("cancel"));
+            dialog.set_close_response("cancel");
+            dialog.set_response_appearance("remove", ResponseAppearance::Destructive);
 
             let state_for_response = state_for_remove_profile.clone();
             let selected_for_response = selected_for_remove_profile.clone();
@@ -570,19 +512,15 @@ pub(crate) fn wire_management_signals(
             let editor_syncing_for_response = editor_syncing_for_remove_profile.clone();
             let remove_button_for_response = remove_button_for_remove_profile.clone();
             let rename_button_for_response = rename_button_for_remove_profile.clone();
-            dialog.connect_response(move |dialog, response| {
-                if response == gtk::ResponseType::Accept {
+            dialog.connect_response(None, move |_, response| {
+                if response == "remove" {
                     let Some(profile) = selected_profile_name(&widgets_for_response) else {
-                        widgets_for_response
-                            .status_label
-                            .set_text(&tr("No profile selected"));
-                        dialog.hide();
+                        announce_status(&widgets_for_response, &tr("No profile selected"));
                         return;
                     };
 
                     if let Err(err) = delete_profile_assets(&profile) {
-                        widgets_for_response.status_label.set_text(&err);
-                        dialog.hide();
+                        announce_status(&widgets_for_response, &err);
                         return;
                     }
 
@@ -608,8 +546,7 @@ pub(crate) fn wire_management_signals(
                             Config::default()
                         };
                         if let Err(err) = save_config(&next_path, &template) {
-                            widgets_for_response.status_label.set_text(&err);
-                            dialog.hide();
+                            announce_status(&widgets_for_response, &err);
                             return;
                         }
                     }
@@ -633,16 +570,15 @@ pub(crate) fn wire_management_signals(
                         &key_pictures_for_response,
                         &editor_syncing_for_response,
                     ) {
-                        Ok(_) => widgets_for_response.status_label.set_text(&trf(
+                        Ok(_) => announce_status(&widgets_for_response, &trf(
                             "Removed profile '{profile}', active profile is '{next_profile}'",
                             &[("profile", profile), ("next_profile", next_profile)],
                         )),
-                        Err(err) => widgets_for_response.status_label.set_text(&err),
+                        Err(err) => announce_status(&widgets_for_response, &err),
                     }
                 }
-                dialog.hide();
             });
-            dialog.show();
+            dialog.present(Some(&window_for_remove_profile));
         });
     }
 
@@ -706,7 +642,7 @@ pub(crate) fn wire_management_signals(
                 backgrounds.as_slice(),
                 &editor_syncing_for_add_key,
             );
-            widgets_for_add_key.status_label.set_text(&trf(
+            announce_status(&widgets_for_add_key, &trf(
                 "Added button {index}",
                 &[("index", (new_key_index + 1).to_string())],
             ));
@@ -727,8 +663,22 @@ pub(crate) fn wire_management_signals(
         let key_pictures_for_add_icon = key_pictures.clone();
         let window_for_add_icon = window.clone();
         let editor_syncing_for_add_icon = editor_syncing.clone();
+        let connect_add_icon_button = |button: &Button, target_mode: EditorMode, target: &'static str| {
+            let state_for_add_icon = state_for_add_icon.clone();
+            let current_page_for_add_icon = current_page_for_add_icon.clone();
+            let selected_for_add_icon = selected_for_add_icon.clone();
+            let widgets_for_add_icon = widgets_for_add_icon.clone();
+            let icons_for_add_icon = icons_for_add_icon.clone();
+            let backgrounds_for_add_icon = backgrounds_for_add_icon.clone();
+            let prev_for_add_icon = prev_for_add_icon.clone();
+            let next_for_add_icon = next_for_add_icon.clone();
+            let page_label_for_add_icon = page_label_for_add_icon.clone();
+            let key_buttons_for_add_icon = key_buttons_for_add_icon.clone();
+            let key_pictures_for_add_icon = key_pictures_for_add_icon.clone();
+            let window_for_add_icon = window_for_add_icon.clone();
+            let editor_syncing_for_add_icon = editor_syncing_for_add_icon.clone();
 
-        add_icon_button.connect_clicked(move |_| {
+            button.connect_clicked(move |_| {
             let dialog = gtk::FileChooserNative::builder()
                 .title(&tr("Add icon"))
                 .transient_for(&window_for_add_icon)
@@ -790,16 +740,34 @@ pub(crate) fn wire_management_signals(
                                 let icons = icons_for_response.borrow();
                                 let backgrounds = backgrounds_for_response.borrow();
                                 let page = current_page_for_response.get();
-                                widgets_for_response.icon_kind_dropdown.set_selected(1);
-                                set_editor_mode_visibility(
-                                    &widgets_for_response,
-                                    EditorMode::Regular,
+                                widgets_for_response.icon_kind_dropdown.set_selected(
+                                    match target_mode {
+                                        EditorMode::Regular => 1,
+                                        EditorMode::Status => 2,
+                                        EditorMode::Clock => 3,
+                                        EditorMode::Calendar => 4,
+                                        EditorMode::Blank => 0,
+                                    },
                                 );
-                                set_dropdown_icon(
-                                    &widgets_for_response.icon_dropdown,
-                                    icons.as_slice(),
-                                    &icon_name,
-                                );
+                                set_editor_mode_visibility(&widgets_for_response, target_mode);
+                                match target {
+                                    "regular" => set_dropdown_icon(
+                                        &widgets_for_response.icon_dropdown,
+                                        icons.as_slice(),
+                                        &icon_name,
+                                    ),
+                                    "status-on" => set_dropdown_icon(
+                                        &widgets_for_response.icon_on_dropdown,
+                                        icons.as_slice(),
+                                        &icon_name,
+                                    ),
+                                    "status-off" => set_dropdown_icon(
+                                        &widgets_for_response.icon_off_dropdown,
+                                        icons.as_slice(),
+                                        &icon_name,
+                                    ),
+                                    _ => {}
+                                }
                                 editor_syncing_for_response.set(false);
                                 apply_editor_to_selected_key(
                                     &state_for_response,
@@ -825,7 +793,7 @@ pub(crate) fn wire_management_signals(
                                     backgrounds.as_slice(),
                                     &editor_syncing_for_response,
                                 );
-                                widgets_for_response.status_label.set_text(&trf(
+                                announce_status(&widgets_for_response, &trf(
                                     "Added and selected icon '{icon}' in '{dir}'",
                                     &[
                                         ("icon", icon_name),
@@ -833,7 +801,7 @@ pub(crate) fn wire_management_signals(
                                     ],
                                 ));
                             }
-                            Err(err) => widgets_for_response.status_label.set_text(&err),
+                            Err(err) => announce_status(&widgets_for_response, &err),
                         }
                     }
                 }
@@ -841,5 +809,16 @@ pub(crate) fn wire_management_signals(
             });
             dialog.show();
         });
+        };
+
+        if let Some(button) = add_icon_buttons.first() {
+            connect_add_icon_button(button, EditorMode::Regular, "regular");
+        }
+        if let Some(button) = add_icon_buttons.get(1) {
+            connect_add_icon_button(button, EditorMode::Status, "status-on");
+        }
+        if let Some(button) = add_icon_buttons.get(2) {
+            connect_add_icon_button(button, EditorMode::Status, "status-off");
+        }
     }
 }

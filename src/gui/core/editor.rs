@@ -135,9 +135,7 @@ pub(crate) fn set_action_mode_visibility(widgets: &EditorWidgets, mode: ActionMo
     let is_launch = mode == ActionMode::Launch;
     let is_shortcut = mode == ActionMode::KeyboardShortcut;
 
-    widgets.action_label.set_visible(is_launch);
     widgets.action_entry.set_visible(is_launch);
-    widgets.shortcut_label.set_visible(is_shortcut);
     widgets.shortcut_entry.set_visible(is_shortcut);
 }
 
@@ -146,19 +144,11 @@ pub(crate) fn set_editor_mode_visibility(widgets: &EditorWidgets, mode: EditorMo
     let is_status = mode == EditorMode::Status;
     let is_clock = mode == EditorMode::Clock;
 
-    widgets.icon_label.set_visible(is_regular);
     widgets.icon_row.set_visible(is_regular);
-    widgets.status_command_label.set_visible(is_status);
-    widgets.status_entry.set_visible(is_status);
-    widgets.icon_on_label.set_visible(is_status);
-    widgets.icon_on_dropdown.set_visible(is_status);
-    widgets.icon_off_label.set_visible(is_status);
-    widgets.icon_off_dropdown.set_visible(is_status);
-    widgets.interval_label.set_visible(is_status);
-    widgets.interval_spin.set_visible(is_status);
-
-    widgets.clock_background_label.set_visible(is_clock);
-    widgets.clock_background_dropdown.set_visible(is_clock);
+    widgets.icon_on_row.set_visible(is_status);
+    widgets.icon_off_row.set_visible(is_status);
+    widgets.status_group.set_visible(is_status);
+    widgets.clock_background_row.set_visible(is_clock);
 }
 
 pub(crate) fn set_editor_controls_sensitive(widgets: &EditorWidgets, enabled: bool) {
@@ -167,13 +157,25 @@ pub(crate) fn set_editor_controls_sensitive(widgets: &EditorWidgets, enabled: bo
     widgets.shortcut_entry.set_sensitive(enabled);
     widgets.icon_kind_dropdown.set_sensitive(enabled);
     widgets.icon_row.set_sensitive(enabled);
-    widgets.clock_background_dropdown.set_sensitive(enabled);
-    widgets.status_entry.set_sensitive(enabled);
-    widgets.icon_on_dropdown.set_sensitive(enabled);
-    widgets.icon_off_dropdown.set_sensitive(enabled);
-    widgets.interval_spin.set_sensitive(enabled);
+    widgets.icon_on_row.set_sensitive(enabled);
+    widgets.icon_off_row.set_sensitive(enabled);
+    widgets.clock_background_row.set_sensitive(enabled);
+    widgets.status_group.set_sensitive(enabled);
     widgets.apply_button.set_sensitive(enabled);
     widgets.clear_button.set_sensitive(enabled);
+}
+
+fn set_preview_picture_for_icon_name(
+    picture: &Picture,
+    image_dirs: &[PathBuf],
+    icon_name: &str,
+    clock_backgrounds: &[String],
+) {
+    let key = KeyBinding {
+        icon: icon_name.to_string(),
+        ..KeyBinding::default()
+    };
+    set_picture_icon(picture, image_dirs, &key, clock_backgrounds);
 }
 
 pub(crate) fn preview_key_from_editor(
@@ -224,7 +226,7 @@ pub(crate) fn populate_editor(
     icon_names: &[String],
     clock_backgrounds: &[String],
 ) {
-    let (key, image_dirs, key_index, nav_slot, total_pages, page) = {
+    let (key, image_dirs, key_index, nav_slot) = {
         let mut state = state.borrow_mut();
         normalize_config(&mut state.config);
         let total_pages = page_count(&state.config).max(1);
@@ -239,18 +241,12 @@ pub(crate) fn populate_editor(
             state.image_dirs.clone(),
             key_index,
             nav_slot,
-            total_pages,
-            page,
         )
     };
 
     set_editor_controls_sensitive(widgets, key_index.is_some());
 
-    if let Some(key_index) = key_index {
-        widgets.selected_label.set_text(&trf(
-            "Editing {ordinal} button",
-            &[("ordinal", tr_ordinal(key_index + 1))],
-        ));
+    if key_index.is_some() {
         let action_mode = if key
             .shortcut
             .as_deref()
@@ -363,17 +359,8 @@ pub(crate) fn populate_editor(
         let interval = key_status_interval_seconds_value(&key);
         widgets.interval_spin.set_value(interval as f64);
 
-        set_picture_icon(&widgets.icon_preview, &image_dirs, &key, clock_backgrounds);
+        editor_refresh_preview(state, widgets, icon_names, clock_backgrounds);
     } else if let Some(nav_slot) = nav_slot {
-        let (label, tooltip) = match nav_slot {
-            ReservedNavigationSlot::PreviousPage => {
-                (tr("Page navigation: Previous"), tr("Go to previous page"))
-            }
-            ReservedNavigationSlot::NextPage => {
-                (tr("Page navigation: Next"), tr("Go to next page"))
-            }
-        };
-        widgets.selected_label.set_text(&label);
         widgets.action_type_dropdown.set_selected(0);
         set_action_mode_visibility(widgets, ActionMode::None);
         widgets.action_entry.set_text("");
@@ -395,16 +382,10 @@ pub(crate) fn populate_editor(
         let icon_name = navigation_icon_name(nav_slot);
         let icon_path = find_icon_file(&image_dirs, icon_name);
         update_picture_file(&widgets.icon_preview, icon_path.as_deref());
-        widgets.status_label.set_text(&trf(
-            "{tooltip} ({page}/{total})",
-            &[
-                ("tooltip", tooltip),
-                ("page", (page + 1).to_string()),
-                ("total", total_pages.to_string()),
-            ],
-        ));
+        update_picture_file(&widgets.icon_on_preview, None);
+        update_picture_file(&widgets.icon_off_preview, None);
+        update_picture_file(&widgets.clock_background_preview, None);
     } else {
-        widgets.selected_label.set_text(&tr("Reserved slot"));
         widgets.action_type_dropdown.set_selected(0);
         set_action_mode_visibility(widgets, ActionMode::None);
         widgets.action_entry.set_text("");
@@ -424,6 +405,9 @@ pub(crate) fn populate_editor(
             CLOCK_BACKGROUND_ICON,
         );
         update_picture_file(&widgets.icon_preview, None);
+        update_picture_file(&widgets.icon_on_preview, None);
+        update_picture_file(&widgets.icon_off_preview, None);
+        update_picture_file(&widgets.clock_background_preview, None);
     }
 }
 
@@ -649,13 +633,50 @@ pub(crate) fn editor_refresh_preview(
     clock_backgrounds: &[String],
 ) {
     let image_dirs = state.borrow().image_dirs.clone();
-    let preview = preview_key_from_editor(widgets, icon_names, clock_backgrounds);
-    set_picture_icon(
-        &widgets.icon_preview,
-        &image_dirs,
-        &preview,
-        clock_backgrounds,
-    );
+    match editor_mode(widgets) {
+        EditorMode::Status => {
+            let icon_on = dropdown_selected_icon(&widgets.icon_on_dropdown, icon_names);
+            let icon_off = dropdown_selected_icon(&widgets.icon_off_dropdown, icon_names);
+            set_preview_picture_for_icon_name(
+                &widgets.icon_on_preview,
+                &image_dirs,
+                &icon_on,
+                clock_backgrounds,
+            );
+            set_preview_picture_for_icon_name(
+                &widgets.icon_off_preview,
+                &image_dirs,
+                &icon_off,
+                clock_backgrounds,
+            );
+            update_picture_file(&widgets.icon_preview, None);
+            update_picture_file(&widgets.clock_background_preview, None);
+        }
+        EditorMode::Clock => {
+            let preview = preview_key_from_editor(widgets, icon_names, clock_backgrounds);
+            set_picture_icon(
+                &widgets.clock_background_preview,
+                &image_dirs,
+                &preview,
+                clock_backgrounds,
+            );
+            update_picture_file(&widgets.icon_preview, None);
+            update_picture_file(&widgets.icon_on_preview, None);
+            update_picture_file(&widgets.icon_off_preview, None);
+        }
+        _ => {
+            let preview = preview_key_from_editor(widgets, icon_names, clock_backgrounds);
+            set_picture_icon(
+                &widgets.icon_preview,
+                &image_dirs,
+                &preview,
+                clock_backgrounds,
+            );
+            update_picture_file(&widgets.icon_on_preview, None);
+            update_picture_file(&widgets.icon_off_preview, None);
+            update_picture_file(&widgets.clock_background_preview, None);
+        }
+    }
 }
 
 pub(crate) fn key_uses_clock(key: &KeyBinding) -> bool {

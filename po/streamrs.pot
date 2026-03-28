@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-15 14:35+0000\n"
+"POT-Creation-Date: 2026-03-28 11:15+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -52,6 +52,14 @@ msgid "Another streamrs-gui instance is already running (lock '{path}')."
 msgstr ""
 
 #: src/gui/ui.rs
+msgid "Appearance"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Behavior"
+msgstr ""
+
+#: src/gui/ui.rs
 msgid "Blank"
 msgstr ""
 
@@ -91,10 +99,6 @@ msgstr ""
 msgid "Clock background"
 msgstr ""
 
-#: src/gui/ui/signals/editor.rs
-msgid "Clock background updated"
-msgstr ""
-
 #: src/gui/ui.rs
 msgid "Contributors"
 msgstr ""
@@ -103,21 +107,8 @@ msgstr ""
 msgid "Created and loaded profile '{profile}'"
 msgstr ""
 
-#: src/gui/ui.rs
-msgid "Delete"
-msgstr ""
-
 #: src/gui/ui/signals/management.rs
 msgid "Delete profile '{profile}' config? Shared icons are kept."
-msgstr ""
-
-#: src/gui/ui.rs
-msgid "Delete selected button configuration"
-msgstr ""
-
-#: src/gui/core/editor.rs
-#: src/gui/ui.rs
-msgid "Editing {ordinal} button"
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
@@ -156,24 +147,8 @@ msgstr ""
 msgid "Failed to write GUI lock '{path}': {err}"
 msgstr ""
 
-#: src/gui/core/editor.rs
-msgid "Go to next page"
-msgstr ""
-
-#: src/gui/core/editor.rs
-msgid "Go to previous page"
-msgstr ""
-
 #: src/gui/ui.rs
 msgid "Icon"
-msgstr ""
-
-#: src/gui/ui.rs
-msgid "Icon Preview"
-msgstr ""
-
-#: src/gui/ui/signals/editor.rs
-msgid "Icon updated"
 msgstr ""
 
 #: src/gui/ui.rs
@@ -212,10 +187,6 @@ msgstr ""
 msgid "Menu"
 msgstr ""
 
-#: src/gui/ui/signals/management.rs
-msgid "My Profile"
-msgstr ""
-
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Navigation buttons cannot be deleted"
 msgstr ""
@@ -238,14 +209,6 @@ msgstr ""
 
 #: src/gui/ui.rs
 msgid "None"
-msgstr ""
-
-#: src/gui/core/editor.rs
-msgid "Page navigation: Next"
-msgstr ""
-
-#: src/gui/core/editor.rs
-msgid "Page navigation: Previous"
 msgstr ""
 
 #: src/gui/core/paging.rs
@@ -283,10 +246,6 @@ msgid "Project License"
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Ready"
-msgstr ""
-
-#: src/gui/ui.rs
 msgid "Regular"
 msgstr ""
 
@@ -297,6 +256,14 @@ msgstr ""
 
 #: src/gui/ui/signals/management.rs
 msgid "Remove profile"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Remove selected"
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Remove selected button configuration"
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
@@ -320,10 +287,6 @@ msgstr ""
 msgid "Reserved for page navigation in streamrs"
 msgstr ""
 
-#: src/gui/core/editor.rs
-msgid "Reserved slot"
-msgstr ""
-
 #: src/gui/ui.rs
 msgid "Restart"
 msgstr ""
@@ -334,14 +297,6 @@ msgstr ""
 
 #: src/gui/ui.rs
 msgid "Save and Apply"
-msgstr ""
-
-#: src/gui/ui.rs
-msgid "Remove selected button configuration"
-msgstr ""
-
-#: src/gui/ui.rs
-msgid "Remove selected"
 msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs
@@ -373,19 +328,11 @@ msgid "Status"
 msgstr ""
 
 #: src/gui/ui.rs
-msgid "Status command (optional)"
+msgid "Status command"
 msgstr ""
 
 #: src/gui/ui.rs
 msgid "Status interval (seconds)"
-msgstr ""
-
-#: src/gui/ui/signals/editor.rs
-msgid "Status-off icon updated"
-msgstr ""
-
-#: src/gui/ui/signals/editor.rs
-msgid "Status-on icon updated"
 msgstr ""
 
 #: src/gui/ui.rs
@@ -428,6 +375,3 @@ msgstr ""
 msgid "systemctl failed: {err}"
 msgstr ""
 
-#: src/gui/core/editor.rs
-msgid "{tooltip} ({page}/{total})"
-msgstr ""

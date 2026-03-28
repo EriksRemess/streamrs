@@ -1,8 +1,12 @@
 pub(crate) use adw::prelude::*;
-pub(crate) use adw::{Application, ApplicationWindow, HeaderBar};
+pub(crate) use adw::{
+    Application, ApplicationWindow, ComboRow, EntryRow, HeaderBar, PreferencesGroup,
+    ResponseAppearance, Toast, ToastOverlay,
+};
 pub(crate) use gtk::{
-    Align, Box as GtkBox, Button, CssProvider, DropDown, Entry, Fixed, Image, Label, Orientation,
-    Overlay, Paned, Picture, STYLE_PROVIDER_PRIORITY_APPLICATION, ScrolledWindow, SpinButton,
+    Align, Box as GtkBox, Button, CssProvider, DropDown, Fixed, Image, Label, Orientation,
+    ListBoxRow, Overlay, Paned, Picture, STYLE_PROVIDER_PRIORITY_APPLICATION, ScrolledWindow,
+    SpinButton,
 };
 pub(crate) use image::RgbaImage;
 pub(crate) use image::imageops::{FilterType::Lanczos3, resize};
@@ -79,30 +83,34 @@ pub(crate) struct AppState {
 pub(crate) struct EditorWidgets {
     pub(crate) profile_dropdown: DropDown,
     pub(crate) profile_names: Rc<RefCell<Vec<String>>>,
-    pub(crate) selected_label: Label,
-    pub(crate) action_type_dropdown: DropDown,
-    pub(crate) action_label: Label,
-    pub(crate) action_entry: Entry,
-    pub(crate) shortcut_label: Label,
-    pub(crate) shortcut_entry: Entry,
-    pub(crate) icon_kind_dropdown: DropDown,
-    pub(crate) icon_label: Label,
-    pub(crate) icon_row: GtkBox,
+    pub(crate) toast_overlay: ToastOverlay,
+    pub(crate) action_type_dropdown: ComboRow,
+    pub(crate) action_entry: EntryRow,
+    pub(crate) shortcut_entry: EntryRow,
+    pub(crate) icon_kind_dropdown: ComboRow,
+    pub(crate) icon_row: ListBoxRow,
     pub(crate) icon_dropdown: DropDown,
-    pub(crate) clock_background_label: Label,
+    pub(crate) clock_background_row: ListBoxRow,
     pub(crate) clock_background_dropdown: DropDown,
-    pub(crate) status_command_label: Label,
-    pub(crate) status_entry: Entry,
-    pub(crate) icon_on_label: Label,
+    pub(crate) clock_background_preview: Picture,
+    pub(crate) status_group: PreferencesGroup,
+    pub(crate) status_entry: EntryRow,
+    pub(crate) icon_on_row: ListBoxRow,
     pub(crate) icon_on_dropdown: DropDown,
-    pub(crate) icon_off_label: Label,
+    pub(crate) icon_on_preview: Picture,
+    pub(crate) icon_off_row: ListBoxRow,
     pub(crate) icon_off_dropdown: DropDown,
-    pub(crate) interval_label: Label,
+    pub(crate) icon_off_preview: Picture,
     pub(crate) interval_spin: SpinButton,
     pub(crate) icon_preview: Picture,
     pub(crate) apply_button: Button,
     pub(crate) clear_button: Button,
-    pub(crate) status_label: Label,
+}
+
+pub(crate) fn announce_status(widgets: &EditorWidgets, message: &str) {
+    let toast = Toast::new(message);
+    toast.set_timeout(3);
+    widgets.toast_overlay.add_toast(toast);
 }
 
 #[derive(Clone, Copy, Debug)]

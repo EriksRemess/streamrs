@@ -9,30 +9,13 @@ headerbar.window-titlebar {
     box-shadow: none;
     border: none;
 }
-.config-bar {
-    padding: $SPACINGpx;
-    border-radius: 12px;
-    background: alpha(@headerbar_bg_color, 0.45);
-}
-.deck-card, .inspector-card {
+.deck-card {
     border-radius: 16px;
     background: alpha(@headerbar_bg_color, 0.20);
     padding: $SPACINGpx;
 }
-.inspector-card {
-    padding-right: 0;
-}
-.inspector-card .streamrs-field {
-    margin-right: $SPACINGpx;
-}
-.inspector-card .icon-row .streamrs-field {
-    margin-right: 0;
-}
-.icon-row {
-    margin-right: $SPACINGpx;
-}
-.icon-row .icon-add-button {
-    margin-right: 0;
+.inspector-panel {
+    padding-top: 0;
 }
 .section-title { font-weight: 700; font-size: 1.04rem; margin-bottom: $SPACINGpx; }
 .page-indicator {
@@ -68,7 +51,12 @@ headerbar.window-titlebar {
 }
 .inspector-scroller scrollbar.vertical,
 .inspector-scroller scrollbar.vertical slider {
-    min-width: 8px;
+    margin-right: -10px;
+    min-width: 4px;
+}
+.inspector-scroller scrollbar.vertical slider:hover {
+    margin-right: -14px;
+    min-width: 6px;
 }
 .close-button { min-width: $CONTROLpx; min-height: $CONTROLpx; }
 .key-button {
@@ -122,9 +110,6 @@ headerbar.window-titlebar {
 .dropdown-icon {
     border-radius: 6px;
 }
-.streamrs-field {
-    min-height: $CONTROLpx;
-}
 .icon-add-button {
     min-width: $CONTROLpx;
     min-height: $CONTROLpx;
@@ -136,173 +121,11 @@ headerbar.window-titlebar {
     font-size: 1.1rem;
     font-weight: 700;
 }
-.action-button {
-    min-height: $CONTROLpx;
-    min-width: 0;
-    border-radius: 12px;
-    font-weight: 700;
-    padding: 0 12px;
-}
 .profile-action-button {
     min-height: $CONTROLpx;
     min-width: 0;
     border-radius: 10px;
     padding: 0 10px;
-}
-.apply-button {
-    background: alpha(@accent_color, 0.80);
-    color: @accent_fg_color;
-}
-.apply-button:hover {
-    background: alpha(@accent_color, 0.92);
-}
-.apply-button:active {
-    background: @accent_color;
-}
-.clear-button {
-    background: alpha(#864a66, 0.45);
-    color: #ffc1d5;
-}
-.clear-button:hover {
-    background: alpha(#864a66, 0.62);
-    color: #ffd8e5;
-}
-.clear-button:active {
-    background: alpha(#864a66, 0.75);
-    color: #ffe4ec;
-}
-.about-sheet {
-    background: @window_bg_color;
-    border-radius: 18px;
-    border: 1px solid alpha(@theme_fg_color, 0.10);
-}
-.about-close-button {
-    min-width: 34px;
-    min-height: 34px;
-    padding: 0;
-    border-radius: 999px;
-    background: alpha(@theme_fg_color, 0.14);
-}
-.about-close-button > image {
-    -gtk-icon-size: 14px;
-}
-.about-close-button:hover {
-    background: alpha(@theme_fg_color, 0.24);
-}
-.about-close-button:active {
-    background: alpha(@theme_fg_color, 0.32);
-}
-.about-hero {
-    margin-top: 2px;
-    margin-bottom: 2px;
-}
-.about-logo {
-    margin-bottom: 6px;
-}
-.about-title {
-    font-size: 1.95rem;
-    font-weight: 800;
-}
-.about-subtitle {
-    opacity: 0.84;
-    font-size: 0.95rem;
-}
-.about-version-pill {
-    min-height: 34px;
-    min-width: 0;
-    border-radius: 999px;
-    background: #33415f;
-    border: 1px solid alpha(#9ecbff, 0.22);
-    color: #9ecbff;
-    font-weight: 700;
-    padding: 0 14px;
-    margin-top: 10px;
-    font-size: 0.80rem;
-}
-.about-version-pill:hover {
-    background: #3b4a6d;
-}
-.about-version-pill:active {
-    background: #44547a;
-}
-.about-links {
-    margin-top: 8px;
-}
-.about-link-row {
-    min-height: 56px;
-    border-radius: 16px;
-    padding: 0 18px;
-    background: alpha(@headerbar_bg_color, 0.42);
-    border: 1px solid alpha(@theme_fg_color, 0.06);
-}
-.about-link-row:hover {
-    background: alpha(@accent_color, 0.20);
-    border-color: alpha(@accent_color, 0.40);
-}
-.about-link-row:active {
-    background: alpha(@accent_color, 0.28);
-    border-color: alpha(@accent_color, 0.50);
-}
-.about-link-label {
-    font-size: 0.98rem;
-    font-weight: 500;
-}
-.about-link-icon {
-    opacity: 0.86;
-    min-width: 20px;
-    min-height: 20px;
-}
-.about-link-glyph-fallback {
-    opacity: 0.86;
-    min-width: 20px;
-    min-height: 20px;
-    font-size: 1.05rem;
-    font-weight: 700;
-}
-.about-link-row:hover .about-link-icon {
-    opacity: 1.0;
-}
-.about-link-row:hover .about-link-glyph-fallback {
-    opacity: 1.0;
-}
-.about-link-icon-external {
-    min-width: 18px;
-    min-height: 18px;
-}
-.about-link-icon-chevron {
-    min-width: 20px;
-    min-height: 20px;
-}
-.about-link-group {
-    border-radius: 16px;
-    background: alpha(@headerbar_bg_color, 0.42);
-    border: 1px solid alpha(@theme_fg_color, 0.06);
-}
-.about-link-group-separator {
-    margin: 0;
-    min-height: 1px;
-    background: alpha(@theme_fg_color, 0.10);
-}
-.about-link-row.about-link-row-grouped {
-    border: none;
-    background: transparent;
-    border-radius: 0;
-}
-.about-link-row.about-link-row-grouped:hover {
-    background: alpha(@accent_color, 0.16);
-    border-color: transparent;
-}
-.about-link-row.about-link-row-grouped:active {
-    background: alpha(@accent_color, 0.24);
-    border-color: transparent;
-}
-.about-link-row.about-link-row-group-top {
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-}
-.about-link-row.about-link-row-group-bottom {
-    border-bottom-left-radius: 16px;
-    border-bottom-right-radius: 16px;
 }
 "#;
     let css = css_template

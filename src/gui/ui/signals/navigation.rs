@@ -116,13 +116,6 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
                         backgrounds.as_slice(),
                         &editor_syncing_for_click,
                     );
-                    widgets_for_click.status_label.set_text(&trf(
-                        "Page {current}/{total}",
-                        &[
-                            ("current", (current_page_for_click.get() + 1).to_string()),
-                            ("total", total_pages.to_string()),
-                        ],
-                    ));
                 }
                 return;
             }
@@ -241,7 +234,7 @@ pub(crate) fn wire_navigation_signals(ctx: &UiCtx) {
                     backgrounds.as_slice(),
                     &editor_syncing_for_drop,
                 );
-                widgets_for_drop.status_label.set_text(&operation_message);
+                announce_status(&widgets_for_drop, &operation_message);
                 true
             });
             button.add_controller(drop_target);

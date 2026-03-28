@@ -44,6 +44,100 @@ fn startup_profile_names(
     discovered_profiles
 }
 
+fn string_list_expression() -> gtk::PropertyExpression {
+    gtk::PropertyExpression::new(
+        gtk::StringObject::static_type(),
+        None::<&gtk::Expression>,
+        "string",
+    )
+}
+
+fn combo_row_from_strings(title: &str, items: &[String]) -> ComboRow {
+    let names: Vec<&str> = items.iter().map(String::as_str).collect();
+    let model = gtk::StringList::new(&names);
+    let row = ComboRow::new();
+    row.set_title(title);
+    row.set_model(Some(&model));
+    row.set_expression(Some(string_list_expression()));
+    row
+}
+
+fn icon_add_button() -> Button {
+    let button = Button::builder()
+        .icon_name("list-add-symbolic")
+        .build();
+    button.set_tooltip_text(Some(&tr("Add icon")));
+    button.add_css_class("icon-add-button");
+    button.set_size_request(UI_CONTROL_HEIGHT, UI_CONTROL_HEIGHT);
+    button.set_halign(Align::Center);
+    button.set_valign(Align::Center);
+    button
+}
+
+fn stacked_control_row(title: &str, control: &impl IsA<gtk::Widget>) -> gtk::ListBoxRow {
+    let row = gtk::ListBoxRow::new();
+    row.set_activatable(false);
+    row.set_selectable(false);
+
+    let content = GtkBox::new(Orientation::Vertical, 8);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+    content.set_margin_start(14);
+    content.set_margin_end(14);
+
+    let label = Label::new(Some(title));
+    label.set_halign(Align::Start);
+    label.set_wrap(true);
+    label.add_css_class("field-label");
+
+    control.as_ref().set_halign(Align::End);
+    control.as_ref().set_valign(Align::Center);
+
+    content.append(&label);
+    content.append(control);
+    row.set_child(Some(&content));
+    row
+}
+
+fn stacked_selector_preview_row(
+    title: &str,
+    control: &impl IsA<gtk::Widget>,
+    preview: &Picture,
+) -> gtk::ListBoxRow {
+    let row = gtk::ListBoxRow::new();
+    row.set_activatable(false);
+    row.set_selectable(false);
+
+    let content = GtkBox::new(Orientation::Vertical, 8);
+    content.set_margin_top(10);
+    content.set_margin_bottom(10);
+    content.set_margin_start(14);
+    content.set_margin_end(14);
+
+    let label = Label::new(Some(title));
+    label.set_halign(Align::Start);
+    label.set_wrap(true);
+    label.add_css_class("field-label");
+
+    control.as_ref().set_hexpand(true);
+    control.as_ref().set_halign(Align::Fill);
+    control.as_ref().set_valign(Align::Center);
+
+    let controls = GtkBox::new(Orientation::Vertical, 10);
+    controls.set_halign(Align::Fill);
+    controls.set_valign(Align::Center);
+
+    preview.set_halign(Align::End);
+    preview.set_valign(Align::Center);
+
+    controls.append(control);
+    controls.append(preview);
+    content.append(&label);
+    content.append(&controls);
+    row.set_child(Some(&content));
+    row
+}
+
 fn present_about_dialog(parent: &ApplicationWindow) {
     let dialog = adw::AboutDialog::new();
     dialog.set_application_icon("lv.apps.streamrs");
@@ -177,7 +271,6 @@ pub(crate) fn build_ui(app: &Application) {
     };
     profile_dropdown.set_hexpand(false);
     profile_dropdown.set_size_request(PROFILE_DROPDOWN_WIDTH, -1);
-    profile_dropdown.add_css_class("streamrs-field");
     if let Some(initial_profile_index) = profile_names
         .borrow()
         .iter()
@@ -194,12 +287,9 @@ pub(crate) fn build_ui(app: &Application) {
 
     let add_key_button = Button::with_label(&tr("Add a button"));
     add_key_button.set_tooltip_text(Some(&tr("Add a button")));
-    let add_icon_button = Button::with_label("+");
-    add_icon_button.set_tooltip_text(Some(&tr("Add icon")));
-    add_icon_button.add_css_class("icon-add-button");
-    add_icon_button.set_size_request(UI_CONTROL_HEIGHT, UI_CONTROL_HEIGHT);
-    add_icon_button.set_halign(Align::Center);
-    add_icon_button.set_valign(Align::Center);
+    let add_icon_button = icon_add_button();
+    let add_status_on_icon_button = icon_add_button();
+    let add_status_off_icon_button = icon_add_button();
     let has_profiles = !profile_names.borrow().is_empty();
     profile_dropdown.set_sensitive(has_profiles);
     remove_profile_button.set_sensitive(has_profiles);
@@ -234,7 +324,6 @@ pub(crate) fn build_ui(app: &Application) {
     let next_page_button = Button::with_label(&tr("Next"));
     next_page_button.add_css_class("flat");
     next_page_button.set_visible(false);
-    add_key_button.add_css_class("action-button");
     let page_label = Label::new(Some(&trf(
         "Page {current}/{total}",
         &[("current", "1".to_string()), ("total", "1".to_string())],
@@ -348,52 +437,18 @@ pub(crate) fn build_ui(app: &Application) {
     let inspector_panel = GtkBox::new(Orientation::Vertical, 0);
     inspector_panel.set_hexpand(true);
     inspector_panel.set_vexpand(true);
-    inspector_panel.add_css_class("inspector-card");
+    inspector_panel.add_css_class("deck-card");
+    inspector_panel.add_css_class("inspector-panel");
 
-    let editor = GtkBox::new(Orientation::Vertical, UI_SPACING);
-    editor.set_hexpand(true);
-    editor.set_margin_top(0);
-    editor.set_margin_bottom(0);
-    editor.set_margin_start(0);
-    editor.set_margin_end(0);
-
-    let selected_label = Label::new(Some(&trf(
-        "Editing {ordinal} button",
-        &[("ordinal", tr_ordinal(1))],
-    )));
-    selected_label.set_halign(Align::Start);
-    selected_label.add_css_class("section-title");
-
-    let action_type_label = Label::new(Some(&tr("Action type")));
-    action_type_label.set_halign(Align::Start);
-    action_type_label.add_css_class("field-label");
     let action_mode_labels = vec![tr("None"), tr("Launch command"), tr("Keyboard shortcut")];
-    let action_mode_label_refs: Vec<&str> = action_mode_labels.iter().map(String::as_str).collect();
-    let action_type_dropdown = DropDown::from_strings(&action_mode_label_refs);
-    make_dropdown_shrinkable(&action_type_dropdown);
-    action_type_dropdown.add_css_class("streamrs-field");
+    let action_type_dropdown = combo_row_from_strings(&tr("Action type"), &action_mode_labels);
 
-    let action_label = Label::new(Some(&tr("Launch command")));
-    action_label.set_halign(Align::Start);
-    action_label.add_css_class("field-label");
-    let action_entry = Entry::new();
-    action_entry.set_hexpand(true);
-    action_entry.set_width_chars(1);
-    action_entry.set_placeholder_text(Some("open https://example.com"));
-    action_entry.add_css_class("streamrs-field");
+    let action_entry = EntryRow::new();
+    action_entry.set_title(&tr("Launch command"));
 
-    let shortcut_label = Label::new(Some(&tr("Keyboard shortcut")));
-    shortcut_label.set_halign(Align::Start);
-    shortcut_label.add_css_class("field-label");
-    let shortcut_entry = Entry::new();
-    shortcut_entry.set_hexpand(true);
-    shortcut_entry.set_width_chars(1);
-    shortcut_entry.set_placeholder_text(Some("Ctrl+Shift+T"));
-    shortcut_entry.add_css_class("streamrs-field");
+    let shortcut_entry = EntryRow::new();
+    shortcut_entry.set_title(&tr("Keyboard shortcut"));
 
-    let icon_kind_label = Label::new(Some(&tr("Button type")));
-    icon_kind_label.set_halign(Align::Start);
-    icon_kind_label.add_css_class("field-label");
     let mode_labels = vec![
         tr("Blank"),
         tr("Regular"),
@@ -401,122 +456,133 @@ pub(crate) fn build_ui(app: &Application) {
         tr("Clock"),
         tr("Calendar"),
     ];
-    let mode_label_refs: Vec<&str> = mode_labels.iter().map(String::as_str).collect();
-    let icon_kind_dropdown = DropDown::from_strings(&mode_label_refs);
-    make_dropdown_shrinkable(&icon_kind_dropdown);
-    icon_kind_dropdown.add_css_class("streamrs-field");
+    let icon_kind_dropdown = combo_row_from_strings(&tr("Button type"), &mode_labels);
 
-    let icon_label = Label::new(Some(&tr("Icon")));
-    icon_label.set_halign(Align::Start);
-    icon_label.add_css_class("field-label");
     let icon_dropdown = {
         let icons = icon_names.borrow();
         dropdown_with_icons(&state, icons.as_slice())
     };
     make_dropdown_shrinkable(&icon_dropdown);
-    icon_dropdown.add_css_class("streamrs-field");
-    let icon_row = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
-    icon_row.set_hexpand(true);
-    icon_row.add_css_class("icon-row");
-    icon_row.append(&icon_dropdown);
-    icon_row.append(&add_icon_button);
+    icon_dropdown.set_hexpand(true);
+    icon_dropdown.set_size_request(-1, -1);
+    let icon_controls = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
+    icon_controls.set_hexpand(true);
+    icon_controls.set_halign(Align::Fill);
+    icon_controls.append(&icon_dropdown);
+    icon_controls.append(&add_icon_button);
 
-    let clock_background_label = Label::new(Some(&tr("Clock background")));
-    clock_background_label.set_halign(Align::Start);
-    clock_background_label.add_css_class("field-label");
+    let icon_preview = Picture::new();
+    icon_preview.set_size_request(104, 104);
+    icon_preview.add_css_class("icon-preview");
+    let icon_row = stacked_selector_preview_row(&tr("Icon"), &icon_controls, &icon_preview);
+
     let clock_background_dropdown = {
         let backgrounds = clock_backgrounds.borrow();
         dropdown_with_icons(&state, backgrounds.as_slice())
     };
     make_dropdown_shrinkable(&clock_background_dropdown);
-    clock_background_dropdown.add_css_class("streamrs-field");
+    let clock_background_preview = Picture::new();
+    clock_background_preview.set_size_request(104, 104);
+    clock_background_preview.add_css_class("icon-preview");
+    let clock_background_row = stacked_selector_preview_row(
+        &tr("Clock background"),
+        &clock_background_dropdown,
+        &clock_background_preview,
+    );
 
-    let icon_preview_label = Label::new(Some(&tr("Icon Preview")));
-    icon_preview_label.set_halign(Align::Start);
-    icon_preview_label.add_css_class("field-label");
-    let icon_preview = Picture::new();
-    icon_preview.set_size_request(104, 104);
-    icon_preview.add_css_class("icon-preview");
+    let status_entry = EntryRow::new();
+    status_entry.set_title(&tr("Status command"));
 
-    let status_command_label = Label::new(Some(&tr("Status command (optional)")));
-    status_command_label.set_halign(Align::Start);
-    status_command_label.add_css_class("field-label");
-    let status_entry = Entry::new();
-    status_entry.set_hexpand(true);
-    status_entry.set_width_chars(1);
-    status_entry.add_css_class("streamrs-field");
-
-    let icon_on_label = Label::new(Some(&tr("Icon when status is on")));
-    icon_on_label.set_halign(Align::Start);
-    icon_on_label.add_css_class("field-label");
     let icon_on_dropdown = {
         let icons = icon_names.borrow();
         dropdown_with_icons(&state, icons.as_slice())
     };
     make_dropdown_shrinkable(&icon_on_dropdown);
-    icon_on_dropdown.add_css_class("streamrs-field");
+    icon_on_dropdown.set_hexpand(true);
+    icon_on_dropdown.set_size_request(-1, -1);
+    let icon_on_preview = Picture::new();
+    icon_on_preview.set_size_request(104, 104);
+    icon_on_preview.add_css_class("icon-preview");
+    let icon_on_controls = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
+    icon_on_controls.set_hexpand(true);
+    icon_on_controls.set_halign(Align::Fill);
+    icon_on_controls.append(&icon_on_dropdown);
+    icon_on_controls.append(&add_status_on_icon_button);
+    let icon_on_row = stacked_selector_preview_row(
+        &tr("Icon when status is on"),
+        &icon_on_controls,
+        &icon_on_preview,
+    );
 
-    let icon_off_label = Label::new(Some(&tr("Icon when status is off")));
-    icon_off_label.set_halign(Align::Start);
-    icon_off_label.add_css_class("field-label");
     let icon_off_dropdown = {
         let icons = icon_names.borrow();
         dropdown_with_icons(&state, icons.as_slice())
     };
     make_dropdown_shrinkable(&icon_off_dropdown);
-    icon_off_dropdown.add_css_class("streamrs-field");
+    icon_off_dropdown.set_hexpand(true);
+    icon_off_dropdown.set_size_request(-1, -1);
+    let icon_off_preview = Picture::new();
+    icon_off_preview.set_size_request(104, 104);
+    icon_off_preview.add_css_class("icon-preview");
+    let icon_off_controls = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
+    icon_off_controls.set_hexpand(true);
+    icon_off_controls.set_halign(Align::Fill);
+    icon_off_controls.append(&icon_off_dropdown);
+    icon_off_controls.append(&add_status_off_icon_button);
+    let icon_off_row = stacked_selector_preview_row(
+        &tr("Icon when status is off"),
+        &icon_off_controls,
+        &icon_off_preview,
+    );
 
-    let interval_label = Label::new(Some(&tr("Status interval (seconds)")));
-    interval_label.set_halign(Align::Start);
-    interval_label.add_css_class("field-label");
     let interval_spin = SpinButton::with_range(
         MIN_STATUS_INTERVAL_SECONDS as f64,
         MAX_STATUS_INTERVAL_SECONDS as f64,
         1.0,
     );
-    interval_spin.set_hexpand(true);
+    interval_spin.set_valign(Align::Center);
     interval_spin.set_value(DEFAULT_STATUS_INTERVAL_SECONDS as f64);
-    interval_spin.add_css_class("streamrs-field");
+    let interval_row = stacked_control_row(&tr("Status interval (seconds)"), &interval_spin);
 
     let apply_button = Button::with_label(&tr("Save and Apply"));
-    apply_button.add_css_class("action-button");
-    apply_button.add_css_class("apply-button");
+    apply_button.add_css_class("suggested-action");
     apply_button.set_hexpand(false);
     let clear_button = Button::with_label(&tr("Remove selected"));
     clear_button.set_tooltip_text(Some(&tr("Remove selected button configuration")));
-    clear_button.add_css_class("action-button");
-    clear_button.add_css_class("clear-button");
+    clear_button.add_css_class("destructive-action");
     clear_button.set_hexpand(false);
 
-    let status_line = Label::new(Some(&tr("Ready")));
-    status_line.set_halign(Align::Start);
-    status_line.add_css_class("status-label");
+    let behavior_group = PreferencesGroup::builder().title(tr("Behavior")).build();
+    behavior_group.set_margin_bottom(8);
+    behavior_group.add(&action_type_dropdown);
+    behavior_group.add(&action_entry);
+    behavior_group.add(&shortcut_entry);
 
-    editor.append(&selected_label);
-    editor.append(&action_type_label);
-    editor.append(&action_type_dropdown);
-    editor.append(&action_label);
-    editor.append(&action_entry);
-    editor.append(&shortcut_label);
-    editor.append(&shortcut_entry);
-    editor.append(&icon_kind_label);
-    editor.append(&icon_kind_dropdown);
-    editor.append(&icon_label);
-    editor.append(&icon_row);
-    editor.append(&clock_background_label);
-    editor.append(&clock_background_dropdown);
-    editor.append(&icon_preview_label);
-    editor.append(&icon_preview);
-    editor.append(&status_command_label);
-    editor.append(&status_entry);
-    editor.append(&icon_on_label);
-    editor.append(&icon_on_dropdown);
-    editor.append(&icon_off_label);
-    editor.append(&icon_off_dropdown);
-    editor.append(&interval_label);
-    editor.append(&interval_spin);
+    let appearance_group = PreferencesGroup::builder().title(tr("Appearance")).build();
+    appearance_group.set_margin_bottom(8);
+    appearance_group.add(&icon_kind_dropdown);
+    appearance_group.add(&icon_row);
+    appearance_group.add(&icon_on_row);
+    appearance_group.add(&icon_off_row);
+    appearance_group.add(&clock_background_row);
 
-    editor_scroller.set_child(Some(&editor));
+    let status_group = PreferencesGroup::builder().title(tr("Status")).build();
+    status_group.add(&status_entry);
+    status_group.add(&interval_row);
+
+    let editor_groups = GtkBox::new(Orientation::Vertical, 0);
+    editor_groups.set_hexpand(true);
+    editor_groups.set_vexpand(true);
+    editor_groups.append(&behavior_group);
+    editor_groups.append(&appearance_group);
+    editor_groups.append(&status_group);
+
+    let editor_content = GtkBox::new(Orientation::Vertical, UI_SPACING);
+    editor_content.set_hexpand(true);
+    editor_content.set_vexpand(true);
+    editor_content.append(&editor_groups);
+
+    editor_scroller.set_child(Some(&editor_content));
     inspector_panel.append(&editor_scroller);
 
     body.set_start_child(Some(&left_panel));
@@ -535,6 +601,7 @@ pub(crate) fn build_ui(app: &Application) {
     menu_button.set_tooltip_text(Some(&tr("Menu")));
     menu_button.set_menu_model(Some(&window_menu));
     menu_button.add_css_class("flat");
+    let toast_overlay = ToastOverlay::new();
 
     let about_action = gtk::gio::SimpleAction::new("show-about", None);
     {
@@ -559,7 +626,7 @@ pub(crate) fn build_ui(app: &Application) {
         });
     }
     {
-        let status_line_for_start = status_line.clone();
+        let toast_overlay_for_start = toast_overlay.clone();
         let start_daemon_action_for_start = start_daemon_action.clone();
         let stop_daemon_action_for_start = stop_daemon_action.clone();
         start_daemon_action.connect_activate(move |_, _| {
@@ -567,7 +634,9 @@ pub(crate) fn build_ui(app: &Application) {
                 Ok(()) => tr("Started streamrs daemon"),
                 Err(err) => err,
             };
-            status_line_for_start.set_text(&message);
+            let toast = Toast::new(&message);
+            toast.set_timeout(3);
+            toast_overlay_for_start.add_toast(toast);
             sync_daemon_actions(
                 &start_daemon_action_for_start,
                 &stop_daemon_action_for_start,
@@ -575,7 +644,7 @@ pub(crate) fn build_ui(app: &Application) {
         });
     }
     {
-        let status_line_for_stop = status_line.clone();
+        let toast_overlay_for_stop = toast_overlay.clone();
         let start_daemon_action_for_stop = start_daemon_action.clone();
         let stop_daemon_action_for_stop = stop_daemon_action.clone();
         stop_daemon_action.connect_activate(move |_, _| {
@@ -583,12 +652,14 @@ pub(crate) fn build_ui(app: &Application) {
                 Ok(()) => tr("Stopped streamrs daemon"),
                 Err(err) => err,
             };
-            status_line_for_stop.set_text(&message);
+            let toast = Toast::new(&message);
+            toast.set_timeout(3);
+            toast_overlay_for_stop.add_toast(toast);
             sync_daemon_actions(&start_daemon_action_for_stop, &stop_daemon_action_for_stop);
         });
     }
     {
-        let status_line_for_restart = status_line.clone();
+        let toast_overlay_for_restart = toast_overlay.clone();
         let start_daemon_action_for_restart = start_daemon_action.clone();
         let stop_daemon_action_for_restart = stop_daemon_action.clone();
         restart_daemon_action.connect_activate(move |_, _| {
@@ -596,7 +667,9 @@ pub(crate) fn build_ui(app: &Application) {
                 Ok(()) => tr("Restarted streamrs daemon"),
                 Err(err) => err,
             };
-            status_line_for_restart.set_text(&message);
+            let toast = Toast::new(&message);
+            toast.set_timeout(3);
+            toast_overlay_for_restart.add_toast(toast);
             sync_daemon_actions(
                 &start_daemon_action_for_restart,
                 &stop_daemon_action_for_restart,
@@ -635,57 +708,51 @@ pub(crate) fn build_ui(app: &Application) {
     header_bar.pack_end(&menu_button);
     let status_bar = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     status_bar.add_css_class("status-bar");
-    status_line.set_hexpand(true);
-    status_line.set_halign(Align::Fill);
-    status_line.set_xalign(0.0);
-    status_bar.append(&status_line);
-    let status_actions = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
-    status_actions.add_css_class("status-actions");
+    status_bar.set_hexpand(true);
     let button_actions = GtkBox::new(Orientation::Horizontal, UI_SPACING_HORIZONTAL);
     button_actions.add_css_class("status-button-actions");
+    button_actions.set_halign(Align::Start);
     button_actions.append(&add_key_button);
     button_actions.append(&clear_button);
-    let status_actions_separator = gtk::Separator::new(Orientation::Vertical);
-    status_actions_separator.add_css_class("status-actions-separator");
-    status_actions.append(&button_actions);
-    status_actions.append(&status_actions_separator);
-    status_actions.append(&apply_button);
-    status_bar.append(&status_actions);
+    let status_actions_spacer = GtkBox::new(Orientation::Horizontal, 0);
+    status_actions_spacer.set_hexpand(true);
+    status_bar.append(&button_actions);
+    status_bar.append(&status_actions_spacer);
+    status_bar.append(&apply_button);
     content_root.append(&body);
 
     let toolbar_view = adw::ToolbarView::new();
     toolbar_view.add_top_bar(&header_bar);
     toolbar_view.set_content(Some(&content_root));
     toolbar_view.add_bottom_bar(&status_bar);
-    window.set_content(Some(&toolbar_view));
+    toast_overlay.set_child(Some(&toolbar_view));
+    window.set_content(Some(&toast_overlay));
 
     let widgets = EditorWidgets {
         profile_dropdown,
         profile_names,
-        selected_label,
+        toast_overlay,
         action_type_dropdown,
-        action_label,
         action_entry,
-        shortcut_label,
         shortcut_entry,
         icon_kind_dropdown,
-        icon_label,
         icon_row,
         icon_dropdown,
-        clock_background_label,
+        clock_background_row,
         clock_background_dropdown,
-        status_command_label,
+        clock_background_preview,
+        status_group,
         status_entry,
-        icon_on_label,
+        icon_on_row,
         icon_on_dropdown,
-        icon_off_label,
+        icon_on_preview,
+        icon_off_row,
         icon_off_dropdown,
-        interval_label,
+        icon_off_preview,
         interval_spin,
         icon_preview,
         apply_button: apply_button.clone(),
         clear_button: clear_button.clone(),
-        status_label: status_line,
     };
     wire_ui_handlers_and_present(
         &window,
@@ -704,7 +771,11 @@ pub(crate) fn build_ui(app: &Application) {
         remove_profile_button.clone(),
         rename_profile_button.clone(),
         add_key_button.clone(),
-        add_icon_button.clone(),
+        vec![
+            add_icon_button.clone(),
+            add_status_on_icon_button.clone(),
+            add_status_off_icon_button.clone(),
+        ],
         apply_button.clone(),
         clear_button.clone(),
     );

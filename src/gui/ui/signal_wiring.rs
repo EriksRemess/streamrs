@@ -38,7 +38,7 @@ pub(super) fn wire_ui_handlers_and_present(
     remove_profile_button: Button,
     rename_profile_button: Button,
     add_key_button: Button,
-    add_icon_button: Button,
+    add_icon_buttons: Vec<Button>,
     apply_button: Button,
     clear_button: Button,
 ) {
@@ -67,7 +67,7 @@ pub(super) fn wire_ui_handlers_and_present(
         &remove_profile_button,
         &rename_profile_button,
         &add_key_button,
-        &add_icon_button,
+        add_icon_buttons.as_slice(),
     );
     wire_clock_refresh_signal(&ctx);
     finalize_and_present(window, &ctx);

@@ -1,5 +1,13 @@
 use super::*;
 
+fn icon_display_name(name: &str) -> String {
+    Path::new(name)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(name)
+        .replace('-', " ")
+}
+
 fn icon_dropdown_items(icon_names: &[String]) -> Vec<String> {
     let mut items = Vec::with_capacity(icon_names.len() + 1);
     items.push(tr("Select icon..."));
@@ -73,7 +81,7 @@ pub(crate) fn configure_icon_dropdown(dropdown: &DropDown, state: &Rc<RefCell<Ap
             return;
         };
 
-        label.set_text(&name);
+        label.set_text(&icon_display_name(&name));
 
         let image_dirs = state_for_bind.borrow().image_dirs.clone();
         let preview_path = if icon_is_clock(&name) {
@@ -98,7 +106,15 @@ pub(crate) fn configure_icon_dropdown(dropdown: &DropDown, state: &Rc<RefCell<Ap
         None::<&gtk::Expression>,
         "string",
     );
-    dropdown.set_expression(Some(expression));
+    let display_expression = expression.chain_closure_with_callback(|values| {
+        values
+            .iter()
+            .rev()
+            .find_map(|value| value.get::<String>().ok())
+            .map(|name| icon_display_name(&name))
+            .unwrap_or_default()
+    });
+    dropdown.set_expression(Some(display_expression));
 }
 
 pub(crate) fn dropdown_with_icons(
@@ -124,8 +140,9 @@ pub(crate) fn dropdown_set_icon_options(dropdown: &DropDown, icon_names: &[Strin
 }
 
 pub(crate) fn make_dropdown_shrinkable(dropdown: &DropDown) {
-    dropdown.set_hexpand(true);
-    dropdown.set_size_request(1, -1);
+    dropdown.set_hexpand(false);
+    dropdown.set_valign(Align::Center);
+    dropdown.set_size_request(180, -1);
 }
 
 pub(crate) fn refresh_icon_catalogs(
@@ -266,5 +283,10 @@ mod tests {
 
         let icons = discover_icons(&[dir]);
         assert_eq!(icons, vec!["youtube.png".to_string()]);
+    }
+
+    #[test]
+    fn icon_display_name_strips_extension_and_replaces_hyphens() {
+        assert_eq!(icon_display_name("floor-lamp-off.png"), "floor lamp off");
     }
 }

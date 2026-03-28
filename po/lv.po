@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-15 14:24+0000\n"
+"POT-Creation-Date: 2026-03-28 11:15+0000\n"
 "PO-Revision-Date: 2026-03-15 15:01+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
@@ -53,6 +53,14 @@ msgid "Another streamrs-gui instance is already running (lock '{path}')."
 msgstr "Jau darbojas cits streamrs-gui eksemplārs (slēgs '{path}')."
 
 #: src/gui/ui.rs
+msgid "Appearance"
+msgstr "Izskats"
+
+#: src/gui/ui.rs
+msgid "Behavior"
+msgstr "Uzvedība"
+
+#: src/gui/ui.rs
 msgid "Blank"
 msgstr "Tukša"
 
@@ -92,10 +100,6 @@ msgstr "Pulkstenis"
 msgid "Clock background"
 msgstr "Pulksteņa fons"
 
-#: src/gui/ui/signals/editor.rs
-msgid "Clock background updated"
-msgstr "Pulksteņa fons atjaunināts"
-
 #: src/gui/ui.rs
 msgid "Contributors"
 msgstr "Līdzautori"
@@ -104,21 +108,9 @@ msgstr "Līdzautori"
 msgid "Created and loaded profile '{profile}'"
 msgstr "Izveidots un ielādēts profils '{profile}'"
 
-#: src/gui/ui.rs
-msgid "Delete"
-msgstr "Dzēst"
-
 #: src/gui/ui/signals/management.rs
 msgid "Delete profile '{profile}' config? Shared icons are kept."
 msgstr "Dzēst profilu '{profile}'?"
-
-#: src/gui/ui.rs
-msgid "Delete selected button configuration"
-msgstr "Dzēst izvēlētās pogas konfigurāciju"
-
-#: src/gui/core/editor.rs src/gui/ui.rs
-msgid "Editing {ordinal} button"
-msgstr "{ordinal} pogas rediģēšana"
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
@@ -157,25 +149,9 @@ msgstr "Neizdevās apturēt streamrs dēmonu ({systemctl_err}; {pkill_err})"
 msgid "Failed to write GUI lock '{path}': {err}"
 msgstr "Neizdevās ierakstīt GUI slēga failu '{path}': {err}"
 
-#: src/gui/core/editor.rs
-msgid "Go to next page"
-msgstr "Pāriet uz nākamo lapu"
-
-#: src/gui/core/editor.rs
-msgid "Go to previous page"
-msgstr "Pāriet uz iepriekšējo lapu"
-
 #: src/gui/ui.rs
 msgid "Icon"
 msgstr "Ikona"
-
-#: src/gui/ui.rs
-msgid "Icon Preview"
-msgstr "Ikonas priekšskatījums"
-
-#: src/gui/ui/signals/editor.rs
-msgid "Icon updated"
-msgstr "Ikona atjaunināta"
 
 #: src/gui/ui.rs
 msgid "Icon when status is off"
@@ -213,10 +189,6 @@ msgstr "Ielādēts profils '{profile}'"
 msgid "Menu"
 msgstr "Izvēlne"
 
-#: src/gui/ui/signals/management.rs
-msgid "My Profile"
-msgstr "Mans profils"
-
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Navigation buttons cannot be deleted"
 msgstr "Navigācijas pogas nevar dzēst"
@@ -240,14 +212,6 @@ msgstr "Nav izvēlēts profils"
 #: src/gui/ui.rs
 msgid "None"
 msgstr "Nav"
-
-#: src/gui/core/editor.rs
-msgid "Page navigation: Next"
-msgstr "Lapu navigācija: nākamā lapa"
-
-#: src/gui/core/editor.rs
-msgid "Page navigation: Previous"
-msgstr "Lapu navigācija: iepriekšējā lapa"
 
 #: src/gui/core/paging.rs src/gui/ui.rs src/gui/ui/signals/navigation.rs
 msgid "Page {current}/{total}"
@@ -282,10 +246,6 @@ msgid "Project License"
 msgstr "Projekta licence"
 
 #: src/gui/ui.rs
-msgid "Ready"
-msgstr "Gatavs"
-
-#: src/gui/ui.rs
 msgid "Regular"
 msgstr "Parasta"
 
@@ -296,6 +256,14 @@ msgstr "Dzēst"
 #: src/gui/ui/signals/management.rs
 msgid "Remove profile"
 msgstr "Dzēst profilu"
+
+#: src/gui/ui.rs
+msgid "Remove selected"
+msgstr "Noņemt izvēlēto"
+
+#: src/gui/ui.rs
+msgid "Remove selected button configuration"
+msgstr "Noņemt izvēlētās pogas konfigurāciju"
 
 #: src/gui/ui/signals/management.rs
 msgid "Removed profile '{profile}', active profile is '{next_profile}'"
@@ -317,10 +285,6 @@ msgstr "Profils '{from}' pārdēvēts par '{to}'"
 msgid "Reserved for page navigation in streamrs"
 msgstr "Rezervēts lapu navigācijai streamrs"
 
-#: src/gui/core/editor.rs
-msgid "Reserved slot"
-msgstr "Rezervēta vieta"
-
 #: src/gui/ui.rs
 msgid "Restart"
 msgstr "Pārstartēt"
@@ -332,14 +296,6 @@ msgstr "Streamrs dēmons pārstartēts"
 #: src/gui/ui.rs
 msgid "Save and Apply"
 msgstr "Saglabāt un pielietot"
-
-#: src/gui/ui.rs
-msgid "Remove selected button configuration"
-msgstr "Noņemt izvēlētās pogas konfigurāciju"
-
-#: src/gui/ui.rs
-msgid "Remove selected"
-msgstr "Noņemt izvēlēto"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Save failed: {err}"
@@ -370,20 +326,13 @@ msgid "Status"
 msgstr "Statuss"
 
 #: src/gui/ui.rs
-msgid "Status command (optional)"
+#, fuzzy
+msgid "Status command"
 msgstr "Statusa komanda (neobligāta)"
 
 #: src/gui/ui.rs
 msgid "Status interval (seconds)"
 msgstr "Statusa intervāls (sekundēs)"
-
-#: src/gui/ui/signals/editor.rs
-msgid "Status-off icon updated"
-msgstr "Izslēgta statusa ikona atjaunināta"
-
-#: src/gui/ui/signals/editor.rs
-msgid "Status-on icon updated"
-msgstr "Ieslēgta statusa ikona atjaunināta"
 
 #: src/gui/ui.rs
 msgid "Stop"
@@ -425,9 +374,53 @@ msgstr "systemctl izejas statuss {status}"
 msgid "systemctl failed: {err}"
 msgstr "systemctl neizdevās: {err}"
 
-#: src/gui/core/editor.rs
-msgid "{tooltip} ({page}/{total})"
-msgstr "{tooltip} ({page}/{total})"
+#~ msgid "Clock background updated"
+#~ msgstr "Pulksteņa fons atjaunināts"
+
+#~ msgid "Delete"
+#~ msgstr "Dzēst"
+
+#~ msgid "Delete selected button configuration"
+#~ msgstr "Dzēst izvēlētās pogas konfigurāciju"
+
+#~ msgid "Editing {ordinal} button"
+#~ msgstr "{ordinal} pogas rediģēšana"
+
+#~ msgid "Go to next page"
+#~ msgstr "Pāriet uz nākamo lapu"
+
+#~ msgid "Go to previous page"
+#~ msgstr "Pāriet uz iepriekšējo lapu"
+
+#~ msgid "Icon Preview"
+#~ msgstr "Ikonas priekšskatījums"
+
+#~ msgid "Icon updated"
+#~ msgstr "Ikona atjaunināta"
+
+#~ msgid "My Profile"
+#~ msgstr "Mans profils"
+
+#~ msgid "Page navigation: Next"
+#~ msgstr "Lapu navigācija: nākamā lapa"
+
+#~ msgid "Page navigation: Previous"
+#~ msgstr "Lapu navigācija: iepriekšējā lapa"
+
+#~ msgid "Ready"
+#~ msgstr "Gatavs"
+
+#~ msgid "Reserved slot"
+#~ msgstr "Rezervēta vieta"
+
+#~ msgid "Status-off icon updated"
+#~ msgstr "Izslēgta statusa ikona atjaunināta"
+
+#~ msgid "Status-on icon updated"
+#~ msgstr "Ieslēgta statusa ikona atjaunināta"
+
+#~ msgid "{tooltip} ({page}/{total})"
+#~ msgstr "{tooltip} ({page}/{total})"
 
 #~ msgid "Action"
 #~ msgstr "Darbība"

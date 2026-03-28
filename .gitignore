@@ -7,4 +7,7 @@
 /po/locale/
 /po/*.po~
 .DS_Store
+.codex
+
 *.pyc
+/tmpimages

@@ -109,7 +109,7 @@ pub(crate) fn wire_primary_action_signals(
             } else {
                 tr("This slot is reserved for page navigation")
             };
-            widgets_for_apply.status_label.set_text(&message);
+            announce_status(&widgets_for_apply, &message);
         });
     }
 
@@ -166,13 +166,12 @@ pub(crate) fn wire_primary_action_signals(
                 &editor_syncing_for_clear,
             );
             if cleared {
-                widgets_for_clear
-                    .status_label
-                    .set_text(&tr("Cleared selected button"));
+                announce_status(&widgets_for_clear, &tr("Cleared selected button"));
             } else {
-                widgets_for_clear
-                    .status_label
-                    .set_text(&tr("Navigation buttons cannot be deleted"));
+                announce_status(
+                    &widgets_for_clear,
+                    &tr("Navigation buttons cannot be deleted"),
+                );
             }
         });
     }
