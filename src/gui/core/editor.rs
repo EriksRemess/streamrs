@@ -83,8 +83,7 @@ pub(crate) fn refresh_key_grid(
             key_buttons[slot].add_css_class("key-navigation-slot");
             key_buttons[slot].remove_css_class("key-empty-slot");
             let icon_name = navigation_icon_name(nav_slot);
-            let icon_path = find_icon_file(&image_dirs, icon_name);
-            update_picture_file(picture, icon_path.as_deref());
+            set_preview_picture_for_icon_name(picture, &image_dirs, icon_name, clock_backgrounds);
             let tip = match nav_slot {
                 ReservedNavigationSlot::PreviousPage => tr("Previous page"),
                 ReservedNavigationSlot::NextPage => tr("Next page"),
@@ -380,8 +379,12 @@ pub(crate) fn populate_editor(
             CLOCK_BACKGROUND_ICON,
         );
         let icon_name = navigation_icon_name(nav_slot);
-        let icon_path = find_icon_file(&image_dirs, icon_name);
-        update_picture_file(&widgets.icon_preview, icon_path.as_deref());
+        set_preview_picture_for_icon_name(
+            &widgets.icon_preview,
+            &image_dirs,
+            icon_name,
+            clock_backgrounds,
+        );
         update_picture_file(&widgets.icon_on_preview, None);
         update_picture_file(&widgets.icon_off_preview, None);
         update_picture_file(&widgets.clock_background_preview, None);

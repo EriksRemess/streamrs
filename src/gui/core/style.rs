@@ -64,37 +64,39 @@ headerbar.window-titlebar {
     border: none;
     box-shadow: none;
     padding: 0;
+    border-radius: 14%;
 }
 .key-button:hover {
     background: alpha(@accent_color, 0.08);
+    border-radius: 14%;
 }
 .key-blank-binding {
     background: alpha(@theme_fg_color, 0.04);
     box-shadow:
         inset 0 0 0 2px alpha(@theme_fg_color, 0.45),
         inset 0 0 0 6px alpha(@theme_fg_color, 0.10);
-    border-radius: 18px;
+    border-radius: 14%;
 }
 .key-empty-slot {
     opacity: 0.55;
 }
 .key-selected {
     outline: 2px solid @accent_color;
-    outline-offset: 0;
-    border-radius: 18px;
+    outline-offset: -1px;
+    border-radius: 14%;
 }
 .key-drop-swap {
     outline: 2px solid alpha(@accent_color, 0.95);
     outline-offset: 0;
-    border-radius: 18px;
+    border-radius: 14%;
 }
 .key-drop-before {
     box-shadow: inset 3px 0 0 0 alpha(@accent_color, 0.95);
-    border-radius: 18px;
+    border-radius: 14%;
 }
 .key-drop-after {
     box-shadow: inset -3px 0 0 0 alpha(@accent_color, 0.95);
-    border-radius: 18px;
+    border-radius: 14%;
 }
 .deck-image {
     border-radius: 26px;
