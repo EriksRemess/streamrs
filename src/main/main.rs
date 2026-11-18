@@ -635,7 +635,9 @@ fn page_count(config: &Config) -> usize {
 
 fn load_profile_config(profile: &str, config_path: &Path, raw: &str) -> Result<Config, String> {
     if profile == BLANK_PROFILE {
-        return Ok(blank_profile_config());
+        return Ok(streamrs::config::streamrs_profile::blank_config_from_str(
+            raw,
+        ));
     }
     parse_config(config_path, raw)
 }
@@ -895,6 +897,11 @@ fn advance_dynamic_keys(
 fn run_device_command(args: &init::CliArgs) -> Result<(), String> {
     let default_path = streamrs::paths::default_config_path_for_profile(&args.profile);
     let path = args.config_path.as_deref().unwrap_or(&default_path);
+    if let Some(value) = args.brightness {
+        let result = streamrs::streamdeck::set_profile_brightness(path, &args.profile, value)?;
+        println!("{result}");
+        return Ok(());
+    }
     let config: Config = match std::fs::read_to_string(path) {
         Ok(raw) => streamrs::config::toml::parse_from_str(path, &raw)?,
         Err(err)
@@ -944,7 +951,7 @@ pub(crate) fn run() {
             std::process::exit(2);
         }
     };
-    if args.info || args.sleep_after.is_some() {
+    if args.info || args.sleep_after.is_some() || args.brightness.is_some() {
         streamrs::i18n::init_i18n();
         if let Err(err) = run_device_command(&args) {
             eprintln!("{err}");
@@ -1226,30 +1233,37 @@ pub(crate) fn run() {
                                     );
                                 }
 
-                                total_pages = page_count(&new_config);
-                                if profile_switched {
-                                    current_page = 0;
-                                } else {
-                                    current_page = min(current_page, total_pages.saturating_sub(1));
-                                }
-                                image_cache = build_image_cache(&new_config, &reload_image_dir);
-                                if profile_switched {
-                                    status_cache.clear();
+                                if let Some(device) = device.as_ref()
+                                    && let Err(err) =
+                                        set_brightness(device, new_config.brightness.min(100))
+                                {
+                                    eprintln!("{err}");
                                 }
 
-                                if let Some(device_ref) = device.as_ref() {
-                                    if let Err(err) = set_brightness(
-                                        device_ref,
-                                        new_config.brightness.clamp(0, 100),
-                                    ) {
-                                        eprintln!("{err}");
+                                // Brightness does not invalidate key images, animations or status checks.
+                                let previous = std::mem::replace(
+                                    &mut config.brightness,
+                                    new_config.brightness,
+                                );
+                                let brightness_only =
+                                    previous != new_config.brightness && config == new_config;
+                                if profile_switched || signal_requested || !brightness_only {
+                                    total_pages = page_count(&new_config);
+                                    if profile_switched {
+                                        current_page = 0;
+                                        status_cache.clear();
+                                    } else {
+                                        current_page =
+                                            min(current_page, total_pages.saturating_sub(1));
                                     }
-
-                                    page_state = Some(prepare_page(
-                                        &new_config,
-                                        &status_cache,
-                                        current_page,
-                                    ));
+                                    image_cache = build_image_cache(&new_config, &reload_image_dir);
+                                    if device.is_some() {
+                                        page_state = Some(prepare_page(
+                                            &new_config,
+                                            &status_cache,
+                                            current_page,
+                                        ));
+                                    }
                                 }
 
                                 profile = reload_profile;

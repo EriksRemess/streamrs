@@ -58,7 +58,7 @@ pub(crate) fn wire_primary_action_signals(
                 &editor_syncing_for_apply,
             );
             let message = if applied {
-                let (key_index, config, config_path) = {
+                let (key_index, keys, config_path) = {
                     let mut state = state_for_apply.borrow_mut();
                     normalize_config(&mut state.config);
                     let selected_profile = {
@@ -87,13 +87,13 @@ pub(crate) fn wire_primary_action_signals(
                     };
                     (
                         key_index_for_slot(&state.config, page, slot).map(|index| index + 1),
-                        state.config.clone(),
+                        state.config.keys.clone(),
                         config_path,
                     )
                 };
 
-                match save_config(&config_path, &config) {
-                    Ok(()) => {
+                match update_config(&config_path, |saved| saved.keys = keys) {
+                    Ok(_) => {
                         if let Err(err) = signal_daemon_reload() {
                             eprintln!("{err}");
                         }

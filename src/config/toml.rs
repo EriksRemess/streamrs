@@ -4,15 +4,17 @@ use std::fs;
 use std::path::Path;
 
 pub fn read_to_string(path: &Path) -> Result<String, String> {
-    fs::read_to_string(path).map_err(|err| {
-        trf(
-            "Failed to read config '{path}': {err}",
-            &[
-                ("path", path.display().to_string()),
-                ("err", err.to_string()),
-            ],
-        )
-    })
+    fs::read_to_string(path).map_err(|err| read_error(path, err))
+}
+
+pub(super) fn read_error(path: &Path, err: std::io::Error) -> String {
+    trf(
+        "Failed to read config '{path}': {err}",
+        &[
+            ("path", path.display().to_string()),
+            ("err", err.to_string()),
+        ],
+    )
 }
 
 pub fn parse_from_str<T: DeserializeOwned>(path: &Path, raw: &str) -> Result<T, String> {
@@ -37,46 +39,113 @@ pub fn to_string_pretty<T: Serialize>(path: &Path, value: &T) -> Result<String, 
         .map_err(|err| format!("Failed to serialize config '{}': {err}", path.display()))
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum WriteMode {
+    Replace,
+    Private,
+    Create,
+}
+
 pub fn save_to_file_pretty<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    save_pretty(path, value, false)
+    save_pretty(path, value, WriteMode::Replace).map(drop)
 }
 
 pub(crate) fn save_private_pretty<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    save_pretty(path, value, true)
+    save_pretty(path, value, WriteMode::Private).map(drop)
 }
 
-fn save_pretty<T: Serialize>(path: &Path, value: &T, private: bool) -> Result<(), String> {
+pub(super) fn create_pretty_if_missing<T: Serialize>(
+    path: &Path,
+    value: &T,
+) -> Result<bool, String> {
+    save_pretty(path, value, WriteMode::Create)
+}
+
+fn save_pretty<T: Serialize>(path: &Path, value: &T, mode: WriteMode) -> Result<bool, String> {
     let output = to_string_pretty(path, value)?;
-    write_config(path, output.as_bytes(), private)
-        .map_err(|err| format!("Failed to write config '{}': {err}", path.display()))
+    write_config(path, output.as_bytes(), mode).map_err(|err| write_error(path, err))
 }
 
-fn write_config(path: &Path, data: &[u8], private: bool) -> std::io::Result<()> {
-    use std::io::{Error, ErrorKind, Write};
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
+pub(super) fn save_text(path: &Path, text: &str) -> Result<(), String> {
+    write_config(path, text.as_bytes(), WriteMode::Replace)
+        .map(drop)
+        .map_err(|err| write_error(path, err))
+}
+
+fn write_error(path: &Path, err: std::io::Error) -> String {
+    trf(
+        "Failed to write config '{path}': {err}",
+        &[
+            ("path", path.display().to_string()),
+            ("err", err.to_string()),
+        ],
+    )
+}
+
+// Atomic replacement changes the file inode. Lock its directory across read-modify-write operations.
+pub(crate) fn lock_for_update(
+    path: &Path,
+    create_parent: bool,
+    acquire: impl FnOnce(&fs::File) -> std::io::Result<()>,
+) -> Result<fs::File, String> {
+    let lock = || -> std::io::Result<_> {
+        let target = resolve_target(path)?;
+        let parent = target
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        if create_parent {
+            fs::create_dir_all(parent)?;
+        }
+        let dir = fs::File::open(parent)?;
+        acquire(&dir)?;
+        Ok(dir)
+    };
+    lock().map_err(|err| {
+        if err.kind() == std::io::ErrorKind::WouldBlock {
+            trf(
+                "Config '{path}' is busy. Try saving again.",
+                &[("path", path.display().to_string())],
+            )
+        } else {
+            write_error(path, err)
+        }
+    })
+}
+
+fn resolve_target(path: &Path) -> std::io::Result<std::path::PathBuf> {
     let mut target = path.to_path_buf();
     // Resolve the final link too, including a link whose target is being created.
     let mut links = 0;
     while target.is_symlink() {
         if links == 40 {
-            return Err(Error::other("too many symbolic links"));
+            return Err(std::io::Error::other("too many symbolic links"));
         }
         let link = fs::read_link(&target)?;
         target.pop();
         target.push(link);
         links += 1;
     }
+    Ok(target)
+}
+
+fn write_config(path: &Path, data: &[u8], mode: WriteMode) -> std::io::Result<bool> {
+    use std::io::{Error, ErrorKind, Write};
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let target = resolve_target(path)?;
     let parent = target
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    let mut temp = tempfile::NamedTempFile::new_in(parent)?;
     let permissions = match fs::metadata(&target) {
         Ok(meta) => {
             if !meta.is_file() {
                 return Err(Error::other("not a regular file"));
+            }
+            if mode == WriteMode::Create {
+                return Ok(false);
             }
             fs::OpenOptions::new().write(true).open(&target)?;
             Some(meta.permissions())
@@ -84,13 +153,25 @@ fn write_config(path: &Path, data: &[u8], private: bool) -> std::io::Result<()> 
         Err(err) if err.kind() == ErrorKind::NotFound => None,
         Err(err) => return Err(err),
     };
+    let mut temp = tempfile::NamedTempFile::new_in(parent)?;
     temp.write_all(data)?;
-    if !private && let Some(permissions) = permissions {
+    if mode == WriteMode::Replace
+        && let Some(permissions) = permissions
+    {
         temp.as_file().set_permissions(permissions)?;
     }
     temp.as_file().sync_all()?;
-    temp.persist(&target)?;
-    Ok(())
+    if mode == WriteMode::Create {
+        if let Err(err) = temp.persist_noclobber(&target) {
+            if err.error.kind() == ErrorKind::AlreadyExists && target.is_file() {
+                return Ok(false);
+            }
+            return Err(err.error);
+        }
+    } else {
+        temp.persist(&target)?;
+    }
+    Ok(true)
 }
 
 #[cfg(all(test, unix))]

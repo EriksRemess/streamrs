@@ -124,6 +124,12 @@ You can also set wallpapers in a profile. Page numbers start at one. Relative pa
 "2" = "/home/me/Pictures/night.jpg"
 ```
 
+### Display brightness
+
+Use `streamrs --brightness 35` to save 35% brightness in the current profile and apply it to the connected deck. Use `--profile <name>` to select another profile or `--config <path>` to select a config file. The range is 0–100%. The command works with the daemon stopped. If the deck is unplugged, the daemon applies the saved value the next time it connects with that profile.
+
+In the GUI, open **Menu → Brightness…**, adjust the slider and choose **Apply**.
+
 ### Sleep after inactivity
 
 Use `streamrs --sleep-after 10` to put the connected deck to sleep after ten idle minutes. Use `streamrs --sleep-after never` (or `0`) to disable the timer. In the GUI, open **Menu → Device information → Change sleep timer…**.

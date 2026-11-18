@@ -65,12 +65,51 @@ pub fn clear_lcd(device: &HidDevice) -> Result<(), String> {
         .map_err(|err| err.to_string())
 }
 
+pub fn set_profile_brightness(
+    path: &std::path::Path,
+    profile: &str,
+    value: u8,
+) -> Result<String, String> {
+    use crate::config::{current_profile::BLANK_PROFILE, streamrs_profile, toml};
+    if value > 100 {
+        return Err(crate::i18n::tr("Brightness must be between 0 and 100%."));
+    }
+    let _lock = toml::lock_for_update(path, profile == BLANK_PROFILE, std::fs::File::lock)?;
+    let config = streamrs_profile::save_brightness(path, profile, value)?;
+    let result = open_device(
+        config.vendor_id,
+        config.product_id,
+        config.usage,
+        config.usage_page,
+    )
+    .and_then(|device| {
+        device
+            .map(|device| set_brightness(&device, value.into()))
+            .transpose()
+    });
+    let percent = value.to_string();
+    match result {
+        Ok(Some(())) => Ok(trf("Brightness set to {value}%.", &[("value", percent)])),
+        Ok(None) => Ok(trf(
+            "Brightness saved at {value}%. No matching device is connected.",
+            &[("value", percent)],
+        )),
+        Err(err) => Err(trf(
+            "Brightness saved at {value}%, but the device could not be updated: {err}",
+            &[("value", percent), ("err", err)],
+        )),
+    }
+}
+
 pub fn set_brightness(device: &HidDevice, percentage: usize) -> Result<(), String> {
     let mut buf = [0u8; 32];
     buf[0..3].copy_from_slice(&[0x03, 0x08, percentage as u8]);
-    device
-        .send_feature_report(&buf)
-        .map_err(|err| format!("Failed to set brightness: {err}"))?;
+    device.send_feature_report(&buf).map_err(|err| {
+        trf(
+            "Failed to set brightness: {err}",
+            &[("err", err.to_string())],
+        )
+    })?;
     Ok(())
 }
 

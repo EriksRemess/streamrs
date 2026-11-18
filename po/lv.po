@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:38+0000\n"
-"PO-Revision-Date: 2026-11-18 16:39+0000\n"
+"POT-Creation-Date: 2026-11-18 17:55+0000\n"
+"PO-Revision-Date: 2026-11-18 17:55+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -56,7 +56,7 @@ msgstr "Jau darbojas cits streamrs-gui eksemplārs (slēgs '{path}')."
 msgid "Appearance"
 msgstr "Izskats"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr "Pielietot"
 
@@ -67,6 +67,32 @@ msgstr "Uzvedība"
 #: src/gui/ui.rs
 msgid "Blank"
 msgstr "Tukša"
+
+#: src/gui/ui/signals/brightness.rs
+msgid "Brightness"
+msgstr "Spilgtums"
+
+#: src/streamdeck.rs
+msgid "Brightness must be between 0 and 100%."
+msgstr "Spilgtumam jābūt no 0 līdz 100%."
+
+#: src/streamdeck.rs
+msgid ""
+"Brightness saved at {value}%, but the device could not be updated: {err}"
+msgstr ""
+"Saglabāts {value}% spilgtums, bet ierīces spilgtumu neizdevās mainīt: {err}"
+
+#: src/streamdeck.rs
+msgid "Brightness saved at {value}%. No matching device is connected."
+msgstr "Saglabāts {value}% spilgtums. Atbilstoša ierīce nav pievienota."
+
+#: src/streamdeck.rs
+msgid "Brightness set to {value}%."
+msgstr "Iestatīts {value}% spilgtums."
+
+#: src/gui/ui.rs
+msgid "Brightness…"
+msgstr "Spilgtums…"
 
 #: src/gui/ui.rs
 msgid "Button type"
@@ -88,8 +114,8 @@ msgstr "Poga {index}"
 msgid "Calendar"
 msgstr "Kalendārs"
 
-#: src/gui/ui/device_info.rs src/gui/ui/signals/management.rs
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
+#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Atcelt"
 
@@ -117,9 +143,17 @@ msgstr "Pulksteņa fons"
 msgid "Close"
 msgstr "Aizvērt"
 
+#: src/config/toml.rs
+msgid "Config '{path}' is busy. Try saving again."
+msgstr "Konfigurācija '{path}' pašlaik tiek lietota. Mēģiniet saglabāt vēlreiz."
+
 #: src/gui/ui.rs
 msgid "Contributors"
 msgstr "Līdzautori"
+
+#: src/gui/ui/signals/brightness.rs
+msgid "Could not change brightness."
+msgstr "Neizdevās mainīt spilgtumu."
 
 #: src/gui/ui/device_info.rs
 msgid "Could not change the sleep timer."
@@ -203,6 +237,10 @@ msgstr "Neizdevās noņemt '{path}': {err}"
 msgid "Failed to rename profile config '{from}' -> '{to}': {err}"
 msgstr "Neizdevās pārdēvēt profila konfigurāciju '{from}' -> '{to}': {err}"
 
+#: src/streamdeck.rs
+msgid "Failed to set brightness: {err}"
+msgstr "Neizdevās iestatīt spilgtumu: {err}"
+
 #: src/gui/core/config_io.rs
 msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr ""
@@ -219,6 +257,10 @@ msgstr "Neizdevās palaist streamrs dēmonu (systemctl kļūda: {err})"
 #: src/gui/core/config_io.rs
 msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr "Neizdevās apturēt streamrs dēmonu ({systemctl_err}; {pkill_err})"
+
+#: src/config/toml.rs
+msgid "Failed to write config '{path}': {err}"
+msgstr "Neizdevās ierakstīt konfigurāciju '{path}': {err}"
 
 #: src/streamdeck/info.rs
 msgid "Firmware (AP1)"

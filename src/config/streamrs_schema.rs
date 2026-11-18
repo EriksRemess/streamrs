@@ -40,7 +40,7 @@ pub fn default_icon_name() -> String {
     "blank.png".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StreamrsConfig {
     #[serde(default = "default_vendor_id")]
     pub vendor_id: u16,

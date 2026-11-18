@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:38+0000\n"
-"PO-Revision-Date: 2026-11-18 16:39+0000\n"
+"POT-Creation-Date: 2026-11-18 17:55+0000\n"
+"PO-Revision-Date: 2026-11-18 17:55+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -54,7 +54,7 @@ msgstr "Another streamrs-gui instance is already running (lock '{path}')."
 msgid "Appearance"
 msgstr "Appearance"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr "Apply"
 
@@ -65,6 +65,32 @@ msgstr "Behavior"
 #: src/gui/ui.rs
 msgid "Blank"
 msgstr "Blank"
+
+#: src/gui/ui/signals/brightness.rs
+msgid "Brightness"
+msgstr "Brightness"
+
+#: src/streamdeck.rs
+msgid "Brightness must be between 0 and 100%."
+msgstr "Brightness must be between 0 and 100%."
+
+#: src/streamdeck.rs
+msgid ""
+"Brightness saved at {value}%, but the device could not be updated: {err}"
+msgstr ""
+"Brightness saved at {value}%, but the device could not be updated: {err}"
+
+#: src/streamdeck.rs
+msgid "Brightness saved at {value}%. No matching device is connected."
+msgstr "Brightness saved at {value}%. No matching device is connected."
+
+#: src/streamdeck.rs
+msgid "Brightness set to {value}%."
+msgstr "Brightness set to {value}%."
+
+#: src/gui/ui.rs
+msgid "Brightness…"
+msgstr "Brightness…"
 
 #: src/gui/ui.rs
 msgid "Button type"
@@ -86,8 +112,8 @@ msgstr "Button {index}"
 msgid "Calendar"
 msgstr "Calendar"
 
-#: src/gui/ui/device_info.rs src/gui/ui/signals/management.rs
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
+#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -115,9 +141,17 @@ msgstr "Clock background"
 msgid "Close"
 msgstr "Close"
 
+#: src/config/toml.rs
+msgid "Config '{path}' is busy. Try saving again."
+msgstr "Config '{path}' is busy. Try saving again."
+
 #: src/gui/ui.rs
 msgid "Contributors"
 msgstr "Contributors"
+
+#: src/gui/ui/signals/brightness.rs
+msgid "Could not change brightness."
+msgstr "Could not change brightness."
 
 #: src/gui/ui/device_info.rs
 msgid "Could not change the sleep timer."
@@ -199,6 +233,10 @@ msgstr "Failed to remove '{path}': {err}"
 msgid "Failed to rename profile config '{from}' -> '{to}': {err}"
 msgstr "Failed to rename profile config '{from}' -> '{to}': {err}"
 
+#: src/streamdeck.rs
+msgid "Failed to set brightness: {err}"
+msgstr "Failed to set brightness: {err}"
+
 #: src/gui/core/config_io.rs
 msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
@@ -214,6 +252,10 @@ msgstr "Failed to start streamrs daemon (systemctl failed: {err})"
 #: src/gui/core/config_io.rs
 msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+
+#: src/config/toml.rs
+msgid "Failed to write config '{path}': {err}"
+msgstr "Failed to write config '{path}': {err}"
 
 #: src/streamdeck/info.rs
 msgid "Firmware (AP1)"

@@ -57,6 +57,7 @@ pub(super) fn wire_ui_handlers_and_present(
         editor_syncing: Rc::new(Cell::new(false)),
     };
 
+    register_brightness_action(window, &ctx);
     register_wallpaper_action(window, &ctx);
     wire_editor_dropdown_signals(&ctx);
     wire_navigation_signals(&ctx);

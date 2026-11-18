@@ -1,3 +1,5 @@
+mod brightness;
+pub(super) use brightness::register_brightness_action;
 mod clock;
 mod editor;
 mod finalize;

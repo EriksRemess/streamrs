@@ -86,17 +86,16 @@ async fn edit_wallpaper(window: &ApplicationWindow, ctx: &UiCtx) -> Result<(), S
         return Ok(());
     }
 
-    // Read the saved profile so changing a wallpaper does not commit pending key edits.
-    let mut config = load_config(&config_path)?;
-    let page_key = (page + 1).to_string();
-    if let Some(wallpaper) = &chosen {
-        config
-            .page_wallpapers
-            .insert(page_key, wallpaper.path.clone());
-    } else {
-        config.page_wallpapers.remove(&page_key);
-    }
-    save_config(&config_path, &config)?;
+    let config = update_config(&config_path, |config| {
+        let page_key = (page + 1).to_string();
+        if let Some(wallpaper) = &chosen {
+            config
+                .page_wallpapers
+                .insert(page_key, wallpaper.path.clone());
+        } else {
+            config.page_wallpapers.remove(&page_key);
+        }
+    })?;
     {
         let mut state = ctx.state.borrow_mut();
         state.config.page_wallpapers = config.page_wallpapers;

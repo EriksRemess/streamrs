@@ -173,6 +173,7 @@ fn rebuild_window_menu(menu: &gtk::gio::Menu) {
 
     let app_section = gtk::gio::Menu::new();
     app_section.append(Some(&tr("Page wallpaper…")), Some("win.page-wallpaper"));
+    app_section.append(Some(&tr("Brightness…")), Some("win.brightness"));
     app_section.append(Some(&tr("Device information")), Some("win.device-info"));
     app_section.append(Some(&tr("About streamrs")), Some("win.show-about"));
     menu.append_section(None, &app_section);
@@ -235,7 +236,7 @@ pub(crate) fn build_ui(app: &Application) {
     }
     if default_profile == BLANK_PROFILE
         && !default_config_path.is_file()
-        && let Err(err) = save_config(&default_config_path, &initial_config)
+        && let Err(err) = create_config_if_missing(&default_config_path, &initial_config)
     {
         eprintln!("{err}");
     }

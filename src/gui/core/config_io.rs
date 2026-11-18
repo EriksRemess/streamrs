@@ -7,9 +7,14 @@ pub(crate) fn load_config(path: &Path) -> Result<Config, String> {
     Ok(config)
 }
 
-pub(crate) fn save_config(path: &Path, config: &Config) -> Result<(), String> {
-    streamrs_profile::save(path, config)
+pub(crate) fn update_config(path: &Path, edit: impl FnOnce(&mut Config)) -> Result<Config, String> {
+    streamrs_profile::try_update_config(path, |config| {
+        normalize_config(config);
+        edit(config);
+    })
 }
+
+pub(crate) use streamrs_profile::create_if_missing as create_config_if_missing;
 
 pub(crate) fn signal_daemon_reload() -> Result<(), String> {
     let systemctl = std::process::Command::new("systemctl")
@@ -165,6 +170,26 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("streamrs-gui-config-io-tests-{name}-{id}"));
         fs::create_dir_all(&dir).expect("test directory should be creatable");
         dir
+    }
+
+    #[test]
+    fn wallpaper_updates_save_the_page_size_shown_in_the_editor() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("desk.toml");
+        fs::write(
+            &path,
+            "keys_per_page = 99\nbrightness = 35\n[[keys]]\nicon = 'blank.png'\n",
+        )
+        .unwrap();
+        let displayed = load_config(&path).unwrap().keys_per_page;
+        update_config(&path, |config| {
+            config.page_wallpapers.insert("1".into(), "wall.png".into());
+        })
+        .unwrap();
+        let saved: Config = streamrs::config::toml::load_from_file(&path).unwrap();
+        assert_eq!(saved.keys_per_page, displayed);
+        assert_eq!(saved.brightness, 35);
+        assert_eq!(saved.page_wallpaper(0), Some(Path::new("wall.png")));
     }
 
     #[test]

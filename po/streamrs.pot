@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 17:23+0000\n"
+"POT-Creation-Date: 2026-11-18 17:55+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -56,6 +56,7 @@ msgid "Appearance"
 msgstr ""
 
 #: src/gui/ui/device_info.rs
+#: src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr ""
 
@@ -65,6 +66,30 @@ msgstr ""
 
 #: src/gui/ui.rs
 msgid "Blank"
+msgstr ""
+
+#: src/gui/ui/signals/brightness.rs
+msgid "Brightness"
+msgstr ""
+
+#: src/streamdeck.rs
+msgid "Brightness must be between 0 and 100%."
+msgstr ""
+
+#: src/streamdeck.rs
+msgid "Brightness saved at {value}%, but the device could not be updated: {err}"
+msgstr ""
+
+#: src/streamdeck.rs
+msgid "Brightness saved at {value}%. No matching device is connected."
+msgstr ""
+
+#: src/streamdeck.rs
+msgid "Brightness set to {value}%."
+msgstr ""
+
+#: src/gui/ui.rs
+msgid "Brightness…"
 msgstr ""
 
 #: src/gui/ui.rs
@@ -88,6 +113,7 @@ msgid "Calendar"
 msgstr ""
 
 #: src/gui/ui/device_info.rs
+#: src/gui/ui/signals/brightness.rs
 #: src/gui/ui/signals/management.rs
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
@@ -117,8 +143,16 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
+#: src/config/toml.rs
+msgid "Config '{path}' is busy. Try saving again."
+msgstr ""
+
 #: src/gui/ui.rs
 msgid "Contributors"
+msgstr ""
+
+#: src/gui/ui/signals/brightness.rs
+msgid "Could not change brightness."
 msgstr ""
 
 #: src/gui/ui/device_info.rs
@@ -202,6 +236,10 @@ msgstr ""
 msgid "Failed to rename profile config '{from}' -> '{to}': {err}"
 msgstr ""
 
+#: src/streamdeck.rs
+msgid "Failed to set brightness: {err}"
+msgstr ""
+
 #: src/gui/core/config_io.rs
 msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr ""
@@ -216,6 +254,10 @@ msgstr ""
 
 #: src/gui/core/config_io.rs
 msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+msgstr ""
+
+#: src/config/toml.rs
+msgid "Failed to write config '{path}': {err}"
 msgstr ""
 
 #: src/streamdeck/info.rs

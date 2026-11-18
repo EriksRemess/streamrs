@@ -11,6 +11,7 @@ use streamrs::streamdeck::info::SleepTimer;
 #[derive(Debug)]
 pub(crate) struct CliArgs {
     pub(crate) info: bool,
+    pub(crate) brightness: Option<u8>,
     pub(crate) sleep_after: Option<SleepTimer>,
     pub(crate) debug: bool,
     pub(crate) profile: String,
@@ -23,7 +24,7 @@ pub(crate) struct CliArgs {
 
 pub(crate) fn print_usage(program: &str) {
     println!(
-        "Usage: {program} [--info | --sleep-after <minutes|never>] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
+        "Usage: {program} [--info | --brightness <0-100> | --sleep-after <minutes|never>] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
     );
 }
 
@@ -36,6 +37,7 @@ fn parse_args_from(
     default_profile: impl FnOnce() -> String,
 ) -> Result<CliArgs, String> {
     let mut info = false;
+    let mut brightness = None;
     let mut sleep_after = None;
     let mut debug = false;
     let mut profile = None;
@@ -48,6 +50,16 @@ fn parse_args_from(
         match arg.as_str() {
             "--debug" => debug = true,
             "--info" => info = true,
+            "--brightness" => {
+                let value = args.next().ok_or("Missing value for --brightness")?;
+                brightness = Some(
+                    value
+                        .parse::<u8>()
+                        .ok()
+                        .filter(|v| *v <= 100)
+                        .ok_or("--brightness requires a whole percentage from 0 to 100")?,
+                );
+            }
             "--sleep-after" => {
                 let value = args.next().ok_or("Missing value for --sleep-after")?;
                 let minutes = if value == "never" {
@@ -91,6 +103,9 @@ fn parse_args_from(
         }
     }
 
+    if brightness.is_some() && (info || sleep_after.is_some() || init) {
+        return Err("--brightness cannot be combined with --info, --sleep-after or --init".into());
+    }
     if sleep_after.is_some() && (info || init) {
         return Err("--sleep-after cannot be combined with --info or --init".into());
     }
@@ -114,6 +129,7 @@ fn parse_args_from(
     });
     Ok(CliArgs {
         info,
+        brightness,
         sleep_after,
         debug,
         profile,
@@ -336,12 +352,16 @@ pub(crate) fn ensure_profile_initialized(
             })?;
         }
         ensure_profile_images_initialized(profile, image_dir)?;
-        streamrs::config::streamrs_profile::save(config_path, &blank_profile_config())?;
+        if streamrs::config::streamrs_profile::create_if_missing(
+            config_path,
+            &blank_profile_config(),
+        )? {
+            eprintln!(
+                "Initialized blank profile config '{}'",
+                config_path.display()
+            );
+        }
         save_current_profile_with_log(profile, "initializing blank profile");
-        eprintln!(
-            "Initialized blank profile config '{}'",
-            config_path.display()
-        );
         return Ok(());
     }
 
@@ -375,6 +395,31 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("streamrs-init-tests-{name}-{id}"));
         fs::create_dir_all(&dir).expect("test directory should be creatable");
         dir
+    }
+
+    #[test]
+    fn brightness_requires_a_percentage_and_an_exclusive_device_command() {
+        let parse =
+            |args: &[&str]| parse_args_from(args.iter().map(|s| s.to_string()), String::new);
+        for value in ["0", "35", "100"] {
+            assert_eq!(
+                parse(&["--profile", "desk", "--brightness", value])
+                    .unwrap()
+                    .brightness,
+                value.parse().ok()
+            );
+        }
+        for args in [
+            &["--brightness"][..],
+            &["--brightness", "-1"],
+            &["--brightness", "101"],
+            &["--brightness", "1.5"],
+            &["--brightness", "0", "--init"],
+            &["--info", "--brightness", "10"],
+            &["--brightness", "10", "--sleep-after", "never"],
+        ] {
+            assert!(parse(args).is_err(), "{args:?}");
+        }
     }
 
     #[test]

@@ -269,18 +269,23 @@ pub(crate) fn wire_management_signals(
                         return;
                     };
 
-                    let is_new_profile = {
+                    let missing_from_selector = {
                         let names = widgets_for_response.profile_names.borrow();
                         !names.iter().any(|name| name == &profile)
                     };
 
-                    if is_new_profile {
+                    let is_new_profile = if missing_from_selector {
                         let path = default_config_path_for_profile(&profile);
-                        if let Err(err) = save_config(&path, &Config::default()) {
-                            announce_status(&widgets_for_response, &err);
-                            return;
+                        match create_config_if_missing(&path, &Config::default()) {
+                            Ok(created) => created,
+                            Err(err) => {
+                                announce_status(&widgets_for_response, &err);
+                                return;
+                            }
                         }
-                    }
+                    } else {
+                        false
+                    };
 
                     {
                         let mut names = widgets_for_response.profile_names.borrow_mut();
@@ -543,7 +548,7 @@ pub(crate) fn wire_management_signals(
                         } else {
                             Config::default()
                         };
-                        if let Err(err) = save_config(&next_path, &template) {
+                        if let Err(err) = create_config_if_missing(&next_path, &template) {
                             announce_status(&widgets_for_response, &err);
                             return;
                         }
