@@ -4,9 +4,10 @@ use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::Path;
+use streamrs::image::clock::{CLOCK_BACKGROUND_ICON, is_clock_icon};
 use streamrs::image::svg::load_svg_data;
 use streamrs::image::{preview::load_icon_image, wallpaper::Wallpaper};
-use streamrs::paging::{MIN_KEYS_PER_PAGE, NEXT_PAGE_ICON, PagingLayout, STREAMDECK_KEY_COUNT};
+use streamrs::paging::{NEXT_PAGE_ICON, NavigationSlot, PREVIOUS_PAGE_ICON, PagingLayout};
 
 #[path = "../cli/preview.rs"]
 mod cli;
@@ -280,18 +281,21 @@ fn apply_mask_to_alpha(img: &mut RgbaImage, mask: &GrayImage) {
     }
 }
 
-fn first_page_icon(config: &preview_config::Config, slot: usize) -> Option<(&str, Option<&str>)> {
-    let layout = PagingLayout::new(
-        STREAMDECK_KEY_COUNT,
-        config
-            .keys_per_page
-            .clamp(MIN_KEYS_PER_PAGE, STREAMDECK_KEY_COUNT),
-    );
+fn page_icon(
+    config: &preview_config::Config,
+    layout: PagingLayout,
+    page: usize,
+    slot: usize,
+) -> Option<(&str, Option<&str>)> {
     let pages = layout.page_count(config.keys.len());
-    if layout.navigation_slot_for_slot(0, pages, slot).is_some() {
-        return Some((NEXT_PAGE_ICON, None));
+    if let Some(nav) = layout.navigation_slot_for_slot(page, pages, slot) {
+        let icon = match nav {
+            NavigationSlot::PreviousPage => PREVIOUS_PAGE_ICON,
+            NavigationSlot::NextPage => NEXT_PAGE_ICON,
+        };
+        return Some((icon, None));
     }
-    let key = &config.keys[layout.key_index_for_slot(config.keys.len(), 0, slot)?];
+    let key = &config.keys[layout.key_index_for_slot(config.keys.len(), page, slot)?];
     Some((
         &key.icon,
         key.clock_background
@@ -304,7 +308,16 @@ fn first_page_icon(config: &preview_config::Config, slot: usize) -> Option<(&str
 fn compose_preview(args: &CliArgs) -> Result<(), String> {
     let width = PREVIEW_WIDTH;
     let height = PREVIEW_HEIGHT;
-    let config = load_config(&args.config)?;
+    let config = load_config(&args.config, &args.profile)?;
+    let layout = config.paging_layout();
+    let pages = layout.page_count(config.keys.len());
+    if !(1..=pages).contains(&args.page) {
+        return Err(format!(
+            "Page {} is out of range. Available pages: 1–{pages}.",
+            args.page
+        ));
+    }
+    let page = args.page - 1;
     let mut base = render_blank_base(
         EMBEDDED_BLANK_LABEL,
         EMBEDDED_BLANK_SVG,
@@ -323,21 +336,26 @@ fn compose_preview(args: &CliArgs) -> Result<(), String> {
     let slots = scale_slots(&template_slots, width, height);
     let mut warned_icon_errors = HashSet::<String>::new();
 
-    let wallpaper = config.page_wallpaper(0).and_then(|path| {
-        Wallpaper::load(&args.image_dir.join(path))
+    let wallpaper = config.page_wallpaper(page).and_then(|path| {
+        Wallpaper::load(&args.image_dir_for(path).join(path))
             .inspect_err(|err| eprintln!("Failed to load page wallpaper: {err}"))
             .ok()
     });
-    let wallpaper_slots = config.wallpaper_slots(0);
+    let wallpaper_slots = config.wallpaper_slots(page);
     for (idx, slot) in slots.iter().enumerate() {
-        let selected = first_page_icon(&config, idx);
+        let selected = page_icon(&config, layout, page, idx);
         let icon = if let Some(wallpaper) = wallpaper.as_ref().filter(|_| wallpaper_slots[idx]) {
             wallpaper.key(idx)
         } else {
             let Some((icon_name, background)) = selected else {
                 continue;
             };
-            match load_icon_image(icon_name, &args.image_dir, background) {
+            let asset = if is_clock_icon(icon_name) {
+                background.unwrap_or(CLOCK_BACKGROUND_ICON)
+            } else {
+                icon_name
+            };
+            match load_icon_image(icon_name, args.image_dir_for(Path::new(asset)), background) {
                 Ok(img) => img,
                 Err(err) => {
                     if warned_icon_errors.insert(icon_name.to_owned()) {
@@ -457,17 +475,74 @@ pub(crate) fn run() {
 mod preview_tests {
     use super::*;
     #[test]
-    fn first_page_reserves_navigation_and_hides_off_page_keys() {
+    fn preview_uses_each_pages_keys_and_navigation_arrows() {
+        use streamrs::config::streamrs_schema::StreamrsKeyBinding;
         let config = preview_config::Config {
             keys_per_page: 3,
-            keys: vec![streamrs::config::streamrs_schema::StreamrsKeyBinding::default(); 5],
+            keys: (1..=5)
+                .map(|i| StreamrsKeyBinding {
+                    icon: format!("key-{i}.png"),
+                    ..Default::default()
+                })
+                .collect(),
             ..Default::default()
         };
-        assert_eq!(first_page_icon(&config, 1), Some(("blank.png", None)));
+        let layout = config.paging_layout();
+        let icons = |page| {
+            [0, 1, 2, 3].map(|slot| page_icon(&config, layout, page, slot).map(|(icon, _)| icon))
+        };
         assert_eq!(
-            first_page_icon(&config, 2),
-            Some(("stream-deck-next-page.png", None))
+            icons(0),
+            [
+                Some("key-1.png"),
+                Some("key-2.png"),
+                Some(NEXT_PAGE_ICON),
+                None
+            ]
         );
-        assert_eq!(first_page_icon(&config, 3), None);
+        assert_eq!(
+            icons(1),
+            [
+                Some("key-3.png"),
+                Some(PREVIOUS_PAGE_ICON),
+                Some(NEXT_PAGE_ICON),
+                None
+            ]
+        );
+        assert_eq!(
+            icons(2),
+            [
+                Some("key-4.png"),
+                Some("key-5.png"),
+                Some(PREVIOUS_PAGE_ICON),
+                None
+            ]
+        );
+    }
+
+    #[test]
+    fn invalid_page_reports_the_available_range_and_preserves_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("test.toml");
+        let output = dir.path().join("preview.png");
+        fs::write(
+            &config,
+            format!("keys_per_page = 3\n{}", "[[keys]]\n".repeat(5)),
+        )
+        .unwrap();
+        fs::write(&output, b"existing preview").unwrap();
+        let mut args = CliArgs {
+            profile: "test".into(),
+            config,
+            page: 1,
+            image_dirs: std::array::from_fn(|_| dir.path().to_owned()),
+            output,
+        };
+        for page in [0, 4, usize::MAX] {
+            args.page = page;
+            let err = compose_preview(&args).unwrap_err();
+            assert!(err.contains("1–3"), "{err}");
+            assert_eq!(fs::read(&args.output).unwrap(), b"existing preview");
+        }
     }
 }

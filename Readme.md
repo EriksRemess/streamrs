@@ -195,13 +195,14 @@ Generate a mock image from your current profile:
 streamrs-preview --output mock.png
 ```
 
-Render a specific profile:
+Render the second page of a profile:
 
 ```bash
-streamrs-preview --profile test --output mock.png
+streamrs-preview --profile test --page 2 --output page-2.png
 ```
 
 Notes:
+- Page numbers start at 1. Omitting `--page` renders the first page.
 - If `--output` is omitted, it writes `mock.png`
 - If `--profile` is omitted, it uses the current profile from `~/.config/streamrs/current_profile` (or `default` if unset)
 - It reads the selected profile config and shared icons first, then falls back to packaged defaults if needed

@@ -1,35 +1,35 @@
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use streamrs::config::current_profile::{
     DEFAULT_PROFILE, load_current_profile, normalize_profile_name,
 };
-use streamrs::paths::{default_config_path_for_profile, writable_icon_dir};
+use streamrs::paths::{config_load_candidates, default_config_path_for_profile, writable_icon_dir};
 
 #[derive(Debug)]
 pub(super) struct CliArgs {
     pub(super) profile: String,
     pub(super) config: PathBuf,
-    pub(super) image_dir: PathBuf,
+    pub(super) page: usize,
+    pub(super) image_dirs: [PathBuf; 3],
     pub(super) output: PathBuf,
 }
 
 pub(super) fn print_usage(program: &str) {
-    eprintln!("Usage: {program} [--profile <name>] [--output <path>]");
+    eprintln!("Usage: {program} [--profile <name>] [--page <number>] [--output <path>]");
 }
 
-fn first_readable_file(candidates: &[PathBuf]) -> Option<PathBuf> {
-    candidates
-        .iter()
-        .find(|path| path.is_file() && fs::File::open(path).is_ok())
-        .cloned()
+fn is_readable_file(path: &Path) -> bool {
+    path.is_file() && fs::File::open(path).is_ok()
 }
 
-fn first_readable_dir(candidates: &[PathBuf]) -> Option<PathBuf> {
-    candidates
-        .iter()
-        .find(|path| path.is_dir() && fs::read_dir(path).is_ok())
-        .cloned()
+impl CliArgs {
+    pub(super) fn image_dir_for(&self, name: &Path) -> &Path {
+        self.image_dirs
+            .iter()
+            .find(|dir| is_readable_file(&dir.join(name)))
+            .unwrap_or(&self.image_dirs[0])
+    }
 }
 
 fn resolve_default_profile_name() -> String {
@@ -45,25 +45,18 @@ fn resolve_default_profile_name() -> String {
 
 fn default_config_path(profile: &str) -> PathBuf {
     let home_default = default_config_path_for_profile(profile);
-    let candidates = [
-        home_default.clone(),
-        PathBuf::from(format!("/usr/share/streamrs/{profile}/default.toml")),
-        PathBuf::from("/usr/share/streamrs/default/default.toml"),
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("config")
-            .join("default.toml"),
-    ];
-    first_readable_file(&candidates).unwrap_or(home_default)
+    config_load_candidates(profile, &home_default)
+        .into_iter()
+        .find(|path| is_readable_file(path))
+        .unwrap_or(home_default)
 }
 
-fn default_image_dir() -> PathBuf {
-    let home_default = writable_icon_dir();
-    let candidates = [
-        home_default.clone(),
+fn default_image_dirs() -> [PathBuf; 3] {
+    [
+        writable_icon_dir(),
         PathBuf::from("/usr/share/streamrs/icons"),
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons"),
-    ];
-    first_readable_dir(&candidates).unwrap_or(home_default)
+    ]
 }
 
 fn apply_cli_overrides(
@@ -81,6 +74,14 @@ fn apply_cli_overrides(
                 })?;
                 args.profile = profile.clone();
                 args.config = default_config_path(&profile);
+            }
+            "--page" => {
+                let raw = it
+                    .next()
+                    .ok_or_else(|| "Missing value for --page".to_string())?;
+                args.page = raw.parse().map_err(|_| {
+                    format!("Invalid page '{raw}': expected a page number starting at 1")
+                })?;
             }
             "--output" => {
                 args.output = PathBuf::from(
@@ -107,7 +108,8 @@ pub(super) fn parse_args() -> Result<CliArgs, String> {
     let mut args = CliArgs {
         profile: profile.clone(),
         config: default_config_path(&profile),
-        image_dir: default_image_dir(),
+        page: 1,
+        image_dirs: default_image_dirs(),
         output: PathBuf::from("mock.png"),
     };
 
@@ -124,7 +126,8 @@ mod tests {
         let mut args = CliArgs {
             profile: DEFAULT_PROFILE.to_string(),
             config: default_config_path(DEFAULT_PROFILE),
-            image_dir: default_image_dir(),
+            page: 1,
+            image_dirs: default_image_dirs(),
             output: PathBuf::from("mock.png"),
         };
 
@@ -133,6 +136,8 @@ mod tests {
             vec![
                 "--profile".to_string(),
                 "test_profile".to_string(),
+                "--page".to_string(),
+                "2".to_string(),
                 "--output".to_string(),
                 "preview.png".to_string(),
             ]
@@ -142,6 +147,7 @@ mod tests {
 
         assert_eq!(args.profile, "test_profile");
         assert_eq!(args.config, default_config_path("test_profile"));
+        assert_eq!(args.page, 2);
         assert_eq!(args.output, PathBuf::from("preview.png"));
     }
 
@@ -150,7 +156,8 @@ mod tests {
         let mut args = CliArgs {
             profile: DEFAULT_PROFILE.to_string(),
             config: default_config_path(DEFAULT_PROFILE),
-            image_dir: default_image_dir(),
+            page: 1,
+            image_dirs: default_image_dirs(),
             output: PathBuf::from("mock.png"),
         };
 
@@ -160,5 +167,27 @@ mod tests {
         )
         .expect_err("invalid profile should be rejected");
         assert!(err.contains("Profile name"));
+    }
+
+    #[test]
+    fn images_fall_back_individually_and_user_overrides_take_precedence() {
+        let root = tempfile::tempdir().unwrap();
+        let image_dirs = ["user", "installed", "source"].map(|name| root.path().join(name));
+        let name = Path::new("arrow.png");
+        let [user, installed, source] = &image_dirs;
+        for dir in &image_dirs {
+            fs::create_dir(dir).unwrap();
+        }
+        let args = CliArgs {
+            profile: DEFAULT_PROFILE.into(),
+            config: root.path().join("profile.toml"),
+            page: 1,
+            image_dirs: image_dirs.clone(),
+            output: root.path().join("preview.png"),
+        };
+        for dir in [source, installed, user] {
+            fs::write(dir.join(name), []).unwrap();
+            assert_eq!(args.image_dir_for(name), dir);
+        }
     }
 }

@@ -1,3 +1,4 @@
+use crate::paging::{MIN_KEYS_PER_PAGE, PagingLayout, STREAMDECK_KEY_COUNT};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -98,13 +99,16 @@ impl Default for StreamrsKeyBinding {
 }
 
 impl StreamrsConfig {
-    pub fn wallpaper_slots(&self, page: usize) -> [bool; crate::paging::STREAMDECK_KEY_COUNT] {
-        use crate::paging::{MIN_KEYS_PER_PAGE, PagingLayout, STREAMDECK_KEY_COUNT};
-        let layout = PagingLayout::new(
+    pub fn paging_layout(&self) -> PagingLayout {
+        PagingLayout::new(
             STREAMDECK_KEY_COUNT,
             self.keys_per_page
                 .clamp(MIN_KEYS_PER_PAGE, STREAMDECK_KEY_COUNT),
-        );
+        )
+    }
+
+    pub fn wallpaper_slots(&self, page: usize) -> [bool; STREAMDECK_KEY_COUNT] {
+        let layout = self.paging_layout();
         let count = self.keys.len();
         let pages = layout.page_count(count);
         std::array::from_fn(|slot| {
