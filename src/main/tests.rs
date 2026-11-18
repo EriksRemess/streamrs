@@ -45,6 +45,7 @@ fn test_config_with_keys(keys: Vec<KeyBinding>) -> Config {
         usage_page: default_usage_page(),
         brightness: default_brightness(),
         keys_per_page: default_keys_per_page(),
+        page_wallpapers: Default::default(),
         keys,
     }
 }
@@ -410,6 +411,7 @@ fn image_cache_warming_includes_status_and_navigation_icons() {
         usage_page: default_usage_page(),
         brightness: default_brightness(),
         keys_per_page: default_keys_per_page(),
+        page_wallpapers: Default::default(),
         keys,
     };
 
@@ -981,4 +983,218 @@ fn reserved_blank_profile_loads_with_no_actions() {
             .keys
             .is_empty()
     );
+}
+
+#[test]
+fn wallpaper_draws_empty_faces_and_preserves_configured_keys_on_both_upload_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = image::RgbImage::from_pixel(480, 272, image::Rgb([200, 0, 0]));
+    source.save(dir.path().join("wall.png")).unwrap();
+    let mut key = test_key("blank.png");
+    key.action = Some("test".into());
+    let mut config = test_config_with_keys(vec![key]);
+    config.page_wallpapers.insert("1".into(), "wall.png".into());
+
+    for full_upload_succeeds in [true, false] {
+        let mut page = prepare_page(&config, &StatusCache::new(), 0);
+        let mut margins = PanelMargins::Black;
+        page.draw_background(
+            dir.path(),
+            &mut margins,
+            |data| {
+                let panel = image::load_from_memory(data).unwrap().to_rgb8();
+                assert_eq!(panel.dimensions(), (480, 272));
+                // Panel JPEGs are rotated 180 degrees. Sample slot 0, the gap, then slot 1.
+                assert!(panel.get_pixel(432, 230)[0] < 5);
+                assert!(panel.get_pixel(384, 230)[0] < 5);
+                assert!(panel.get_pixel(335, 230)[0] > 190);
+                if full_upload_succeeds {
+                    Ok(())
+                } else {
+                    Err("disconnected".into())
+                }
+            },
+            || {
+                assert!(!full_upload_succeeds);
+                Ok(())
+            },
+        );
+        assert_eq!(
+            margins,
+            if full_upload_succeeds {
+                PanelMargins::Unknown
+            } else {
+                PanelMargins::Black
+            }
+        );
+        let mut writes = 0;
+        page.draw_pending_images(
+            Instant::now(),
+            dir.path(),
+            &mut ImageCache::new(),
+            &[],
+            |slot, data| {
+                let tile = image::load_from_memory(data).unwrap().to_rgb8();
+                assert_eq!(tile.get_pixel(36, 36)[0] > 190, slot != 0);
+                writes += 1;
+                Ok(())
+            },
+        );
+        assert_eq!(writes, if full_upload_succeeds { 1 } else { 15 });
+        assert!(matches!(
+            page.button_actions[0],
+            Some(ButtonAction::Launch(_))
+        ));
+        assert!(page.awaiting_input_drain[0]);
+    }
+}
+
+#[test]
+fn transparent_icons_upload_identical_bytes_with_and_without_wallpaper() {
+    let dir = tempfile::tempdir().unwrap();
+    image::RgbImage::from_pixel(480, 272, image::Rgb([0, 0, 240]))
+        .save(dir.path().join("wall.png"))
+        .unwrap();
+    let mut icon = image::RgbaImage::from_pixel(72, 72, image::Rgba([255, 0, 0, 0]));
+    icon.put_pixel(35, 10, image::Rgba([240, 0, 0, 255]));
+    icon.save(dir.path().join("icon.png")).unwrap();
+    let mut config = test_config_with_keys(vec![test_key("icon.png")]);
+    let upload = |config: &Config| {
+        let mut page = prepare_page(config, &StatusCache::new(), 0);
+        page.draw_background(dir.path(), &mut PanelMargins::Black, |_| Ok(()), || Ok(()));
+        let mut first = Vec::new();
+        page.draw_pending_images(
+            Instant::now(),
+            dir.path(),
+            &mut ImageCache::new(),
+            &[],
+            |slot, data| {
+                if slot == 0 {
+                    first.extend_from_slice(data);
+                }
+                Ok(())
+            },
+        );
+        first
+    };
+    let expected = upload(&config);
+    config.page_wallpapers.insert("1".into(), "wall.png".into());
+    assert!(!expected.is_empty());
+    assert_eq!(upload(&config), expected);
+}
+
+#[test]
+fn page_navigation_selects_each_wallpaper_and_clears_unconfigured_pages() {
+    let mut config = test_config_with_keys(vec![test_key("blank.png"); 30]);
+    config
+        .page_wallpapers
+        .insert("1".into(), "first.png".into());
+    config
+        .page_wallpapers
+        .insert("2".into(), "second.png".into());
+    for (index, expected) in [
+        (0, Some("first.png")),
+        (1, Some("second.png")),
+        (2, None),
+        (0, Some("first.png")),
+    ] {
+        let page = prepare_page(&config, &StatusCache::new(), index);
+        assert_eq!(
+            page.pending_background,
+            Some(
+                expected.map_or(PageBackground::Plain, |name| PageBackground::Wallpaper(
+                    name.into(),
+                    config.wallpaper_slots(index)
+                ))
+            )
+        );
+        assert_eq!(page.pending_images.len(), KEY_COUNT);
+    }
+}
+
+#[test]
+fn plain_pages_clear_unknown_margins_once_before_drawing_keys() {
+    let mut margins = PanelMargins::on_connect(0x0fd9, 0x0080);
+    let mut clears = 0;
+    let mut draw = |page: &mut PageState, margins: &mut PanelMargins| {
+        page.draw_background(
+            Path::new("."),
+            margins,
+            |_| panic!("unexpected upload"),
+            || {
+                clears += 1;
+                Ok(())
+            },
+        );
+    };
+    let mut page = PageState::new();
+    draw(&mut page, &mut margins);
+    draw(&mut page, &mut margins);
+    draw(&mut PageState::new(), &mut margins);
+    assert_eq!(margins, PanelMargins::Black);
+    draw(
+        &mut PageState::new(),
+        &mut PanelMargins::on_connect(0x0fd9, 0x0060),
+    );
+    assert_eq!(clears, 1);
+}
+
+#[test]
+fn missing_wallpaper_clears_a_previous_wallpapers_margins() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut margins = PanelMargins::Unknown;
+    let mut page = PageState::new();
+    page.pending_background = Some(PageBackground::Wallpaper(
+        "missing.png".into(),
+        [true; KEY_COUNT],
+    ));
+    page.draw_background(
+        dir.path(),
+        &mut margins,
+        |_| panic!("unexpected upload"),
+        || Ok(()),
+    );
+    assert_eq!(margins, PanelMargins::Black);
+    assert!(page.tiles.iter().all(Option::is_none));
+}
+
+#[test]
+fn failed_lcd_fill_tries_a_black_panel_before_drawing_individual_keys() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = test_config_with_keys(vec![test_key("blank.png")]);
+    for upload_succeeds in [true, false] {
+        let mut state = prepare_page(&config, &StatusCache::new(), 0);
+        let mut margins = PanelMargins::Unknown;
+        let mut uploads = 0;
+        state.draw_background(
+            dir.path(),
+            &mut margins,
+            |data| {
+                uploads += 1;
+                let panel = image::load_from_memory(data).unwrap().to_rgb8();
+                assert_eq!(panel.dimensions(), (480, 272));
+                assert!(panel.pixels().all(|p| p.0 == [0, 0, 0]));
+                if upload_succeeds {
+                    Ok(())
+                } else {
+                    Err("write failed".into())
+                }
+            },
+            || Err("fill failed".into()),
+        );
+        assert_eq!(uploads, 1);
+        assert_eq!(margins == PanelMargins::Black, upload_succeeds);
+        let mut writes = 0;
+        state.draw_pending_images(
+            Instant::now(),
+            dir.path(),
+            &mut ImageCache::new(),
+            &[],
+            |_, _| {
+                writes += 1;
+                Ok(())
+            },
+        );
+        assert_eq!(writes, KEY_COUNT);
+    }
 }

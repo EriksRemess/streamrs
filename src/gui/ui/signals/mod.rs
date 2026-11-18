@@ -11,3 +11,5 @@ pub(super) use finalize::finalize_and_present;
 pub(super) use management::wire_management_signals;
 pub(super) use navigation::wire_navigation_signals;
 pub(super) use primary_actions::wire_primary_action_signals;
+mod wallpaper;
+pub(super) use wallpaper::register_wallpaper_action;

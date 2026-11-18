@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:19+0000\n"
-"PO-Revision-Date: 2026-11-18 16:19+0000\n"
+"POT-Creation-Date: 2026-11-18 16:38+0000\n"
+"PO-Revision-Date: 2026-11-18 16:39+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -87,12 +87,17 @@ msgid "Calendar"
 msgstr "Calendar"
 
 #: src/gui/ui/device_info.rs src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Cancel"
 
 #: src/gui/ui/device_info.rs
 msgid "Change sleep timer…"
 msgstr "Change sleep timer…"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Choose image…"
+msgstr "Choose image…"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Cleared selected button"
@@ -122,6 +127,10 @@ msgstr "Could not change the sleep timer."
 msgid "Could not enumerate HID devices: {err}"
 msgstr "Could not enumerate HID devices: {err}"
 
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Could not load the wallpaper."
+msgstr "Could not load the wallpaper."
+
 #: src/streamdeck.rs
 msgid "Could not open HID device {id}: {err}"
 msgstr "Could not open HID device {id}: {err}"
@@ -137,6 +146,10 @@ msgstr "Could not read the sleep timer."
 #: src/streamdeck/info.rs
 msgid "Could not set the sleep timer: {err}"
 msgstr "Could not set the sleep timer: {err}"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Create a profile to set a page wallpaper."
+msgstr "Create a profile to set a page wallpaper."
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
@@ -218,7 +231,7 @@ msgstr "Icon when status is off"
 msgid "Icon when status is on"
 msgstr "Icon when status is on"
 
-#: src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
 msgid "Images"
 msgstr "Images"
 
@@ -290,6 +303,10 @@ msgstr "No profile selected"
 msgid "None"
 msgstr "None"
 
+#: src/gui/ui.rs
+msgid "Page wallpaper…"
+msgstr "Page wallpaper…"
+
 #: src/gui/core/paging.rs src/gui/ui.rs
 msgid "Page {current}/{total}"
 msgstr "Page {current}/{total}"
@@ -354,6 +371,10 @@ msgstr "Remove selected"
 msgid "Remove selected button configuration"
 msgstr "Remove selected button configuration"
 
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Remove wallpaper"
+msgstr "Remove wallpaper"
+
 #: src/gui/ui/signals/management.rs
 msgid "Removed profile '{profile}', active profile is '{next_profile}'"
 msgstr "Removed profile '{profile}', active profile is '{next_profile}'"
@@ -397,6 +418,10 @@ msgstr "Saved changes"
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Saved {ordinal} button"
 msgstr "Saved {ordinal} button"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Select a local image file."
+msgstr "Select a local image file."
 
 #: src/gui/core/icon_catalog.rs
 msgid "Select icon..."
@@ -465,6 +490,10 @@ msgstr "USB ID"
 #: src/streamdeck/info.rs
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Wallpaper for page {page}"
+msgstr "Wallpaper for page {page}"
 
 #: src/gui/core/config_io.rs
 msgid "pkill exit status {status}"

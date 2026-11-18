@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:31+0000\n"
+"POT-Creation-Date: 2026-11-18 16:59+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -89,11 +89,16 @@ msgstr ""
 
 #: src/gui/ui/device_info.rs
 #: src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr ""
 
 #: src/gui/ui/device_info.rs
 msgid "Change sleep timer…"
+msgstr ""
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Choose image…"
 msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs
@@ -124,6 +129,10 @@ msgstr ""
 msgid "Could not enumerate HID devices: {err}"
 msgstr ""
 
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Could not load the wallpaper."
+msgstr ""
+
 #: src/streamdeck.rs
 msgid "Could not open HID device {id}: {err}"
 msgstr ""
@@ -138,6 +147,10 @@ msgstr ""
 
 #: src/streamdeck/info.rs
 msgid "Could not set the sleep timer: {err}"
+msgstr ""
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Create a profile to set a page wallpaper."
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
@@ -222,6 +235,7 @@ msgid "Icon when status is on"
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/wallpaper.rs
 msgid "Images"
 msgstr ""
 
@@ -293,6 +307,10 @@ msgstr ""
 msgid "None"
 msgstr ""
 
+#: src/gui/ui.rs
+msgid "Page wallpaper…"
+msgstr ""
+
 #: src/gui/core/paging.rs
 #: src/gui/ui.rs
 msgid "Page {current}/{total}"
@@ -359,6 +377,10 @@ msgstr ""
 msgid "Remove selected button configuration"
 msgstr ""
 
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Remove wallpaper"
+msgstr ""
+
 #: src/gui/ui/signals/management.rs
 msgid "Removed profile '{profile}', active profile is '{next_profile}'"
 msgstr ""
@@ -402,6 +424,10 @@ msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Saved {ordinal} button"
+msgstr ""
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Select a local image file."
 msgstr ""
 
 #: src/gui/core/icon_catalog.rs
@@ -470,6 +496,10 @@ msgstr ""
 
 #: src/streamdeck/info.rs
 msgid "Unavailable"
+msgstr ""
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Wallpaper for page {page}"
 msgstr ""
 
 #: src/gui/core/config_io.rs

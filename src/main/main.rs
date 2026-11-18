@@ -64,6 +64,7 @@ use streamrs::config::streamrs_schema::{
     default_product_id as schema_default_product_id, default_usage as schema_default_usage,
     default_usage_page as schema_default_usage_page, default_vendor_id as schema_default_vendor_id,
 };
+use streamrs::image::wallpaper::{Wallpaper, device_jpeg};
 use streamrs::paging::{NEXT_PAGE_ICON, PREVIOUS_PAGE_ICON, PagingLayout};
 use streamrs::process::{run_shell_status, send_keyboard_shortcut, wait_argv_command_success};
 use streamrs::streamdeck::{
@@ -184,7 +185,7 @@ impl AnimatedKeyState {
     fn advance(
         &mut self,
         now: Instant,
-        upload: impl FnOnce(&[u8]) -> Result<(), String>,
+        mut upload: impl FnMut(&[u8]) -> Result<(), String>,
     ) -> Result<(), String> {
         let next = (self.current_frame + 1) % self.frames.len();
         self.next_frame_at = now + self.delays[next];
@@ -226,7 +227,33 @@ struct PendingKeyImage {
     status: Option<StatusKeyState>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum PageBackground {
+    Plain,
+    Wallpaper(std::path::PathBuf, [bool; KEY_COUNT]),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PanelMargins {
+    PerKeyOnly,
+    Unknown,
+    Black,
+}
+
+impl PanelMargins {
+    fn on_connect(vendor: u16, product: u16) -> Self {
+        if vendor == 0x0fd9 && matches!(product, 0x0080 | 0x00a5 | 0x006d | 0x00b9) {
+            Self::Unknown
+        } else {
+            Self::PerKeyOnly
+        }
+    }
+}
+
 struct PageState {
+    pending_background: Option<PageBackground>,
+    tiles: [Option<image::RgbaImage>; KEY_COUNT],
+    panel_uploaded: bool,
     pending_images: Vec<PendingKeyImage>,
     retry_images_at: Instant,
     awaiting_input_drain: [bool; KEY_COUNT],
@@ -241,6 +268,9 @@ impl PageState {
     fn new() -> Self {
         let (refresh_tx, refresh_rx) = mpsc::channel();
         Self {
+            pending_background: Some(PageBackground::Plain),
+            tiles: Default::default(),
+            panel_uploaded: false,
             pending_images: Vec::new(),
             retry_images_at: Instant::now(),
             awaiting_input_drain: [false; KEY_COUNT],
@@ -249,6 +279,52 @@ impl PageState {
             status_states: Default::default(),
             refresh_tx,
             refresh_rx,
+        }
+    }
+
+    fn draw_background(
+        &mut self,
+        image_dir: &Path,
+        margins: &mut PanelMargins,
+        mut upload: impl FnMut(&[u8]) -> Result<(), String>,
+        clear: impl FnOnce() -> Result<(), String>,
+    ) {
+        let Some(background) = self.pending_background.take() else {
+            return;
+        };
+        if let PageBackground::Wallpaper(path, slots) = background {
+            match Wallpaper::load(&image_dir.join(path)) {
+                Ok(wallpaper) => {
+                    self.tiles =
+                        std::array::from_fn(|slot| slots[slot].then(|| wallpaper.key(slot)));
+                    if *margins == PanelMargins::PerKeyOnly {
+                        return;
+                    }
+                    *margins = PanelMargins::Unknown;
+                    match Wallpaper::panel_jpeg(&self.tiles).and_then(|jpeg| upload(&jpeg)) {
+                        Ok(()) => {
+                            self.panel_uploaded = true;
+                            return;
+                        }
+                        Err(err) => eprintln!(
+                            "Could not upload page wallpaper, drawing individual keys: {err}"
+                        ),
+                    }
+                }
+                Err(err) => eprintln!("Failed to load page wallpaper: {err}"),
+            }
+        }
+
+        // Per-key writes cannot erase wallpaper pixels between the 72 × 72 tiles.
+        if *margins == PanelMargins::Unknown {
+            let cleared = clear().or_else(|err| {
+                eprintln!("LCD fill failed, trying a black panel image: {err}");
+                Wallpaper::panel_jpeg(&Default::default()).and_then(|data| upload(&data))
+            });
+            match cleared {
+                Ok(()) => *margins = PanelMargins::Black,
+                Err(err) => eprintln!("Could not clear the LCD before drawing keys: {err}"),
+            }
         }
     }
 
@@ -266,7 +342,9 @@ impl PageState {
 
         self.pending_images.retain_mut(|pending| {
             let key = pending.key;
-            let loaded = pending.icon.as_ref().and_then(|(icon, background)| {
+            let tile = self.tiles[key].as_ref();
+            let icon = pending.icon.as_ref().filter(|_| tile.is_none());
+            let loaded = icon.and_then(|(icon, background)| {
                 match load_key_image_cached(image_dir, image_cache, icon, background.as_deref()) {
                     Ok(image) => Some(image),
                     Err(err) => {
@@ -285,6 +363,10 @@ impl PageState {
                         write_image(key, data)
                     })
                 }
+                None if self.panel_uploaded => Ok(()),
+                None if let Some(tile) = tile => {
+                    device_jpeg(tile).and_then(|jpeg| write_image(key, &jpeg))
+                }
                 None => write_image(key, blank_image),
             };
             if let Err(err) = result {
@@ -296,6 +378,8 @@ impl PageState {
             self.status_states[key] = pending.status.take();
             false
         });
+        // Retried slots may have received a partial overlay after the panel upload.
+        self.panel_uploaded = false;
         self.retry_images_at = now + Duration::from_secs(1);
     }
 
@@ -545,21 +629,6 @@ fn request_immediate_status_check(state: &mut PageState, key_index: usize) {
     }
 }
 
-fn apply_icon_to_key(
-    device: &HidDevice,
-    image_dir: &Path,
-    image_cache: &mut ImageCache,
-    dynamic_state: &mut Option<DynamicKeyState>,
-    key_index: usize,
-    icon: &str,
-    clock_background: Option<&str>,
-) -> Result<(), String> {
-    let loaded = load_key_image_cached(image_dir, image_cache, icon, clock_background)?;
-    apply_loaded_key_image(dynamic_state, loaded, |data| {
-        set_key_image_data(device, key_index as u8, data)
-    })
-}
-
 fn page_count(config: &Config) -> usize {
     paging_layout(config).page_count(config.keys.len())
 }
@@ -687,6 +756,12 @@ fn prepare_page(config: &Config, status_cache: &StatusCache, page: usize) -> Pag
     let mut state = PageState::new();
     let mut plan = plan_page_layout(config, status_cache, page);
 
+    if let Some(path) = config.page_wallpaper(plan.page) {
+        state.pending_background = Some(PageBackground::Wallpaper(
+            path.to_owned(),
+            config.wallpaper_slots(plan.page),
+        ));
+    }
     for warning in &plan.warnings {
         match warning {
             PagePlanWarning::LauncherLikeStatusWithoutAction {
@@ -752,15 +827,10 @@ fn advance_dynamic_keys(
         let Some(status) = slot else { continue };
         if let Some(is_on) = status.poll(now, status_cache)
             && let Err(err) = status.display(is_on, |icon, background| {
-                apply_icon_to_key(
-                    device,
-                    image_dir,
-                    image_cache,
-                    &mut state.dynamic_states[key],
-                    key,
-                    icon,
-                    background,
-                )
+                let image = load_key_image_cached(image_dir, image_cache, icon, background)?;
+                apply_loaded_key_image(&mut state.dynamic_states[key], image, |data| {
+                    set_key_image_data(device, key as u8, data)
+                })
             })
         {
             eprintln!("{err}");
@@ -964,6 +1034,7 @@ pub(crate) fn run() {
     };
 
     let mut device: Option<HidDevice> = None;
+    let mut margins = PanelMargins::PerKeyOnly;
     let mut current_page = 0usize;
     let mut total_pages = page_count(&config);
     let mut page_state: Option<PageState> = None;
@@ -996,6 +1067,7 @@ pub(crate) fn run() {
                 page_state = Some(prepare_page(&config, &status_cache, current_page));
                 key_state = KeyState::default();
                 waiting_for_device_logged = false;
+                margins = PanelMargins::on_connect(config.vendor_id, config.product_id);
                 device = Some(connected_device);
             }
         }
@@ -1003,6 +1075,12 @@ pub(crate) fn run() {
         let mut disconnected = false;
         let mut reload_due_to_device_issue = false;
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
+            page_state_ref.draw_background(
+                &image_dir,
+                &mut margins,
+                |data| streamrs::streamdeck::set_panel_image_data(device_ref, data),
+                || streamrs::streamdeck::clear_lcd(device_ref),
+            );
             page_state_ref.draw_pending_images(
                 Instant::now(),
                 &image_dir,

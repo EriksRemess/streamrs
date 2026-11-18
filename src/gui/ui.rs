@@ -172,6 +172,7 @@ fn rebuild_window_menu(menu: &gtk::gio::Menu) {
     menu.append_section(Some(&tr("streamrs service")), &daemon_section);
 
     let app_section = gtk::gio::Menu::new();
+    app_section.append(Some(&tr("Page wallpaper…")), Some("win.page-wallpaper"));
     app_section.append(Some(&tr("Device information")), Some("win.device-info"));
     app_section.append(Some(&tr("About streamrs")), Some("win.show-about"));
     menu.append_section(None, &app_section);
@@ -245,6 +246,7 @@ pub(crate) fn build_ui(app: &Application) {
         profile: default_profile,
         image_dirs,
         writable_image_dir,
+        wallpaper_cache: None,
     }));
     let profile_names = Rc::new(RefCell::new(profiles));
     let selected_key = Rc::new(Cell::new(0usize));
@@ -593,6 +595,7 @@ pub(crate) fn build_ui(app: &Application) {
     menu_button.set_menu_model(Some(&window_menu));
     menu_button.add_css_class("flat");
     let toast_overlay = ToastOverlay::new();
+    let status_toasts = StatusToasts::new(&toast_overlay);
 
     let about_action = gtk::gio::SimpleAction::new("show-about", None);
     {
@@ -618,7 +621,7 @@ pub(crate) fn build_ui(app: &Application) {
         });
     }
     {
-        let toast_overlay_for_start = toast_overlay.clone();
+        let status_toasts = status_toasts.clone();
         let start_daemon_action_for_start = start_daemon_action.clone();
         let stop_daemon_action_for_start = stop_daemon_action.clone();
         start_daemon_action.connect_activate(move |_, _| {
@@ -626,9 +629,7 @@ pub(crate) fn build_ui(app: &Application) {
                 Ok(()) => tr("Started streamrs daemon"),
                 Err(err) => err,
             };
-            let toast = Toast::new(&message);
-            toast.set_timeout(3);
-            toast_overlay_for_start.add_toast(toast);
+            status_toasts.show(&message);
             sync_daemon_actions(
                 &start_daemon_action_for_start,
                 &stop_daemon_action_for_start,
@@ -636,7 +637,7 @@ pub(crate) fn build_ui(app: &Application) {
         });
     }
     {
-        let toast_overlay_for_stop = toast_overlay.clone();
+        let status_toasts = status_toasts.clone();
         let start_daemon_action_for_stop = start_daemon_action.clone();
         let stop_daemon_action_for_stop = stop_daemon_action.clone();
         stop_daemon_action.connect_activate(move |_, _| {
@@ -644,14 +645,12 @@ pub(crate) fn build_ui(app: &Application) {
                 Ok(()) => tr("Stopped streamrs daemon"),
                 Err(err) => err,
             };
-            let toast = Toast::new(&message);
-            toast.set_timeout(3);
-            toast_overlay_for_stop.add_toast(toast);
+            status_toasts.show(&message);
             sync_daemon_actions(&start_daemon_action_for_stop, &stop_daemon_action_for_stop);
         });
     }
     {
-        let toast_overlay_for_restart = toast_overlay.clone();
+        let status_toasts = status_toasts.clone();
         let start_daemon_action_for_restart = start_daemon_action.clone();
         let stop_daemon_action_for_restart = stop_daemon_action.clone();
         restart_daemon_action.connect_activate(move |_, _| {
@@ -659,9 +658,7 @@ pub(crate) fn build_ui(app: &Application) {
                 Ok(()) => tr("Restarted streamrs daemon"),
                 Err(err) => err,
             };
-            let toast = Toast::new(&message);
-            toast.set_timeout(3);
-            toast_overlay_for_restart.add_toast(toast);
+            status_toasts.show(&message);
             sync_daemon_actions(
                 &start_daemon_action_for_restart,
                 &stop_daemon_action_for_restart,
@@ -723,7 +720,7 @@ pub(crate) fn build_ui(app: &Application) {
     let widgets = EditorWidgets {
         profile_dropdown,
         profile_names,
-        toast_overlay,
+        status_toasts,
         action_type_dropdown,
         action_entry,
         shortcut_entry,

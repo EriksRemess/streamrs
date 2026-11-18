@@ -57,6 +57,14 @@ fn open_device(
     }
 }
 
+pub fn clear_lcd(device: &HidDevice) -> Result<(), String> {
+    let mut report = [0; 32];
+    report[..2].copy_from_slice(&[0x03, 0x05]);
+    device
+        .send_feature_report(&report)
+        .map_err(|err| err.to_string())
+}
+
 pub fn set_brightness(device: &HidDevice, percentage: usize) -> Result<(), String> {
     let mut buf = [0u8; 32];
     buf[0..3].copy_from_slice(&[0x03, 0x08, percentage as u8]);
@@ -144,16 +152,20 @@ pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>,
 }
 
 pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<(), String> {
-    write_key_image(key, data, |report| device.write(report))
+    write_image(Some(key), data, |report| device.write(report))
 }
 
-fn write_key_image(
-    key: u8,
+pub fn set_panel_image_data(device: &HidDevice, data: &[u8]) -> Result<(), String> {
+    write_image(None, data, |report| device.write(report))
+}
+
+fn write_image(
+    key: Option<u8>,
     data: &[u8],
     mut write_report: impl FnMut(&[u8]) -> HidResult<usize>,
 ) -> Result<(), String> {
     if data.is_empty() {
-        return Err(format!("Cannot upload an empty image to button {key}"));
+        return Err("Cannot upload an empty image".into());
     }
     let mut page_number = 0;
     let mut bytes_remaining = data.len();
@@ -162,8 +174,8 @@ fn write_key_image(
         let bytes_sent = page_number * (1024 - 8);
         let header = [
             0x02,
-            0x07,
-            key,
+            if key.is_some() { 0x07 } else { 0x08 },
+            key.unwrap_or(0),
             if this_length == bytes_remaining { 1 } else { 0 },
             (this_length & 0xFF) as u8,
             (this_length >> 8) as u8,
@@ -176,10 +188,10 @@ fn write_key_image(
         payload.extend_from_slice(&data[bytes_sent..bytes_sent + this_length]);
         payload.resize(1024, 0);
         let written = write_report(&payload)
-            .map_err(|err| format!("Failed to write image to button {key}: {err}"))?;
+            .map_err(|err| format!("Failed to write image report {page_number}: {err}"))?;
         if written != payload.len() {
             return Err(format!(
-                "Incomplete image report {page_number} for button {key}: wrote {written} of {} bytes",
+                "Incomplete image report {page_number}: wrote {written} of {} bytes",
                 payload.len()
             ));
         }
@@ -196,10 +208,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn panel_reports_use_the_reserved_byte_and_terminate_on_the_last_chunk() {
+        let mut chunks = Vec::new();
+        write_image(None, &[0x5a; 1017], |report| {
+            chunks.push(report.to_vec());
+            Ok(report.len())
+        })
+        .unwrap();
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(&chunks[0][..8], &[2, 8, 0, 0, 248, 3, 0, 0]);
+        assert_eq!(&chunks[1][..9], &[2, 8, 0, 1, 1, 0, 1, 0, 0x5a]);
+        assert_eq!(chunks[1].len(), 1024);
+        assert!(chunks[1][9..].iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
     fn short_image_write_stops_before_the_next_report() {
         let image = [0xab; 3 * 1016];
         let mut reports = 0;
-        let result = write_key_image(4, &image, |report| {
+        let result = write_image(Some(4), &image, |report| {
             reports += 1;
             Ok(if reports == 2 { 512 } else { report.len() })
         });
@@ -248,6 +275,6 @@ mod tests {
     }
     #[test]
     fn empty_image_does_not_report_upload_success() {
-        assert!(write_key_image(0, &[], |_| panic!("no report expected")).is_err());
+        assert!(write_image(Some(0), &[], |_| panic!("no report expected")).is_err());
     }
 }

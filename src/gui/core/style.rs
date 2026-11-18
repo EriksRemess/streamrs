@@ -80,6 +80,11 @@ headerbar.window-titlebar {
 .key-empty-slot {
     opacity: 0.55;
 }
+.key-button.key-wallpaper:disabled,
+.key-button.key-wallpaper:disabled picture {
+    opacity: 1;
+    filter: none;
+}
 .key-selected {
     outline: 2px solid @accent_color;
     outline-offset: -1px;

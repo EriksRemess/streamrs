@@ -110,6 +110,20 @@ Notes:
 
 Run `streamrs --info` or open **Menu → Device information** in the GUI. Both show the matching deck’s USB ID, serial number, firmware versions and checksums, key and display dimensions, and hardware sleep timer. The query can run while the daemon is active. Use `--profile <name>` or `--config <path>` to select the HID identifiers for the CLI.
 
+### Page wallpapers
+
+Open **Menu → Page wallpaper…** on the page you want to change. Choose a PNG, JPEG or WebP image, or remove the existing wallpaper. The selection is saved to that profile immediately. Keep the selected file at its original location.
+
+streamrs center-crops the artwork to a 480 × 272 canvas. Empty key faces show their portion of the wallpaper. The gaps stay black, and configured buttons keep their usual appearance, including transparent icons, clocks and status indicators. The GUI and `streamrs-preview` show the visible portions.
+
+You can also set wallpapers in a profile. Page numbers start at one. Relative paths use the icons directory.
+
+```toml
+[page_wallpapers]
+"1" = "landscape.png"
+"2" = "/home/me/Pictures/night.jpg"
+```
+
 ### Sleep after inactivity
 
 Use `streamrs --sleep-after 10` to put the connected deck to sleep after ten idle minutes. Use `streamrs --sleep-after never` (or `0`) to disable the timer. In the GUI, open **Menu → Device information → Change sleep timer…**.

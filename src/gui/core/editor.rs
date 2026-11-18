@@ -26,7 +26,7 @@ pub(crate) fn refresh_key_grid(
     current_page: usize,
     clock_backgrounds: &[String],
 ) {
-    let (config, image_dirs, page, total_pages) = {
+    let (config, image_dirs, page, total_pages, wallpaper) = {
         let mut state = state.borrow_mut();
         normalize_config(&mut state.config);
         let total_pages = page_count(&state.config).max(1);
@@ -36,14 +36,22 @@ pub(crate) fn refresh_key_grid(
             state.image_dirs.clone(),
             page,
             total_pages,
+            wallpaper_for_page(&mut state, page),
         )
     };
 
+    let slots = config.wallpaper_slots(page);
     for (slot, picture) in key_pictures.iter().enumerate() {
+        let tile = wallpaper.as_ref().filter(|_| slots[slot]);
+        key_buttons[slot].remove_css_class("key-wallpaper");
         if let Some(key_index) = key_index_for_slot(&config, page, slot) {
             if let Some(key) = config.keys.get(key_index) {
-                set_picture_icon(picture, &image_dirs, key, clock_backgrounds);
-                if is_plain_blank_key(key) {
+                if let Some(wallpaper) = tile {
+                    set_wallpaper_preview(picture, &wallpaper.image, slot);
+                } else {
+                    set_picture_icon(picture, &image_dirs, key, clock_backgrounds);
+                }
+                if tile.is_none() && is_plain_blank_key(key) {
                     key_buttons[slot].add_css_class("key-blank-binding");
                 } else {
                     key_buttons[slot].remove_css_class("key-blank-binding");
@@ -100,8 +108,63 @@ pub(crate) fn refresh_key_grid(
         key_buttons[slot].add_css_class("key-empty-slot");
         key_buttons[slot].set_tooltip_text(Some(&tr("Reserved for page navigation in streamrs")));
         picture.set_tooltip_text(None);
-        update_picture_file(picture, None);
+        if let Some(wallpaper) = tile {
+            key_buttons[slot].add_css_class("key-wallpaper");
+            set_wallpaper_preview(picture, &wallpaper.image, slot);
+            key_buttons[slot].remove_css_class("key-empty-slot");
+        } else {
+            update_picture_file(picture, None);
+        }
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct CachedWallpaper {
+    pub(crate) path: PathBuf,
+    modified: Option<std::time::SystemTime>,
+    image: Wallpaper,
+}
+
+impl CachedWallpaper {
+    pub(crate) fn load(path: PathBuf) -> Result<Self, String> {
+        let modified = fs::metadata(&path).and_then(|meta| meta.modified()).ok();
+        let image = Wallpaper::load(&path)?;
+        Ok(Self {
+            path,
+            modified,
+            image,
+        })
+    }
+}
+
+fn wallpaper_for_page(state: &mut AppState, page: usize) -> Option<Rc<CachedWallpaper>> {
+    let path = state
+        .writable_image_dir
+        .join(state.config.page_wallpaper(page)?);
+    if let Some(cached) = &state.wallpaper_cache
+        && cached.path == path
+        && let Some(modified) = cached.modified
+        && fs::metadata(&path).and_then(|meta| meta.modified()).ok() == Some(modified)
+    {
+        return Some(Rc::clone(cached));
+    }
+    let wallpaper = Rc::new(CachedWallpaper::load(path).ok()?);
+    state.wallpaper_cache = Some(Rc::clone(&wallpaper));
+    Some(wallpaper)
+}
+
+fn set_wallpaper_preview(picture: &Picture, wallpaper: &Wallpaper, slot: usize) {
+    let mut image = wallpaper.key(slot);
+    apply_rounded_corners(&mut image, 0.17);
+    let texture = gtk::gdk::MemoryTexture::new(
+        72,
+        72,
+        gtk::gdk::MemoryFormat::R8g8b8a8,
+        &gtk::glib::Bytes::from_owned(image.into_raw()),
+        72 * 4,
+    );
+    picture.set_paintable(Some(&texture));
+    picture.set_tooltip_text(None);
 }
 
 pub(crate) fn editor_mode(widgets: &EditorWidgets) -> EditorMode {
@@ -723,6 +786,7 @@ mod editor_tests {
             profile: "default".to_string(),
             image_dirs: Vec::new(),
             writable_image_dir: PathBuf::new(),
+            wallpaper_cache: None,
         }))
     }
 

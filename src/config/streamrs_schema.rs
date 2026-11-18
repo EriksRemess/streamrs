@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 pub const DEFAULT_VENDOR_ID: u16 = 0x0fd9;
 pub const DEFAULT_PRODUCT_ID: u16 = 0x0080;
@@ -51,6 +55,8 @@ pub struct StreamrsConfig {
     pub keys_per_page: usize,
     #[serde(default)]
     pub keys: Vec<StreamrsKeyBinding>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub page_wallpapers: BTreeMap<String, PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,6 +97,44 @@ impl Default for StreamrsKeyBinding {
     }
 }
 
+impl StreamrsConfig {
+    pub fn wallpaper_slots(&self, page: usize) -> [bool; crate::paging::STREAMDECK_KEY_COUNT] {
+        use crate::paging::{MIN_KEYS_PER_PAGE, PagingLayout, STREAMDECK_KEY_COUNT};
+        let layout = PagingLayout::new(
+            STREAMDECK_KEY_COUNT,
+            self.keys_per_page
+                .clamp(MIN_KEYS_PER_PAGE, STREAMDECK_KEY_COUNT),
+        );
+        let count = self.keys.len();
+        let pages = layout.page_count(count);
+        std::array::from_fn(|slot| {
+            if layout.navigation_slot_for_slot(page, pages, slot).is_some() {
+                return false;
+            }
+            let Some(index) = layout.key_index_for_slot(count, page, slot) else {
+                return true;
+            };
+            let key = &self.keys[index];
+            crate::image::catalog::is_blank_background_icon_name(&key.icon)
+                && [
+                    &key.action,
+                    &key.shortcut,
+                    &key.status,
+                    &key.icon_on,
+                    &key.icon_off,
+                ]
+                .iter()
+                .all(|field| field.as_deref().is_none_or(|s| s.trim().is_empty()))
+        })
+    }
+
+    pub fn page_wallpaper(&self, page: usize) -> Option<&Path> {
+        self.page_wallpapers
+            .get(&(page + 1).to_string())
+            .map(PathBuf::as_path)
+    }
+}
+
 impl Default for StreamrsConfig {
     fn default() -> Self {
         Self {
@@ -100,6 +144,7 @@ impl Default for StreamrsConfig {
             usage_page: default_usage_page(),
             brightness: default_brightness(),
             keys_per_page: default_keys_per_page(),
+            page_wallpapers: BTreeMap::new(),
             keys: vec![StreamrsKeyBinding::default(); crate::paging::STREAMDECK_KEY_COUNT],
         }
     }

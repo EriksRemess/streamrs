@@ -3,4 +3,6 @@ pub mod calendar;
 pub mod catalog;
 pub mod clock;
 pub mod effects;
+pub mod preview;
 pub mod svg;
+pub mod wallpaper;

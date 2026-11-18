@@ -197,6 +197,7 @@ pub(crate) fn update_picture_file(picture: &Picture, path: Option<&Path>) {
         picture.set_file(Some(&file));
     } else {
         picture.set_file(None::<&gtk::gio::File>);
+        picture.set_paintable(None::<&gtk::gdk::Paintable>);
     }
 }
 

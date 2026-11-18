@@ -1,3 +1,4 @@
+use super::editor::CachedWallpaper;
 pub(crate) use adw::prelude::*;
 pub(crate) use adw::{
     Application, ApplicationWindow, ComboRow, EntryRow, HeaderBar, PreferencesGroup,
@@ -40,6 +41,7 @@ pub(crate) use streamrs::image::clock::{
 };
 pub(crate) use streamrs::image::effects::apply_rounded_corners;
 pub(crate) use streamrs::image::svg::load_svg_data as load_svg_image_data;
+pub(crate) use streamrs::image::wallpaper::Wallpaper;
 pub(crate) use streamrs::paging::{
     NavigationSlot as ReservedNavigationSlot, PagingLayout, STREAMDECK_KEY_COUNT,
 };
@@ -76,13 +78,14 @@ pub(crate) struct AppState {
     pub(crate) profile: String,
     pub(crate) image_dirs: Vec<PathBuf>,
     pub(crate) writable_image_dir: PathBuf,
+    pub(crate) wallpaper_cache: Option<Rc<CachedWallpaper>>,
 }
 
 #[derive(Clone)]
 pub(crate) struct EditorWidgets {
     pub(crate) profile_dropdown: DropDown,
     pub(crate) profile_names: Rc<RefCell<Vec<String>>>,
-    pub(crate) toast_overlay: ToastOverlay,
+    pub(crate) status_toasts: StatusToasts,
     pub(crate) action_type_dropdown: ComboRow,
     pub(crate) action_entry: EntryRow,
     pub(crate) shortcut_entry: EntryRow,
@@ -106,10 +109,33 @@ pub(crate) struct EditorWidgets {
     pub(crate) clear_button: Button,
 }
 
+#[derive(Clone)]
+pub(crate) struct StatusToasts {
+    overlay: ToastOverlay,
+    current: Rc<Cell<Option<Toast>>>,
+}
+
+impl StatusToasts {
+    pub(crate) fn new(overlay: &ToastOverlay) -> Self {
+        Self {
+            overlay: overlay.clone(),
+            current: Default::default(),
+        }
+    }
+
+    pub(crate) fn show(&self, message: &str) {
+        let toast = Toast::new(message);
+        toast.set_use_markup(false);
+        toast.set_timeout(3);
+        if let Some(previous) = self.current.replace(Some(toast.clone())) {
+            previous.dismiss();
+        }
+        self.overlay.add_toast(toast);
+    }
+}
+
 pub(crate) fn announce_status(widgets: &EditorWidgets, message: &str) {
-    let toast = Toast::new(message);
-    toast.set_timeout(3);
-    widgets.toast_overlay.add_toast(toast);
+    widgets.status_toasts.show(message);
 }
 
 #[derive(Clone, Copy, Debug)]

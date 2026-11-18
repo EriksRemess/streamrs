@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:19+0000\n"
-"PO-Revision-Date: 2026-11-18 16:19+0000\n"
+"POT-Creation-Date: 2026-11-18 16:38+0000\n"
+"PO-Revision-Date: 2026-11-18 16:39+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -89,12 +89,17 @@ msgid "Calendar"
 msgstr "Kalendārs"
 
 #: src/gui/ui/device_info.rs src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Atcelt"
 
 #: src/gui/ui/device_info.rs
 msgid "Change sleep timer…"
 msgstr "Mainīt miega taimeri…"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Choose image…"
+msgstr "Izvēlēties attēlu…"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Cleared selected button"
@@ -124,6 +129,10 @@ msgstr "Neizdevās mainīt miega taimeri."
 msgid "Could not enumerate HID devices: {err}"
 msgstr "Neizdevās iegūt HID ierīču sarakstu: {err}"
 
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Could not load the wallpaper."
+msgstr "Neizdevās ielādēt fona attēlu."
+
 #: src/streamdeck.rs
 msgid "Could not open HID device {id}: {err}"
 msgstr "Neizdevās atvērt HID ierīci {id}: {err}"
@@ -139,6 +148,10 @@ msgstr "Neizdevās nolasīt miega taimera iestatījumu."
 #: src/streamdeck/info.rs
 msgid "Could not set the sleep timer: {err}"
 msgstr "Neizdevās iestatīt miega taimeri: {err}"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Create a profile to set a page wallpaper."
+msgstr "Lai iestatītu lapas fona attēlu, izveidojiet profilu."
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
@@ -162,7 +175,9 @@ msgstr "Displeja izmērs"
 
 #: src/gui/ui/device_info.rs
 msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
-msgstr "Ievadiet, pēc cik neaktivitātes minūtēm ierīce pāries miega režīmā. Lai atspējotu miega taimeri, ievadiet 0."
+msgstr ""
+"Ievadiet, pēc cik neaktivitātes minūtēm ierīce pāries miega režīmā. Lai "
+"atspējotu miega taimeri, ievadiet 0."
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
@@ -221,7 +236,7 @@ msgstr "Ikona, kad statuss ir izslēgts"
 msgid "Icon when status is on"
 msgstr "Ikona, kad statuss ir ieslēgts"
 
-#: src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
 msgid "Images"
 msgstr "Attēli"
 
@@ -295,6 +310,10 @@ msgstr "Nav izvēlēts profils"
 msgid "None"
 msgstr "Nav"
 
+#: src/gui/ui.rs
+msgid "Page wallpaper…"
+msgstr "Lapas fona attēls…"
+
 #: src/gui/core/paging.rs src/gui/ui.rs
 msgid "Page {current}/{total}"
 msgstr "Lapa {current}/{total}"
@@ -359,6 +378,10 @@ msgstr "Noņemt izvēlēto"
 msgid "Remove selected button configuration"
 msgstr "Noņemt izvēlētās pogas konfigurāciju"
 
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Remove wallpaper"
+msgstr "Noņemt fona attēlu"
+
 #: src/gui/ui/signals/management.rs
 msgid "Removed profile '{profile}', active profile is '{next_profile}'"
 msgstr "Profils '{profile}' noņemts, aktīvais profils ir '{next_profile}'"
@@ -402,6 +425,10 @@ msgstr "Izmaiņas saglabātas"
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Saved {ordinal} button"
 msgstr "{ordinal} poga saglabāta"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Select a local image file."
+msgstr "Izvēlieties lokālu attēla datni."
 
 #: src/gui/core/icon_catalog.rs
 msgid "Select icon..."
@@ -470,6 +497,10 @@ msgstr "USB ID"
 #: src/streamdeck/info.rs
 msgid "Unavailable"
 msgstr "Nav pieejams"
+
+#: src/gui/ui/signals/wallpaper.rs
+msgid "Wallpaper for page {page}"
+msgstr "{page}. lapas fona attēls"
 
 #: src/gui/core/config_io.rs
 msgid "pkill exit status {status}"

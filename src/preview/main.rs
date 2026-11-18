@@ -1,14 +1,11 @@
 use image::imageops::{FilterType::Lanczos3, overlay, resize};
-use image::{GrayImage, Luma, Rgba, RgbaImage, load_from_memory};
+use image::{GrayImage, Luma, Rgba, RgbaImage};
 use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::Path;
-use streamrs::image::calendar::{CALENDAR_ICON_ALIAS, is_calendar_icon, render_calendar_svg};
-use streamrs::image::clock::{
-    CLOCK_ICON_ALIAS, current_clock_text, is_clock_icon, render_clock_segments_svg,
-};
 use streamrs::image::svg::load_svg_data;
+use streamrs::image::{preview::load_icon_image, wallpaper::Wallpaper};
 use streamrs::paging::{MIN_KEYS_PER_PAGE, NEXT_PAGE_ICON, PagingLayout, STREAMDECK_KEY_COUNT};
 
 #[path = "../cli/preview.rs"]
@@ -64,61 +61,6 @@ fn render_blank_base(
         return Ok(rendered);
     }
     Ok(resize(&rendered, width, height, Lanczos3))
-}
-
-fn load_icon_image(
-    icon_name: &str,
-    image_dir: &Path,
-    clock_background: Option<&str>,
-) -> Result<RgbaImage, String> {
-    if streamrs::image::catalog::is_blank_background_icon_name(icon_name) {
-        return Ok(RgbaImage::from_pixel(72, 72, Rgba([0, 0, 0, 255])));
-    }
-    if is_clock_icon(icon_name) {
-        let clock_svg =
-            render_clock_segments_svg(image_dir, &current_clock_text(), clock_background);
-        let img = load_svg_data(
-            CLOCK_ICON_ALIAS,
-            clock_svg.as_bytes(),
-            Some(image_dir),
-            CLOCK_RENDER_SIZE,
-            CLOCK_RENDER_SIZE,
-        )?;
-        return Ok(img);
-    }
-    if is_calendar_icon(icon_name) {
-        let calendar_svg = render_calendar_svg();
-        let img = load_svg_data(
-            CALENDAR_ICON_ALIAS,
-            calendar_svg.as_bytes(),
-            None,
-            CLOCK_RENDER_SIZE,
-            CLOCK_RENDER_SIZE,
-        )?;
-        return Ok(img);
-    }
-
-    let path = image_dir.join(icon_name);
-    let data =
-        fs::read(&path).map_err(|e| format!("Failed to read icon '{}': {e}", path.display()))?;
-    if path
-        .extension()
-        .and_then(|x| x.to_str())
-        .unwrap_or_default()
-        .eq_ignore_ascii_case("svg")
-    {
-        let img = load_svg_data(
-            &path.display().to_string(),
-            &data,
-            path.parent(),
-            CLOCK_RENDER_SIZE,
-            CLOCK_RENDER_SIZE,
-        )?;
-        return Ok(img);
-    }
-    load_from_memory(&data)
-        .map_err(|e| format!("Failed to decode icon '{}': {e}", path.display()))
-        .map(|d| d.to_rgba8())
 }
 
 fn detect_key_slots(base: &RgbaImage, use_scaled_thresholds: bool) -> Result<Vec<Slot>, String> {
@@ -381,24 +323,35 @@ fn compose_preview(args: &CliArgs) -> Result<(), String> {
     let slots = scale_slots(&template_slots, width, height);
     let mut warned_icon_errors = HashSet::<String>::new();
 
+    let wallpaper = config.page_wallpaper(0).and_then(|path| {
+        Wallpaper::load(&args.image_dir.join(path))
+            .inspect_err(|err| eprintln!("Failed to load page wallpaper: {err}"))
+            .ok()
+    });
+    let wallpaper_slots = config.wallpaper_slots(0);
     for (idx, slot) in slots.iter().enumerate() {
-        let Some((icon_name, background)) = first_page_icon(&config, idx) else {
-            continue;
-        };
-        let icon = match load_icon_image(icon_name, &args.image_dir, background) {
-            Ok(img) => img,
-            Err(err) => {
-                if warned_icon_errors.insert(icon_name.to_owned()) {
-                    eprintln!(
-                        "Warning: {err}. Using fallback tile for icon '{}'",
-                        icon_name
-                    );
+        let selected = first_page_icon(&config, idx);
+        let icon = if let Some(wallpaper) = wallpaper.as_ref().filter(|_| wallpaper_slots[idx]) {
+            wallpaper.key(idx)
+        } else {
+            let Some((icon_name, background)) = selected else {
+                continue;
+            };
+            match load_icon_image(icon_name, &args.image_dir, background) {
+                Ok(img) => img,
+                Err(err) => {
+                    if warned_icon_errors.insert(icon_name.to_owned()) {
+                        eprintln!(
+                            "Warning: {err}. Using fallback tile for icon '{}'",
+                            icon_name
+                        );
+                    }
+                    let mut img = RgbaImage::new(CLOCK_RENDER_SIZE, CLOCK_RENDER_SIZE);
+                    for p in img.pixels_mut() {
+                        *p = Rgba([0x20, 0x20, 0x20, 0xFF]);
+                    }
+                    img
                 }
-                let mut img = RgbaImage::new(CLOCK_RENDER_SIZE, CLOCK_RENDER_SIZE);
-                for p in img.pixels_mut() {
-                    *p = Rgba([0x20, 0x20, 0x20, 0xFF]);
-                }
-                img
             }
         };
 
