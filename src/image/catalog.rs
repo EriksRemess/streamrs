@@ -51,7 +51,7 @@ pub fn copy_supported_image_into_dir(
         return Ok(file_name);
     }
 
-    fs::copy(source_path, &destination).map_err(|err| {
+    crate::paths::copy_file_atomically(source_path, &destination, true).map_err(|err| {
         format!(
             "Failed to copy icon '{}' to '{}': {err}",
             source_path.display(),
@@ -153,5 +153,22 @@ mod tests {
         assert!(is_blank_background_icon_name("BLANK_9.PNG"));
         assert!(!is_blank_background_icon_name("blank.jpg"));
         assert!(!is_blank_background_icon_name("youtube.png"));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod import_tests {
+    use super::*;
+    #[test]
+    fn importing_an_alias_preserves_the_source_image() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        let other = dir.join("other");
+        fs::create_dir_all(&other).unwrap();
+        let source = dir.join("icon.png");
+        fs::write(&source, b"image bytes").unwrap();
+        fs::hard_link(&source, other.join("icon.png")).unwrap();
+        copy_supported_image_into_dir(&source, &other).unwrap();
+        assert_eq!(fs::read(source).unwrap(), b"image bytes");
     }
 }

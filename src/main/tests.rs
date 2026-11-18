@@ -594,6 +594,283 @@ fn page_with_status_key() -> PageState {
 }
 
 #[test]
+fn first_page_draw_retries_only_failed_keys_and_activates_their_bindings_on_success() {
+    let mut key = test_key("animation.gif");
+    key.action = Some("launch-animation".into());
+    let mut ready_key = test_key("blank.png");
+    ready_key.action = Some("launch-ready".into());
+    let config = test_config_with_keys(vec![key, ready_key]);
+    let mut page = prepare_page(&config, &StatusCache::new(), 0);
+    let mut cache = ImageCache::new();
+    cache.insert(
+        ImageCacheKey {
+            icon: "animation.gif".into(),
+            clock_background: None,
+        },
+        LoadedKeyImage::Animated {
+            frames: vec![vec![10], vec![20]],
+            delays: vec![Duration::from_secs(1); 2],
+        },
+    );
+    let now = Instant::now();
+    let blank = [0xba];
+    page.draw_pending_images(now, Path::new("."), &mut cache, &blank, |index, _| {
+        if index == 0 || index == 2 {
+            Err("short write".into())
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(page.button_actions[0], None);
+    assert!(page.dynamic_states[0].is_none());
+    assert_eq!(
+        page.button_actions[1],
+        Some(ButtonAction::Launch("launch-ready".into()))
+    );
+    page.draw_pending_images(now, Path::new("."), &mut cache, &blank, |_, _| {
+        panic!("early retry")
+    });
+
+    let retry = now + Duration::from_secs(1);
+    let mut uploads = vec![];
+    page.draw_pending_images(retry, Path::new("."), &mut cache, &blank, |index, data| {
+        uploads.push((index, data.to_vec()));
+        Ok(())
+    });
+    assert_eq!(uploads, [(0, vec![10]), (2, blank.to_vec())]);
+    assert_eq!(
+        page.button_actions[0],
+        Some(ButtonAction::Launch("launch-animation".into()))
+    );
+    assert!(
+        matches!(&page.dynamic_states[0], Some(DynamicKeyState::Animated(animation)) if animation.current_frame == 0)
+    );
+    page.draw_pending_images(
+        retry + Duration::from_secs(1),
+        Path::new("."),
+        &mut cache,
+        &blank,
+        |_, _| panic!("already uploaded"),
+    );
+}
+
+#[test]
+fn queued_press_before_retry_requires_release_and_a_fresh_press() {
+    let mut key = test_key("blank.png");
+    key.action = Some("retried".into());
+    let mut other = key.clone();
+    other.action = Some("ready".into());
+    let mut page = prepare_page(
+        &test_config_with_keys(vec![key, other]),
+        &StatusCache::new(),
+        0,
+    );
+    let mut keys = KeyState::default();
+    let mut cache = ImageCache::new();
+    let now = Instant::now();
+    page.draw_pending_images(now, Path::new("."), &mut cache, &[0], |index, _| {
+        if index == 0 {
+            Err("short write".into())
+        } else {
+            Ok(())
+        }
+    });
+    assert!(
+        page.process_input(
+            &mut keys,
+            |_| Ok(InputReport::Empty),
+            |_, _| panic!("unexpected press")
+        )
+        .is_ok()
+    );
+
+    let report = |first, second| {
+        let mut bytes = [0; 4 + KEY_COUNT];
+        bytes[..4].copy_from_slice(&[1, 0, KEY_COUNT as u8, 0]);
+        bytes[4] = first;
+        bytes[5] = second;
+        InputReport::from_bytes(&bytes)
+    };
+    let mut backlog = [
+        InputReport::from_bytes(&[0xff]),
+        report(1, 1),
+        report(0, 0),
+        report(1, 0),
+        InputReport::Empty,
+    ]
+    .into_iter();
+    page.draw_pending_images(
+        now + Duration::from_secs(1),
+        Path::new("."),
+        &mut cache,
+        &[0],
+        |_, _| Ok(()),
+    );
+    let mut actions = Vec::new();
+    page.process_input(
+        &mut keys,
+        |timeout| {
+            assert_eq!(timeout, 0);
+            Ok(backlog.next().unwrap())
+        },
+        |_, pressed| actions.extend(pressed),
+    )
+    .unwrap();
+    assert_eq!(actions, [(1, ButtonAction::Launch("ready".into()))]);
+    assert!(backlog.next().is_none());
+
+    let mut press = |first| {
+        let mut actions = Vec::new();
+        page.process_input(
+            &mut keys,
+            |timeout| {
+                assert_eq!(timeout, 10);
+                Ok(report(first, 0))
+            },
+            |_, pressed| actions.extend(pressed),
+        )
+        .unwrap();
+        actions
+    };
+    assert!(press(1).is_empty());
+    assert!(press(0).is_empty());
+    assert_eq!(press(1), [(0, ButtonAction::Launch("retried".into()))]);
+    assert!(press(1).is_empty());
+}
+
+#[test]
+fn unreadable_icon_requires_a_successful_clear_before_enabling_its_action() {
+    let mut key = test_key("missing.png");
+    key.action = Some("launch".into());
+    let mut page = prepare_page(&test_config_with_keys(vec![key]), &StatusCache::new(), 0);
+    let mut cache = ImageCache::new();
+    let dir = test_temp_dir("missing-page-icon");
+    let now = Instant::now();
+    let blank = [0xbb];
+    page.draw_pending_images(now, &dir, &mut cache, &blank, |index, data| {
+        assert_eq!(data, &blank);
+        if index == 0 {
+            Err("short write".into())
+        } else {
+            Ok(())
+        }
+    });
+    assert!(page.button_actions[0].is_none());
+    page.draw_pending_images(
+        now + Duration::from_secs(1),
+        &dir,
+        &mut cache,
+        &blank,
+        |index, data| {
+            assert_eq!((index, data), (0, blank.as_slice()));
+            Ok(())
+        },
+    );
+    assert_eq!(
+        page.button_actions[0],
+        Some(ButtonAction::Launch("launch".into()))
+    );
+}
+
+#[test]
+fn navigating_away_discards_a_pending_initial_upload() {
+    let mut keys = vec![test_key("blank.png"); 16];
+    keys[0].action = Some("old-page".into());
+    keys[14].action = Some("new-page".into());
+    let config = test_config_with_keys(keys);
+    let status = StatusCache::new();
+    let mut cache = ImageCache::new();
+    let mut page = prepare_page(&config, &status, 0);
+    page.draw_pending_images(Instant::now(), Path::new("."), &mut cache, &[], |_, _| {
+        Err("short write".into())
+    });
+    assert_eq!(page.button_actions[0], None);
+
+    page = prepare_page(&config, &status, 1);
+    let now = Instant::now();
+    page.draw_pending_images(now, Path::new("."), &mut cache, &[], |_, _| Ok(()));
+    assert_eq!(
+        page.button_actions[0],
+        Some(ButtonAction::Launch("new-page".into()))
+    );
+    page.draw_pending_images(
+        now + Duration::from_secs(2),
+        Path::new("."),
+        &mut cache,
+        &[],
+        |_, _| panic!("stale retry"),
+    );
+}
+
+#[test]
+fn failed_status_icon_is_uploaded_again_on_the_next_poll() {
+    let mut page = page_with_status_key();
+    let status = page.status_states[0].as_mut().unwrap();
+    assert_eq!(status.current_on, Some(false));
+    assert!(
+        status
+            .display(true, |_, _| Err("short write".into()))
+            .is_err()
+    );
+    assert_eq!(status.current_on, None);
+    let mut uploaded = None;
+    status
+        .display(true, |icon, _| {
+            uploaded = Some(icon.to_owned());
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(uploaded.as_deref(), Some("on.png"));
+    assert_eq!(status.current_on, Some(true));
+}
+
+#[test]
+fn failed_animation_upload_retries_the_same_frame_after_its_delay() {
+    let now = Instant::now();
+    let delay = Duration::from_millis(100);
+    let mut animation = AnimatedKeyState {
+        frames: vec![vec![0], vec![1], vec![2]],
+        delays: vec![delay; 3],
+        current_frame: 0,
+        next_frame_at: now,
+    };
+    assert!(
+        animation
+            .advance(now, |_| Err("short write".into()))
+            .is_err()
+    );
+    assert_eq!(animation.current_frame, 0);
+    assert_eq!(animation.next_frame_at, now + delay);
+    animation
+        .advance(now + delay, |frame| {
+            assert_eq!(frame, [1]);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(animation.current_frame, 1);
+}
+
+#[test]
+fn failed_calendar_upload_retries_the_current_date() {
+    let now = Instant::now();
+    let mut calendar = CalendarKeyState {
+        current_key: "yesterday".into(),
+        next_update_at: now,
+    };
+    assert!(
+        calendar
+            .refresh(now, "today".into(), || Err("short write".into()))
+            .is_err()
+    );
+    assert_eq!(calendar.current_key, "yesterday");
+    assert_eq!(calendar.next_update_at, now + Duration::from_secs(1));
+    calendar
+        .refresh(calendar.next_update_at, "today".into(), || Ok(()))
+        .unwrap();
+    assert_eq!(calendar.current_key, "today");
+}
+
+#[test]
 fn immediate_status_refresh_schedules_status_key_one_second_later() {
     let mut state = page_with_status_key();
     let before = Instant::now();
@@ -676,5 +953,32 @@ fn configured_shortcut_takes_precedence_over_launch_command() {
         Some(ConfiguredAction::KeyboardShortcut(
             "Ctrl+Shift+T".to_string()
         ))
+    );
+}
+
+#[test]
+fn transparent_raster_is_composited_on_black_for_the_deck() {
+    let dir = test_temp_dir("transparent");
+    let path = dir.join("transparent.png");
+    write_test_png(&path, [240, 0, 0, 0]);
+    let jpeg = get_image_data(&path, &fs::read(&path).unwrap()).unwrap();
+    assert_eq!(
+        image::load_from_memory(&jpeg)
+            .unwrap()
+            .to_rgb8()
+            .get_pixel(36, 36)
+            .0,
+        [0; 3]
+    );
+}
+
+#[test]
+fn reserved_blank_profile_loads_with_no_actions() {
+    let path = Path::new("blank.toml");
+    assert!(
+        load_profile_config(BLANK_PROFILE, path, "keys = []")
+            .unwrap()
+            .keys
+            .is_empty()
     );
 }

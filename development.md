@@ -9,7 +9,7 @@ Issues and pull requests are welcome.
 
 ## Prerequisites
 
-- Rust toolchain (`cargo`, `rustc`)
+- Rust 1.100.0 or newer (`cargo`, `rustc`)
 - GUI build dependencies (GTK4 + libadwaita dev packages)
   - Debian/Ubuntu example: `libgtk-4-dev`, `libadwaita-1-dev`
 

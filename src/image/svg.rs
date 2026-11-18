@@ -50,7 +50,7 @@ pub fn load_svg_data(
 
     resvg::render(&tree, transform, &mut pixmap.as_mut());
 
-    RgbaImage::from_raw(target_w, target_h, pixmap.take())
+    RgbaImage::from_raw(target_w, target_h, pixmap.take_demultiplied())
         .ok_or_else(|| format!("Failed to create RGBA image for '{label}'"))
 }
 
@@ -62,4 +62,16 @@ pub fn load_svg_dynamic(
     target_h: u32,
 ) -> Result<DynamicImage, String> {
     load_svg_data(label, svg_data, resources_dir, target_w, target_h).map(DynamicImage::ImageRgba8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn translucent_svg_returns_straight_rgba() {
+        let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="red" opacity="0.5"/></svg>"#;
+        let image = load_svg_data("test", svg, None, 1, 1).unwrap();
+        assert_eq!(image.get_pixel(0, 0).0, [255, 0, 0, 128]);
+    }
 }

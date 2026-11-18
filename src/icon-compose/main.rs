@@ -118,16 +118,6 @@ fn default_output_path(logo: &Path) -> PathBuf {
     unique_output_path(&default_output_dir(), &base_stem)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn default_output_dir_uses_shared_icons_path() {
-        assert!(default_output_dir().ends_with("streamrs/icons"));
-    }
-}
-
 fn parse_args() -> Result<CliArgs, String> {
     let program = env::args()
         .next()
@@ -572,5 +562,15 @@ pub(crate) fn run() {
             eprintln!("Error: {err}");
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_output_dir_uses_shared_icons_path() {
+        assert!(default_output_dir().ends_with("streamrs/icons"));
     }
 }

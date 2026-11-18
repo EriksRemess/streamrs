@@ -1,5 +1,4 @@
 use super::super::*;
-use adw::prelude::*;
 
 pub(crate) fn wire_primary_action_signals(
     ctx: &UiCtx,

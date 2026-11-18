@@ -3,7 +3,7 @@ use image::RgbaImage;
 pub fn apply_rounded_corners(image: &mut RgbaImage, radius_fraction: f32) {
     let width = image.width() as i32;
     let height = image.height() as i32;
-    if width <= 1 || height <= 1 {
+    if width < 4 || height < 4 {
         return;
     }
 
@@ -36,6 +36,18 @@ pub fn apply_rounded_corners(image: &mut RgbaImage, radius_fraction: f32) {
                 let pixel = image.get_pixel_mut(x as u32, y as u32);
                 pixel[3] = 0;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tiny_icons_can_be_rounded() {
+        for width in 1..=4 {
+            let mut image = RgbaImage::new(width, 5);
+            apply_rounded_corners(&mut image, 0.17);
         }
     }
 }

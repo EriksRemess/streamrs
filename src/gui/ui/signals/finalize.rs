@@ -1,5 +1,4 @@
 use super::super::*;
-use adw::prelude::*;
 
 pub(crate) fn finalize_and_present(window: &ApplicationWindow, ctx: &UiCtx) {
     let state = &ctx.state;

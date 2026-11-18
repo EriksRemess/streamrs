@@ -9,14 +9,14 @@ use streamrs::image::clock::{
     CLOCK_ICON_ALIAS, current_clock_text, is_clock_icon, render_clock_segments_svg,
 };
 use streamrs::image::svg::load_svg_data;
-use streamrs::process::run_shell_status;
+use streamrs::paging::{MIN_KEYS_PER_PAGE, NEXT_PAGE_ICON, PagingLayout, STREAMDECK_KEY_COUNT};
 
 #[path = "../cli/preview.rs"]
 mod cli;
 #[path = "../config/preview.rs"]
 mod preview_config;
 use cli::{CliArgs, parse_args, print_usage};
-use preview_config::{KeyBinding, load_config};
+use preview_config::load_config;
 
 const CLOCK_RENDER_SIZE: u32 = 256;
 const TEMPLATE_RENDER_WIDTH: u32 = 1560;
@@ -34,7 +34,6 @@ const ICON_CONTENT_SHRINK_Y: i32 = 13;
 const ICON_MASK_EXPAND: i32 = 10;
 const ICON_PAYLOAD_OFFSET_X: i32 = 0;
 const ICON_PAYLOAD_OFFSET_Y: i32 = 0;
-const EVALUATE_STATUS: bool = false;
 
 #[derive(Clone)]
 struct Slot {
@@ -67,9 +66,17 @@ fn render_blank_base(
     Ok(resize(&rendered, width, height, Lanczos3))
 }
 
-fn load_icon_image(icon_name: &str, image_dir: &Path) -> Result<RgbaImage, String> {
+fn load_icon_image(
+    icon_name: &str,
+    image_dir: &Path,
+    clock_background: Option<&str>,
+) -> Result<RgbaImage, String> {
+    if streamrs::image::catalog::is_blank_background_icon_name(icon_name) {
+        return Ok(RgbaImage::from_pixel(72, 72, Rgba([0, 0, 0, 255])));
+    }
     if is_clock_icon(icon_name) {
-        let clock_svg = render_clock_segments_svg(image_dir, &current_clock_text(), None);
+        let clock_svg =
+            render_clock_segments_svg(image_dir, &current_clock_text(), clock_background);
         let img = load_svg_data(
             CLOCK_ICON_ALIAS,
             clock_svg.as_bytes(),
@@ -112,34 +119,6 @@ fn load_icon_image(icon_name: &str, image_dir: &Path) -> Result<RgbaImage, Strin
     load_from_memory(&data)
         .map_err(|e| format!("Failed to decode icon '{}': {e}", path.display()))
         .map(|d| d.to_rgba8())
-}
-
-fn choose_icon_name(key: &KeyBinding, evaluate_status: bool) -> String {
-    let icon = key.icon.clone();
-    let status = key
-        .status
-        .as_ref()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    if !evaluate_status || status.is_none() {
-        return icon;
-    }
-    let is_on = run_shell_status(status.unwrap().as_str()).unwrap_or(false);
-    let on = key
-        .icon_on
-        .as_ref()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    let off = key
-        .icon_off
-        .as_ref()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    if is_on {
-        on.unwrap_or(icon)
-    } else {
-        off.unwrap_or(icon)
-    }
 }
 
 fn detect_key_slots(base: &RgbaImage, use_scaled_thresholds: bool) -> Result<Vec<Slot>, String> {
@@ -359,6 +338,27 @@ fn apply_mask_to_alpha(img: &mut RgbaImage, mask: &GrayImage) {
     }
 }
 
+fn first_page_icon(config: &preview_config::Config, slot: usize) -> Option<(&str, Option<&str>)> {
+    let layout = PagingLayout::new(
+        STREAMDECK_KEY_COUNT,
+        config
+            .keys_per_page
+            .clamp(MIN_KEYS_PER_PAGE, STREAMDECK_KEY_COUNT),
+    );
+    let pages = layout.page_count(config.keys.len());
+    if layout.navigation_slot_for_slot(0, pages, slot).is_some() {
+        return Some((NEXT_PAGE_ICON, None));
+    }
+    let key = &config.keys[layout.key_index_for_slot(config.keys.len(), 0, slot)?];
+    Some((
+        &key.icon,
+        key.clock_background
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty()),
+    ))
+}
+
 fn compose_preview(args: &CliArgs) -> Result<(), String> {
     let width = PREVIEW_WIDTH;
     let height = PREVIEW_HEIGHT;
@@ -382,14 +382,13 @@ fn compose_preview(args: &CliArgs) -> Result<(), String> {
     let mut warned_icon_errors = HashSet::<String>::new();
 
     for (idx, slot) in slots.iter().enumerate() {
-        if idx >= config.keys.len() {
+        let Some((icon_name, background)) = first_page_icon(&config, idx) else {
             continue;
-        }
-        let icon_name = choose_icon_name(&config.keys[idx], EVALUATE_STATUS);
-        let icon = match load_icon_image(&icon_name, &args.image_dir) {
+        };
+        let icon = match load_icon_image(icon_name, &args.image_dir, background) {
             Ok(img) => img,
             Err(err) => {
-                if warned_icon_errors.insert(icon_name.clone()) {
+                if warned_icon_errors.insert(icon_name.to_owned()) {
                     eprintln!(
                         "Warning: {err}. Using fallback tile for icon '{}'",
                         icon_name
@@ -498,5 +497,24 @@ pub(crate) fn run() {
     if let Err(e) = compose_preview(&args) {
         eprintln!("Error: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::*;
+    #[test]
+    fn first_page_reserves_navigation_and_hides_off_page_keys() {
+        let config = preview_config::Config {
+            keys_per_page: 3,
+            keys: vec![streamrs::config::streamrs_schema::StreamrsKeyBinding::default(); 5],
+            ..Default::default()
+        };
+        assert_eq!(first_page_icon(&config, 1), Some(("blank.png", None)));
+        assert_eq!(
+            first_page_icon(&config, 2),
+            Some(("stream-deck-next-page.png", None))
+        );
+        assert_eq!(first_page_icon(&config, 3), None);
     }
 }

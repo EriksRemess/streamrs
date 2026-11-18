@@ -25,23 +25,35 @@ pub(crate) fn print_usage(program: &str) {
 }
 
 pub(crate) fn parse_args() -> Result<CliArgs, String> {
+    parse_args_from(env::args().skip(1), resolve_default_profile)
+}
+
+fn parse_args_from(
+    mut args: impl Iterator<Item = String>,
+    default_profile: impl FnOnce() -> String,
+) -> Result<CliArgs, String> {
     let mut debug = false;
-    let mut profile = resolve_default_profile();
-    let mut profile_explicit = false;
+    let mut profile = None;
     let mut config_path = None;
     let mut init = false;
     let mut force = false;
     let mut force_images = false;
 
-    let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--debug" => debug = true,
             "--profile" => {
-                profile = args
+                let name = args
                     .next()
                     .ok_or_else(|| "Missing value for --profile".to_string())?;
-                profile_explicit = true;
+                profile = Some(
+                    streamrs::config::current_profile::normalize_profile_name(&name).ok_or_else(
+                        || {
+                            "Profile name must contain only letters, numbers, '-' or '_'"
+                                .to_string()
+                        },
+                    )?,
+                );
             }
             "--config" => {
                 let value = args
@@ -68,6 +80,14 @@ pub(crate) fn parse_args() -> Result<CliArgs, String> {
         return Err("--force-images requires --init".to_string());
     }
 
+    let profile_explicit = profile.is_some();
+    let profile = profile.unwrap_or_else(|| {
+        if config_path.is_some() {
+            DEFAULT_PROFILE.to_owned()
+        } else {
+            default_profile()
+        }
+    });
     Ok(CliArgs {
         debug,
         profile,
@@ -160,21 +180,13 @@ fn find_image_source_dir(profile: &str) -> Option<PathBuf> {
 }
 
 fn copy_file(src: &Path, dst: &Path, force: bool) -> Result<bool, String> {
-    if dst.exists() && !force {
-        return Ok(false);
-    }
-    if let Some(parent) = dst.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("Failed to create directory '{}': {err}", parent.display()))?;
-    }
-    fs::copy(src, dst).map_err(|err| {
+    streamrs::paths::copy_file_atomically(src, dst, force).map_err(|err| {
         format!(
             "Failed to copy '{}' to '{}': {err}",
             src.display(),
             dst.display()
         )
-    })?;
-    Ok(true)
+    })
 }
 
 fn copy_dir_contents(src: &Path, dst: &Path, force: bool) -> Result<(usize, usize), String> {
@@ -282,6 +294,12 @@ pub(crate) fn ensure_profile_initialized(
     config_path: &Path,
     image_dir: &Path,
 ) -> Result<(), String> {
+    if config_path.exists() {
+        ensure_profile_images_initialized(profile, image_dir)?;
+        save_current_profile_with_log(profile, "confirming existing profile");
+        return Ok(());
+    }
+
     if profile == BLANK_PROFILE {
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent).map_err(|err| {
@@ -298,12 +316,6 @@ pub(crate) fn ensure_profile_initialized(
             "Initialized blank profile config '{}'",
             config_path.display()
         );
-        return Ok(());
-    }
-
-    if config_path.exists() {
-        ensure_profile_images_initialized(profile, image_dir)?;
-        save_current_profile_with_log(profile, "confirming existing profile");
         return Ok(());
     }
 
@@ -429,5 +441,37 @@ mod tests {
             resolved, "main-profile",
             "missing current profile should prefer an existing non-default profile"
         );
+    }
+    #[test]
+    fn explicit_config_works_even_with_no_discovered_profiles() {
+        let args = parse_args_from(
+            ["--config", "custom.toml"].map(String::from).into_iter(),
+            || BLANK_PROFILE.into(),
+        )
+        .unwrap();
+        assert_ne!(args.profile, BLANK_PROFILE);
+    }
+
+    #[test]
+    fn invalid_profile_name_is_rejected_before_initialization() {
+        assert!(
+            parse_args_from(
+                ["--profile", "a/b", "--init"].map(String::from).into_iter(),
+                || DEFAULT_PROFILE.into()
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn forced_init_copy_can_share_its_source_inode() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("input");
+        let dst = dir.path().join("output");
+        fs::write(&src, "profile").unwrap();
+        fs::hard_link(&src, &dst).unwrap();
+        assert!(copy_file(&src, &dst, true).unwrap());
+        assert_eq!(fs::read(&src).unwrap(), b"profile");
+        assert_eq!(fs::read(&dst).unwrap(), b"profile");
     }
 }

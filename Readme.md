@@ -117,7 +117,7 @@ Common `streamrs` flags:
 
 ### Actions
 
-Each key can either launch a command or trigger a keyboard shortcut.
+Each key can either launch a command or trigger a keyboard shortcut. Quote arguments that contain spaces. Launch actions execute the program directly, so variables and shell operators are passed literally.
 
 Example command action:
 

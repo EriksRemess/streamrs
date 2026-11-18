@@ -5,8 +5,7 @@ fn icon_display_name(name: &str) -> String {
         .file_stem()
         .and_then(|stem| stem.to_str())
         .unwrap_or(name)
-        .replace('-', " ")
-        .replace('_', " ")
+        .replace(['-', '_'], " ")
 }
 
 fn icon_dropdown_items(icon_names: &[String]) -> Vec<String> {

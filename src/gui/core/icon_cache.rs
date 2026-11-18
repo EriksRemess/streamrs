@@ -1,7 +1,22 @@
 use super::*;
 
 pub(crate) fn rounded_icons_dir() -> PathBuf {
-    env::temp_dir().join("streamrs-gui-rounded-icons")
+    #[cfg(not(test))]
+    {
+        gtk::glib::user_cache_dir().join("streamrs").join("images")
+    }
+    #[cfg(test)]
+    {
+        thread_local! { static DIR: tempfile::TempDir = tempfile::tempdir().unwrap(); }
+        DIR.with(|dir| dir.path().to_owned())
+    }
+}
+
+fn content_hash(value: &impl std::hash::Hash) -> u64 {
+    use std::hash::{DefaultHasher, Hasher};
+    let mut hash = DefaultHasher::new();
+    value.hash(&mut hash);
+    hash.finish()
 }
 
 const CLOCK_MISSING_BACKGROUND_SENTINEL: &str = "__streamrs-missing-clock-bg__.png";
@@ -21,12 +36,15 @@ pub(crate) fn render_clock_icon_png(
 ) -> Option<PathBuf> {
     let clock_text = current_clock_text();
     let background = background_name.unwrap_or(CLOCK_BACKGROUND_ICON);
-    let cache_key = format!("clock-{}-{}", clock_text, background);
+    let background_dir = find_readable_background_dir(image_dirs, background);
+    let background_bytes = background_dir
+        .as_ref()
+        .and_then(|dir| fs::read(dir.join(background)).ok());
+    let cache_key = format!("clock-{clock_text}-{}", content_hash(&background_bytes));
     if let Some(path) = cached_path_if_valid(&cache_key) {
         return Some(path);
     }
 
-    let background_dir = find_readable_background_dir(image_dirs, background);
     let resources_dir = background_dir.as_deref();
     let svg = render_clock_segments_svg(
         resources_dir.unwrap_or_else(|| Path::new(".")),
@@ -55,9 +73,7 @@ pub(crate) fn render_calendar_icon_png() -> Option<PathBuf> {
 fn write_calendar_live_png(mut image: RgbaImage) -> Option<PathBuf> {
     apply_rounded_corners(&mut image, 0.17);
     let path = rounded_icons_dir().join("calendar-live.png");
-    let parent = path.parent()?;
-    fs::create_dir_all(parent).ok()?;
-    image.save(&path).ok()?;
+    streamrs::image::cache_fs::save_png(&path, &image).ok()?;
     Some(path)
 }
 
@@ -79,30 +95,30 @@ pub(crate) fn render_regular_icon_png(image_dirs: &[PathBuf], icon_name: &str) -
         return None;
     }
 
-    let cache_key = format!("icon-{}", icon_name);
-    if let Some(path) = cached_path_if_valid(&cache_key) {
-        return Some(path);
-    }
-
     let requested = find_icon_file(image_dirs, icon_name)?;
+    let data = fs::read(&requested).ok()?;
     let extension = requested
         .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
 
-    let image = if extension == "svg" {
-        let data = fs::read(&requested).ok()?;
-        load_svg_image_data(
+    let (cache_key, image) = if extension == "svg" {
+        let image = load_svg_image_data(
             &requested.display().to_string(),
             &data,
             requested.parent(),
             256,
             256,
         )
-        .ok()?
+        .ok()?;
+        (format!("svg-{}", content_hash(image.as_raw())), image)
     } else {
-        image::open(&requested).ok()?.to_rgba8()
+        let cache_key = format!("icon-{}", content_hash(&data));
+        if let Some(path) = cached_path_if_valid(&cache_key) {
+            return Some(path);
+        }
+        (cache_key, image::load_from_memory(&data).ok()?.to_rgba8())
     };
 
     write_rounded_png(&cache_key, image)
@@ -146,7 +162,6 @@ mod tests {
 
     #[test]
     fn render_clock_icon_png_survives_corrupt_writable_background() {
-        let _ = fs::remove_dir_all(rounded_icons_dir());
         let root = test_temp_dir("clock-corrupt-bg");
         let writable = root.join("writable");
         let system = root.join("system");
@@ -189,7 +204,6 @@ mod tests {
 
     #[test]
     fn write_calendar_live_png_overwrites_target_file() {
-        let _ = fs::remove_dir_all(rounded_icons_dir());
         let first = RgbaImage::from_pixel(8, 8, Rgba([10, 20, 30, 255]));
         let second = RgbaImage::from_pixel(8, 8, Rgba([200, 180, 160, 255]));
 
@@ -205,5 +219,23 @@ mod tests {
             image::open(&second_path).is_ok(),
             "calendar file should remain readable"
         );
+    }
+    #[test]
+    fn replacing_an_icon_updates_its_cached_pixels() {
+        let dir = tempfile::tempdir().unwrap();
+        let name = "refresh-test.png";
+        let dirs = [dir.path().to_owned()];
+        for color in [[0, 255, 0, 255], [255, 0, 0, 255]] {
+            RgbaImage::from_pixel(8, 8, Rgba(color))
+                .save(dir.path().join(name))
+                .unwrap();
+            let cached = render_regular_icon_png(&dirs, name).unwrap();
+            assert_eq!(
+                image::open(cached).unwrap().to_rgba8().get_pixel(4, 4).0,
+                color
+            );
+        }
+        fs::remove_file(dir.path().join(name)).unwrap();
+        assert!(render_regular_icon_png(&dirs, name).is_none());
     }
 }

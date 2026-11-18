@@ -66,6 +66,10 @@ fn clock_char_width(ch: char) -> i32 {
 fn clock_background_svg(image_dir: &Path, background_name: Option<&str>) -> String {
     let selected = background_name.unwrap_or(CLOCK_BACKGROUND_ICON);
     if image_dir.join(selected).is_file() {
+        let selected = selected
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('"', "&quot;");
         format!(r##"<image href="{selected}" x="0" y="0" width="72" height="72"/>"##)
     } else {
         format!(
@@ -159,5 +163,17 @@ mod tests {
         let svg = render_clock_segments_svg(&dir, "12:34", Some("missing.png"));
         assert!(svg.contains(CLOCK_FALLBACK_BACKGROUND_COLOR));
         assert!(!svg.contains(r#"href="missing.png""#));
+    }
+    #[test]
+    fn background_filename_with_xml_characters_renders() {
+        let dir = test_temp_dir("xml");
+        let name = "blue & green.png";
+        RgbaImage::from_pixel(8, 8, Rgba([0, 255, 0, 255]))
+            .save(dir.join(name))
+            .unwrap();
+        let svg = render_clock_segments_svg(&dir, "12:34", Some(name));
+        let image =
+            crate::image::svg::load_svg_data("clock", svg.as_bytes(), Some(&dir), 72, 72).unwrap();
+        assert_eq!(image.get_pixel(0, 0).0, [0, 255, 0, 255]);
     }
 }

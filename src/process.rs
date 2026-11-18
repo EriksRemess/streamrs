@@ -1,5 +1,5 @@
 use enigo::{
-    Direction::{Click, Press, Release},
+    Direction::{Press, Release},
     Enigo, Key, Keyboard, Settings,
 };
 use gtk::{
@@ -13,10 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-#[cfg(unix)]
-use std::fs::Permissions;
 use std::io::ErrorKind;
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 use std::os::unix::fs::PermissionsExt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
@@ -44,13 +42,20 @@ static PORTAL_TOKEN_COUNTER: AtomicU64 = AtomicU64::new(1);
 static PORTAL_KEYBOARD_BACKEND: OnceLock<Mutex<Option<PortalKeyboardBackend>>> = OnceLock::new();
 
 fn spawn_argv_command(command_line: &str, debug: bool) -> Result<Option<Child>, String> {
-    let parts: Vec<&str> = command_line.split_whitespace().collect();
-    if parts.is_empty() {
+    if command_line.trim().is_empty() {
         return Ok(None);
     }
 
-    let mut cmd = Command::new(parts[0]);
-    cmd.args(&parts[1..]).stdin(Stdio::null());
+    if command_line.contains('\0') {
+        return Err("Command contains a NUL byte".into());
+    }
+    let parts = glib::shell_parse_argv(command_line)
+        .map_err(|err| format!("Invalid command '{command_line}': {err}"))?;
+    let (program, args) = parts
+        .split_first()
+        .ok_or_else(|| "Missing command name".to_owned())?;
+    let mut cmd = Command::new(program);
+    cmd.args(args).stdin(Stdio::null());
 
     if debug {
         cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -211,6 +216,10 @@ impl PortalKeyboardBackend {
                     .map_err(|err| format!("Portal returned invalid session_handle: {err}"))
             })?;
 
+        let backend = Self {
+            proxy,
+            session_path,
+        };
         let select_request_token = next_portal_token("streamrs_request");
         let select_request_path = portal_request_path(&connection, &select_request_token)?;
         let mut select_options = portal_options(&[
@@ -228,10 +237,11 @@ impl PortalKeyboardBackend {
         }
 
         wait_for_portal_response(&connection, &select_request_path, || {
-            proxy
+            backend
+                .proxy
                 .call_sync(
                     "SelectDevices",
-                    Some(&(session_path.clone(), select_options.clone()).to_variant()),
+                    Some(&(backend.session_path.clone(), select_options.clone()).to_variant()),
                     gio::DBusCallFlags::NONE,
                     -1,
                     gio::Cancellable::NONE,
@@ -245,11 +255,16 @@ impl PortalKeyboardBackend {
         let start_options = portal_options(&[("handle_token", start_request_token.to_variant())]);
 
         let start_results = wait_for_portal_response(&connection, &start_request_path, || {
-            proxy
+            backend
+                .proxy
                 .call_sync(
                     "Start",
                     Some(
-                        &(session_path.clone(), EMPTY_WINDOW_ID, start_options.clone())
+                        &(
+                            backend.session_path.clone(),
+                            EMPTY_WINDOW_ID,
+                            start_options.clone(),
+                        )
                             .to_variant(),
                     ),
                     gio::DBusCallFlags::NONE,
@@ -270,26 +285,11 @@ impl PortalKeyboardBackend {
             }
         }
 
-        Ok(Self {
-            proxy,
-            session_path,
-        })
+        Ok(backend)
     }
 
-    fn send_shortcut(&self, parsed: &ParsedShortcut) -> Result<(), String> {
-        for key in &parsed.modifiers {
-            self.notify_key(*key, PORTAL_KEY_PRESSED)?;
-        }
-
-        let trigger_result = self
-            .notify_key(parsed.trigger, PORTAL_KEY_PRESSED)
-            .and_then(|_| self.notify_key(parsed.trigger, PORTAL_KEY_RELEASED));
-
-        for key in parsed.modifiers.iter().rev() {
-            let _ = self.notify_key(*key, PORTAL_KEY_RELEASED);
-        }
-
-        trigger_result
+    fn send_shortcut(&self, parsed: &ParsedShortcut) -> Result<(), ShortcutFailure> {
+        dispatch_key_sequence(parsed, |key, state| self.notify_key(key, state))
     }
 
     fn notify_key(&self, key: ShortcutKey, state: u32) -> Result<(), String> {
@@ -308,6 +308,49 @@ impl PortalKeyboardBackend {
             .map(|_| ())
             .map_err(|err| format!("RemoteDesktop NotifyKeyboardKeysym failed: {err}"))
     }
+}
+
+#[derive(Debug)]
+enum ShortcutFailure {
+    BeforeTrigger(String),
+    AfterTrigger(String),
+}
+
+impl From<String> for ShortcutFailure {
+    fn from(message: String) -> Self {
+        Self::BeforeTrigger(message)
+    }
+}
+
+fn dispatch_key_sequence(
+    parsed: &ParsedShortcut,
+    mut notify: impl FnMut(ShortcutKey, u32) -> Result<(), String>,
+) -> Result<(), ShortcutFailure> {
+    let mut held = Vec::with_capacity(parsed.modifiers.len() + 1);
+    let mut result = Ok(());
+    for &key in parsed
+        .modifiers
+        .iter()
+        .chain(std::iter::once(&parsed.trigger))
+    {
+        result = notify(key, PORTAL_KEY_PRESSED);
+        if result.is_err() {
+            break;
+        }
+        held.push(key);
+    }
+    let trigger_pressed = result.is_ok();
+    for key in held.into_iter().rev() {
+        let released = notify(key, PORTAL_KEY_RELEASED);
+        result = result.and(released);
+    }
+    result.map_err(|err| {
+        if trigger_pressed {
+            ShortcutFailure::AfterTrigger(err)
+        } else {
+            ShortcutFailure::BeforeTrigger(err)
+        }
+    })
 }
 
 impl Drop for PortalKeyboardBackend {
@@ -337,7 +380,8 @@ pub fn send_keyboard_shortcut(shortcut: &str) -> Result<(), String> {
                 eprintln!("Keyboard shortcut '{shortcut}' dispatched");
                 return Ok(());
             }
-            Err(err) => {
+            Err(ShortcutFailure::AfterTrigger(err)) => return Err(err),
+            Err(ShortcutFailure::BeforeTrigger(err)) => {
                 eprintln!("Portal keyboard backend failed: {err}");
                 portal_error = Some(err);
             }
@@ -467,7 +511,7 @@ fn should_try_portal_keyboard() -> bool {
         && env::var_os("WAYLAND_DISPLAY").is_some()
 }
 
-fn send_keyboard_shortcut_via_portal(parsed: &ParsedShortcut) -> Result<(), String> {
+fn send_keyboard_shortcut_via_portal(parsed: &ParsedShortcut) -> Result<(), ShortcutFailure> {
     let cache = PORTAL_KEYBOARD_BACKEND.get_or_init(|| Mutex::new(None));
     let mut guard = cache
         .lock()
@@ -497,36 +541,24 @@ fn send_keyboard_shortcut_with_enigo(
         let mut enigo = Enigo::new(&Settings::default())
             .map_err(|err| format!("Failed to initialize keyboard input backend: {err}"))?;
 
-        for key in &parsed.modifiers {
+        dispatch_key_sequence(parsed, |key, state| {
+            let key = shortcut_key_to_enigo(key).ok_or_else(|| {
+                format!("Keyboard shortcut key '{key:?}' is not supported by the fallback backend")
+            })?;
             enigo
                 .key(
-                    shortcut_key_to_enigo(*key).ok_or_else(|| {
-                        format!(
-                            "Keyboard shortcut key '{key:?}' is not supported by the fallback backend"
-                        )
-                    })?,
-                    Press,
+                    key,
+                    if state == PORTAL_KEY_PRESSED {
+                        Press
+                    } else {
+                        Release
+                    },
                 )
-                .map_err(|err| format!("Failed to press modifier for '{shortcut}': {err}"))?;
-        }
-
-        let trigger = shortcut_key_to_enigo(parsed.trigger).ok_or_else(|| {
-            format!(
-                "Keyboard shortcut key '{:?}' is not supported by the fallback backend",
-                parsed.trigger
-            )
-        })?;
-        let trigger_result = enigo
-            .key(trigger, Click)
-            .map_err(|err| format!("Failed to send keyboard shortcut '{shortcut}': {err}"));
-
-        for key in parsed.modifiers.iter().rev() {
-            if let Some(key) = shortcut_key_to_enigo(*key) {
-                let _ = enigo.key(key, Release);
-            }
-        }
-
-        trigger_result
+                .map_err(|err| format!("Failed to send keyboard shortcut '{shortcut}': {err}"))
+        })
+        .map_err(|err| match err {
+            ShortcutFailure::BeforeTrigger(msg) | ShortcutFailure::AfterTrigger(msg) => msg,
+        })
     }))
     .map_err(|_| format!("Keyboard input backend panicked while sending shortcut '{shortcut}'"))?
 }
@@ -694,17 +726,7 @@ fn load_streamrs_state() -> Result<StreamrsState, String> {
 
 fn save_streamrs_state(state: &StreamrsState) -> Result<(), String> {
     let path = streamrs_state_path();
-    crate::config::toml::save_to_file_pretty(&path, state)?;
-
-    #[cfg(unix)]
-    fs::set_permissions(&path, Permissions::from_mode(0o600)).map_err(|err| {
-        format!(
-            "Failed to secure streamrs state file '{}': {err}",
-            path.display()
-        )
-    })?;
-
-    Ok(())
+    crate::config::toml::save_private_pretty(&path, state)
 }
 
 fn load_portal_restore_token() -> Result<Option<String>, String> {
@@ -753,7 +775,7 @@ fn portal_request_path(connection: &gio::DBusConnection, token: &str) -> Result<
 }
 
 fn sanitize_dbus_path_component(value: &str) -> String {
-    let value = value.strip_prefix(':').unwrap_or(value);
+    let value = value.trim_prefix(':');
     value
         .chars()
         .map(|ch| match ch {
@@ -769,6 +791,19 @@ fn portal_options(entries: &[(&str, glib::Variant)]) -> HashMap<String, glib::Va
         .iter()
         .map(|(key, value)| ((*key).to_string(), value.clone()))
         .collect()
+}
+
+fn portal_timeout(
+    context: &glib::MainContext,
+    interval: Duration,
+    mut callback: impl FnMut() + Send + 'static,
+) -> impl Drop {
+    let source = glib::timeout_source_new(interval, None, glib::Priority::DEFAULT, move || {
+        callback();
+        glib::ControlFlow::Break
+    });
+    source.attach(Some(context));
+    std::mem::DropGuard::new(source, |source| source.destroy())
 }
 
 fn wait_for_portal_response<F>(
@@ -824,7 +859,7 @@ where
             let response_for_timeout = Arc::clone(&response);
             let loop_for_timeout = main_loop.clone();
             let request_path_for_timeout = request_path.clone();
-            let timeout_id = glib::timeout_add_local_once(PORTAL_REQUEST_TIMEOUT, move || {
+            let _timeout = portal_timeout(&context, PORTAL_REQUEST_TIMEOUT, move || {
                 if let Ok(mut slot) = response_for_timeout.lock()
                     && slot.is_none()
                 {
@@ -837,7 +872,6 @@ where
 
             invoke()?;
             main_loop.run();
-            timeout_id.remove();
             drop(subscription);
 
             response
@@ -1000,5 +1034,69 @@ mod tests {
                 None
             );
         });
+    }
+    #[test]
+    fn portal_timeout_runs_on_request_context_and_cancels_on_drop() {
+        let context = glib::MainContext::new();
+        let fired = Arc::new(AtomicUsize::new(0));
+        let count = fired.clone();
+        let guard = portal_timeout(&context, Duration::ZERO, move || {
+            count.fetch_add(1, AtomicOrdering::SeqCst);
+        });
+        assert!(context.iteration(false));
+        drop(guard);
+        let guard = portal_timeout(&context, Duration::ZERO, || panic!("cancelled timer fired"));
+        drop(guard);
+        assert!(!context.iteration(false));
+        assert_eq!(fired.load(AtomicOrdering::SeqCst), 1);
+    }
+
+    #[test]
+    fn partial_shortcut_releases_pressed_modifiers() {
+        let shortcut = parse_keyboard_shortcut("Ctrl+Shift+A").unwrap();
+        let mut events = Vec::new();
+        assert!(
+            dispatch_key_sequence(&shortcut, |key, state| {
+                events.push((key, state));
+                if key == ShortcutKey::Shift {
+                    Err("failed".into())
+                } else {
+                    Ok(())
+                }
+            })
+            .is_err()
+        );
+        assert_eq!(
+            events,
+            [
+                (ShortcutKey::Control, PORTAL_KEY_PRESSED),
+                (ShortcutKey::Shift, PORTAL_KEY_PRESSED),
+                (ShortcutKey::Control, PORTAL_KEY_RELEASED)
+            ]
+        );
+    }
+
+    #[test]
+    fn launcher_preserves_quoted_arguments_without_shell_expansion() {
+        assert!(wait_argv_command_success(r#"test "two words" = 'two words'"#, false).unwrap());
+        assert!(wait_argv_command_success(r#"test "$HOME" = '$HOME'"#, false).unwrap());
+        assert!(wait_argv_command_success("test 'unterminated", false).is_err());
+    }
+
+    #[test]
+    fn release_failure_after_trigger_cannot_replay_the_shortcut() {
+        let shortcut = parse_keyboard_shortcut("Ctrl+A").unwrap();
+        let mut released = Vec::new();
+        let result = dispatch_key_sequence(&shortcut, |key, state| {
+            if state == PORTAL_KEY_RELEASED {
+                released.push(key);
+                if key == shortcut.trigger {
+                    return Err("release failed".into());
+                }
+            }
+            Ok(())
+        });
+        assert_eq!(released, [shortcut.trigger, ShortcutKey::Control]);
+        assert!(matches!(result, Err(ShortcutFailure::AfterTrigger(_))));
     }
 }

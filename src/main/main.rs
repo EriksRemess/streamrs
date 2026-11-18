@@ -34,11 +34,10 @@ mod stream_image;
 
 #[cfg(test)]
 use config::key_launch_action;
-#[cfg(test)]
 use config::parse_config;
 use config::{
     ConfiguredAction, is_launcher_like_command, key_clock_background, key_configured_action,
-    key_status_command, key_status_icon_off, key_status_icon_on, key_status_interval, load_config,
+    key_status_command, key_status_icon_off, key_status_icon_on, key_status_interval,
     read_config_file,
 };
 use init::{
@@ -65,17 +64,15 @@ use streamrs::config::streamrs_schema::{
     default_product_id as schema_default_product_id, default_usage as schema_default_usage,
     default_usage_page as schema_default_usage_page, default_vendor_id as schema_default_vendor_id,
 };
-use streamrs::paging::PagingLayout;
+use streamrs::paging::{NEXT_PAGE_ICON, PREVIOUS_PAGE_ICON, PagingLayout};
 use streamrs::process::{run_shell_status, send_keyboard_shortcut, wait_argv_command_success};
 use streamrs::streamdeck::{
-    KeyState, get_device, read_key_state, set_brightness, set_key_image_data,
+    InputReport, KeyState, get_device, read_input_report, set_brightness, set_key_image_data,
 };
 
 const KEY_COUNT: usize = streamrs::paging::STREAMDECK_KEY_COUNT;
 const MAX_KEYS_PER_PAGE: usize = KEY_COUNT;
 const MIN_KEYS_PER_PAGE: usize = streamrs::paging::MIN_KEYS_PER_PAGE;
-const NEXT_PAGE_ICON: &str = "stream-deck-next-page.png";
-const PREVIOUS_PAGE_ICON: &str = "stream-deck-previous-page.png";
 const SVG_RENDER_SIZE: u32 = 256;
 const MIN_GIF_FRAME_DELAY_MS: u64 = 66;
 const DEFAULT_STATUS_CHECK_INTERVAL_SECONDS: u64 = 1;
@@ -147,13 +144,92 @@ struct StatusKeyState {
     current_on: Option<bool>,
 }
 
+impl StatusKeyState {
+    fn poll(&mut self, now: Instant, cache: &mut StatusCache) -> Option<bool> {
+        if now < self.next_check_at {
+            return None;
+        }
+        self.next_check_at = now + self.check_interval;
+        match run_status_check(&self.command) {
+            Ok(is_on) => {
+                cache.insert(self.command.clone(), is_on);
+                Some(is_on)
+            }
+            Err(err) => {
+                eprintln!("{err}");
+                None
+            }
+        }
+    }
+
+    fn icon(&self, is_on: bool) -> &str {
+        if is_on { &self.icon_on } else { &self.icon_off }
+    }
+
+    fn display(
+        &mut self,
+        is_on: bool,
+        upload: impl FnOnce(&str, Option<&str>) -> Result<(), String>,
+    ) -> Result<(), String> {
+        if self.current_on != Some(is_on) {
+            self.current_on = None;
+            upload(self.icon(is_on), self.clock_background.as_deref())?;
+            self.current_on = Some(is_on);
+        }
+        Ok(())
+    }
+}
+
+impl AnimatedKeyState {
+    fn advance(
+        &mut self,
+        now: Instant,
+        upload: impl FnOnce(&[u8]) -> Result<(), String>,
+    ) -> Result<(), String> {
+        let next = (self.current_frame + 1) % self.frames.len();
+        self.next_frame_at = now + self.delays[next];
+        upload(&self.frames[next])?;
+        self.current_frame = next;
+        Ok(())
+    }
+}
+
+impl CalendarKeyState {
+    fn refresh(
+        &mut self,
+        now: Instant,
+        today: String,
+        upload: impl FnOnce() -> Result<(), String>,
+    ) -> Result<(), String> {
+        if today != self.current_key {
+            if let Err(err) = upload() {
+                self.next_update_at = now + Duration::from_secs(1);
+                return Err(err);
+            }
+            self.current_key = today;
+        }
+        self.next_update_at = next_midnight_instant();
+        Ok(())
+    }
+}
+
 enum DynamicKeyState {
     Animated(AnimatedKeyState),
     Clock(ClockKeyState),
     Calendar(CalendarKeyState),
 }
 
+struct PendingKeyImage {
+    key: usize,
+    icon: Option<(String, Option<String>)>,
+    action: Option<ButtonAction>,
+    status: Option<StatusKeyState>,
+}
+
 struct PageState {
+    pending_images: Vec<PendingKeyImage>,
+    retry_images_at: Instant,
+    awaiting_input_drain: [bool; KEY_COUNT],
     button_actions: [Option<ButtonAction>; KEY_COUNT],
     dynamic_states: [Option<DynamicKeyState>; KEY_COUNT],
     status_states: [Option<StatusKeyState>; KEY_COUNT],
@@ -165,12 +241,97 @@ impl PageState {
     fn new() -> Self {
         let (refresh_tx, refresh_rx) = mpsc::channel();
         Self {
+            pending_images: Vec::new(),
+            retry_images_at: Instant::now(),
+            awaiting_input_drain: [false; KEY_COUNT],
             button_actions: Default::default(),
             dynamic_states: Default::default(),
             status_states: Default::default(),
             refresh_tx,
             refresh_rx,
         }
+    }
+
+    fn draw_pending_images(
+        &mut self,
+        now: Instant,
+        image_dir: &Path,
+        image_cache: &mut ImageCache,
+        blank_image: &[u8],
+        mut write_image: impl FnMut(usize, &[u8]) -> Result<(), String>,
+    ) {
+        if self.pending_images.is_empty() || now < self.retry_images_at {
+            return;
+        }
+
+        self.pending_images.retain_mut(|pending| {
+            let key = pending.key;
+            let loaded = pending.icon.as_ref().and_then(|(icon, background)| {
+                match load_key_image_cached(image_dir, image_cache, icon, background.as_deref()) {
+                    Ok(image) => Some(image),
+                    Err(err) => {
+                        eprintln!("{err}");
+                        if let Some(status) = &mut pending.status {
+                            status.current_on = None;
+                            status.next_check_at = now;
+                        }
+                        None
+                    }
+                }
+            });
+            let result = match loaded {
+                Some(image) => {
+                    apply_loaded_key_image(&mut self.dynamic_states[key], image, |data| {
+                        write_image(key, data)
+                    })
+                }
+                None => write_image(key, blank_image),
+            };
+            if let Err(err) = result {
+                eprintln!("{err}");
+                return true;
+            }
+            self.awaiting_input_drain[key] = pending.action.is_some();
+            self.button_actions[key] = pending.action.take();
+            self.status_states[key] = pending.status.take();
+            false
+        });
+        self.retry_images_at = now + Duration::from_secs(1);
+    }
+
+    fn process_input(
+        &mut self,
+        keys: &mut KeyState,
+        mut read: impl FnMut(i32) -> Result<InputReport, String>,
+        mut dispatch: impl FnMut(&mut Self, Vec<(usize, ButtonAction)>),
+    ) -> Result<(), String> {
+        // Drain queued presses on old icons without waiting for new input.
+        let draining = self.awaiting_input_drain.contains(&true);
+        let timeout_ms = if draining { 0 } else { 10 };
+        // Bound work per tick even if the device continuously produces reports.
+        for _ in 0..32 {
+            match read(timeout_ms)? {
+                InputReport::Empty => {
+                    self.awaiting_input_drain.fill(false);
+                    break;
+                }
+                InputReport::Ignored => {}
+                InputReport::Keys(report) => {
+                    let actions: Vec<_> = keys
+                        .new_presses(Some(report))
+                        .filter(|&key| !self.awaiting_input_drain[key])
+                        .filter_map(|key| Some((key, self.button_actions[key].clone()?)))
+                        .collect();
+                    if !actions.is_empty() {
+                        dispatch(self, actions);
+                    }
+                }
+            }
+            if !self.awaiting_input_drain.contains(&true) {
+                break;
+            }
+        }
+        Ok(())
     }
 
     fn apply_pending_refreshes(&mut self) {
@@ -269,20 +430,19 @@ fn paging_layout(config: &Config) -> PagingLayout {
 }
 
 fn apply_loaded_key_image(
-    device: &HidDevice,
-    state: &mut PageState,
-    key_index: usize,
+    dynamic_state: &mut Option<DynamicKeyState>,
     loaded: LoadedKeyImage,
+    upload: impl FnOnce(&[u8]) -> Result<(), String>,
 ) -> Result<(), String> {
     match loaded {
         LoadedKeyImage::Static(data) => {
-            set_key_image_data(device, key_index as u8, &data)?;
-            state.dynamic_states[key_index] = None;
+            upload(&data)?;
+            *dynamic_state = None;
         }
         LoadedKeyImage::Animated { frames, delays } => {
-            set_key_image_data(device, key_index as u8, &frames[0])?;
+            upload(&frames[0])?;
             let initial_delay = delays[0];
-            state.dynamic_states[key_index] = Some(DynamicKeyState::Animated(AnimatedKeyState {
+            *dynamic_state = Some(DynamicKeyState::Animated(AnimatedKeyState {
                 frames,
                 delays,
                 current_frame: 0,
@@ -294,16 +454,16 @@ fn apply_loaded_key_image(
             current_text,
             background_name,
         } => {
-            set_key_image_data(device, key_index as u8, &image)?;
-            state.dynamic_states[key_index] = Some(DynamicKeyState::Clock(ClockKeyState {
+            upload(&image)?;
+            *dynamic_state = Some(DynamicKeyState::Clock(ClockKeyState {
                 current_text,
                 background_name,
                 next_update_at: Instant::now() + Duration::from_secs(1),
             }));
         }
         LoadedKeyImage::Calendar { image, current_key } => {
-            set_key_image_data(device, key_index as u8, &image)?;
-            state.dynamic_states[key_index] = Some(DynamicKeyState::Calendar(CalendarKeyState {
+            upload(&image)?;
+            *dynamic_state = Some(DynamicKeyState::Calendar(CalendarKeyState {
                 current_key,
                 next_update_at: next_midnight_instant(),
             }));
@@ -389,21 +549,26 @@ fn apply_icon_to_key(
     device: &HidDevice,
     image_dir: &Path,
     image_cache: &mut ImageCache,
-    state: &mut PageState,
+    dynamic_state: &mut Option<DynamicKeyState>,
     key_index: usize,
     icon: &str,
     clock_background: Option<&str>,
 ) -> Result<(), String> {
     let loaded = load_key_image_cached(image_dir, image_cache, icon, clock_background)?;
-    apply_loaded_key_image(device, state, key_index, loaded)
+    apply_loaded_key_image(dynamic_state, loaded, |data| {
+        set_key_image_data(device, key_index as u8, data)
+    })
 }
 
 fn page_count(config: &Config) -> usize {
     paging_layout(config).page_count(config.keys.len())
 }
 
-fn load_profile_config(profile: &str, config_path: &Path) -> Result<Config, String> {
-    load_config(config_path, profile)
+fn load_profile_config(profile: &str, config_path: &Path, raw: &str) -> Result<Config, String> {
+    if profile == BLANK_PROFILE {
+        return Ok(blank_profile_config());
+    }
+    parse_config(config_path, raw)
 }
 
 fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) -> PageLayoutPlan {
@@ -518,17 +683,9 @@ fn plan_page_layout(config: &Config, status_cache: &StatusCache, page: usize) ->
     }
 }
 
-fn set_page(
-    device: &HidDevice,
-    config: &Config,
-    image_dir: &Path,
-    image_cache: &mut ImageCache,
-    status_cache: &StatusCache,
-    page: usize,
-    blank_image: &[u8],
-) -> PageState {
+fn prepare_page(config: &Config, status_cache: &StatusCache, page: usize) -> PageState {
     let mut state = PageState::new();
-    let plan = plan_page_layout(config, status_cache, page);
+    let mut plan = plan_page_layout(config, status_cache, page);
 
     for warning in &plan.warnings {
         match warning {
@@ -546,48 +703,27 @@ fn set_page(
         }
     }
 
-    state.button_actions = plan.button_actions.clone();
-
-    for key in 0..KEY_COUNT {
-        if let Some((ref icon, ref clock_background)) = plan.icons[key]
-            && let Err(err) = apply_icon_to_key(
-                device,
-                image_dir,
-                image_cache,
-                &mut state,
-                key,
-                icon,
-                clock_background.as_deref(),
-            )
-        {
-            eprintln!("{err}");
+    state.pending_images = Vec::from_fn(KEY_COUNT, |key| {
+        let status = plan.status_slots[key].take().map(|status| StatusKeyState {
+            command: status.command,
+            icon_on: status.icon_on,
+            icon_off: status.icon_off,
+            clock_background: status.clock_background,
+            check_interval: status.check_interval,
+            next_check_at: if status.poll_now {
+                Instant::now()
+            } else {
+                Instant::now() + status.check_interval
+            },
+            current_on: status.current_on,
+        });
+        PendingKeyImage {
+            key,
+            icon: plan.icons[key].take(),
+            action: plan.button_actions[key].take(),
+            status,
         }
-
-        if let Some(status) = &plan.status_slots[key] {
-            state.status_states[key] = Some(StatusKeyState {
-                command: status.command.clone(),
-                icon_on: status.icon_on.clone(),
-                icon_off: status.icon_off.clone(),
-                clock_background: status.clock_background.clone(),
-                check_interval: status.check_interval,
-                next_check_at: if status.poll_now {
-                    Instant::now()
-                } else {
-                    Instant::now() + status.check_interval
-                },
-                current_on: status.current_on,
-            });
-        }
-    }
-
-    for (key, icon) in plan.icons.iter().enumerate() {
-        if icon.is_some() {
-            continue;
-        }
-        if let Err(err) = set_key_image_data(device, key as u8, blank_image) {
-            eprintln!("{err}");
-        }
-    }
+    });
 
     state
 }
@@ -600,54 +736,34 @@ fn advance_dynamic_keys(
     state: &mut PageState,
 ) {
     let now = Instant::now();
-    for key in 0..KEY_COUNT {
-        let check = match state.status_states[key].as_ref() {
-            Some(status) if now >= status.next_check_at => Some((
-                status.command.clone(),
-                status.icon_on.clone(),
-                status.icon_off.clone(),
-                status.clock_background.clone(),
-                status.current_on,
-                status.check_interval,
-            )),
-            _ => None,
-        };
-
-        if let Some((command, icon_on, icon_off, clock_background, current_on, check_interval)) =
-            check
+    for pending in &mut state.pending_images {
+        if let Some(status) = &mut pending.status
+            && let Some(is_on) = status.poll(now, status_cache)
         {
-            let new_state = match run_status_check(&command) {
-                Ok(is_on) => Some(is_on),
-                Err(err) => {
-                    eprintln!("{err}");
-                    None
-                }
-            };
+            pending.icon = Some((
+                status.icon(is_on).to_owned(),
+                status.clock_background.clone(),
+            ));
+            status.current_on = Some(is_on);
+        }
+    }
 
-            if let Some(is_on) = new_state
-                && current_on != Some(is_on)
-            {
-                let icon = if is_on { &icon_on } else { &icon_off };
-                if let Err(err) = apply_icon_to_key(
+    for (key, slot) in state.status_states.iter_mut().enumerate() {
+        let Some(status) = slot else { continue };
+        if let Some(is_on) = status.poll(now, status_cache)
+            && let Err(err) = status.display(is_on, |icon, background| {
+                apply_icon_to_key(
                     device,
                     image_dir,
                     image_cache,
-                    state,
+                    &mut state.dynamic_states[key],
                     key,
                     icon,
-                    clock_background.as_deref(),
-                ) {
-                    eprintln!("{err}");
-                }
-            }
-
-            if let Some(status) = state.status_states[key].as_mut() {
-                if let Some(is_on) = new_state {
-                    status_cache.insert(status.command.clone(), is_on);
-                    status.current_on = Some(is_on);
-                }
-                status.next_check_at = now + check_interval;
-            }
+                    background,
+                )
+            })
+        {
+            eprintln!("{err}");
         }
     }
 
@@ -659,17 +775,11 @@ fn advance_dynamic_keys(
                         continue;
                     }
 
-                    animation.current_frame =
-                        (animation.current_frame + 1) % animation.frames.len();
-                    if let Err(err) = set_key_image_data(
-                        device,
-                        key as u8,
-                        &animation.frames[animation.current_frame],
-                    ) {
+                    if let Err(err) =
+                        animation.advance(now, |frame| set_key_image_data(device, key as u8, frame))
+                    {
                         eprintln!("{err}");
-                        continue;
                     }
-                    animation.next_frame_at = now + animation.delays[animation.current_frame];
                 }
                 DynamicKeyState::Clock(clock) => {
                     if now < clock.next_update_at {
@@ -700,20 +810,12 @@ fn advance_dynamic_keys(
                         continue;
                     }
 
-                    let next_key = current_calendar_key();
-                    if next_key != calendar.current_key {
-                        match render_calendar_icon() {
-                            Ok(image) => {
-                                if let Err(err) = set_key_image_data(device, key as u8, &image) {
-                                    eprintln!("{err}");
-                                } else {
-                                    calendar.current_key = next_key;
-                                }
-                            }
-                            Err(err) => eprintln!("{err}"),
-                        }
+                    if let Err(err) = calendar.refresh(now, current_calendar_key(), || {
+                        let image = render_calendar_icon()?;
+                        set_key_image_data(device, key as u8, &image)
+                    }) {
+                        eprintln!("{err}");
                     }
-                    calendar.next_update_at = next_midnight_instant();
                 }
             }
         }
@@ -727,7 +829,7 @@ pub(crate) fn run() {
         Err(err) => {
             eprintln!("{err}");
             print_usage(&program);
-            return;
+            std::process::exit(2);
         }
     };
     install_reload_signal_handler();
@@ -778,7 +880,7 @@ pub(crate) fn run() {
 
     match ensure_profile_initialized(&profile, &config_path, &image_dir) {
         Ok(()) => match read_config_file(&config_path) {
-            Ok(raw) => match load_profile_config(&profile, &config_path) {
+            Ok(raw) => match load_profile_config(&profile, &config_path, &raw) {
                 Ok(parsed) => {
                     config_raw = raw;
                     config = parsed;
@@ -841,15 +943,7 @@ pub(crate) fn run() {
                 }
                 total_pages = page_count(&config);
                 current_page = min(current_page, total_pages.saturating_sub(1));
-                page_state = Some(set_page(
-                    &connected_device,
-                    &config,
-                    &image_dir,
-                    &mut image_cache,
-                    &status_cache,
-                    current_page,
-                    &blank_image,
-                ));
+                page_state = Some(prepare_page(&config, &status_cache, current_page));
                 key_state = KeyState::default();
                 waiting_for_device_logged = false;
                 device = Some(connected_device);
@@ -859,28 +953,18 @@ pub(crate) fn run() {
         let mut disconnected = false;
         let mut reload_due_to_device_issue = false;
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
-            page_state_ref.apply_pending_refreshes();
-
-            advance_dynamic_keys(
-                device_ref,
+            page_state_ref.draw_pending_images(
+                Instant::now(),
                 &image_dir,
                 &mut image_cache,
-                &mut status_cache,
-                page_state_ref,
+                &blank_image,
+                |key, data| set_key_image_data(device_ref, key as u8, data),
             );
-
-            match read_key_state(device_ref, 10) {
-                Ok(None) => {}
-                Ok(Some(report)) => {
+            let input = page_state_ref.process_input(
+                &mut key_state,
+                |timeout| read_input_report(device_ref, timeout),
+                |page_state_ref, actions| {
                     let refresh_tx = page_state_ref.refresh_tx.clone();
-                    // Resolve simultaneous presses against the page that was visible at the time.
-                    let actions: Vec<_> = key_state
-                        .new_presses(Some(report))
-                        .filter_map(|index| {
-                            let action = page_state_ref.button_actions[index].clone()?;
-                            Some((index, action))
-                        })
-                        .collect();
                     for (index, action) in actions {
                         match action {
                             ButtonAction::Launch(action) => {
@@ -896,43 +980,39 @@ pub(crate) fn run() {
                             ButtonAction::PreviousPage => {
                                 if current_page > 0 {
                                     current_page -= 1;
-                                    *page_state_ref = set_page(
-                                        device_ref,
-                                        &config,
-                                        &image_dir,
-                                        &mut image_cache,
-                                        &status_cache,
-                                        current_page,
-                                        &blank_image,
-                                    );
+                                    *page_state_ref =
+                                        prepare_page(&config, &status_cache, current_page);
                                 }
                             }
                             ButtonAction::NextPage => {
                                 if current_page + 1 < total_pages {
                                     current_page += 1;
-                                    *page_state_ref = set_page(
-                                        device_ref,
-                                        &config,
-                                        &image_dir,
-                                        &mut image_cache,
-                                        &status_cache,
-                                        current_page,
-                                        &blank_image,
-                                    );
+                                    *page_state_ref =
+                                        prepare_page(&config, &status_cache, current_page);
                                 }
                             }
                         }
                     }
+                },
+            );
+            if let Err(err) = input {
+                if err.to_ascii_lowercase().contains("device disconnected") {
+                    eprintln!("Lost Stream Deck connection while reading button state");
+                } else {
+                    eprintln!("{err}");
                 }
-                Err(err) => {
-                    if err.to_ascii_lowercase().contains("device disconnected") {
-                        eprintln!("Lost Stream Deck connection while reading button state");
-                    } else {
-                        eprintln!("{err}");
-                    }
-                    disconnected = true;
-                    reload_due_to_device_issue = true;
-                }
+                disconnected = true;
+                reload_due_to_device_issue = true;
+            } else {
+                page_state_ref.apply_pending_refreshes();
+
+                advance_dynamic_keys(
+                    device_ref,
+                    &image_dir,
+                    &mut image_cache,
+                    &mut status_cache,
+                    page_state_ref,
+                );
             }
         }
 
@@ -1000,7 +1080,7 @@ pub(crate) fn run() {
                     let profile_switched = reload_path != config_path;
                     let should_parse = signal_requested || profile_switched || raw != config_raw;
                     if should_parse {
-                        match load_profile_config(&reload_profile, &reload_path) {
+                        match load_profile_config(&reload_profile, &reload_path, &raw) {
                             Ok(new_config) => {
                                 if (
                                     new_config.vendor_id,
@@ -1037,14 +1117,10 @@ pub(crate) fn run() {
                                         eprintln!("{err}");
                                     }
 
-                                    page_state = Some(set_page(
-                                        device_ref,
+                                    page_state = Some(prepare_page(
                                         &new_config,
-                                        &reload_image_dir,
-                                        &mut image_cache,
                                         &status_cache,
                                         current_page,
-                                        &blank_image,
                                     ));
                                 }
 

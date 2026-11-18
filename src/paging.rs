@@ -1,3 +1,5 @@
+pub const NEXT_PAGE_ICON: &str = "stream-deck-next-page.png";
+pub const PREVIOUS_PAGE_ICON: &str = "stream-deck-previous-page.png";
 pub const STREAMDECK_KEY_COUNT: usize = 15;
 pub const MIN_KEYS_PER_PAGE: usize = 3;
 

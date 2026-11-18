@@ -1,6 +1,30 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
+/// Publish a complete copy, optionally keeping a destination created by another writer.
+pub fn copy_file_atomically(src: &Path, dst: &Path, replace: bool) -> std::io::Result<bool> {
+    use std::{fs, io};
+    if !replace && dst.exists() {
+        return Ok(false);
+    }
+    let parent = dst
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    fs::create_dir_all(parent)?;
+    let temp = tempfile::NamedTempFile::new_in(parent)?;
+    fs::copy(src, temp.path())?;
+    if replace {
+        temp.persist(dst)?;
+    } else if let Err(err) = temp.persist_noclobber(dst) {
+        if err.error.kind() == io::ErrorKind::AlreadyExists {
+            return Ok(false);
+        }
+        return Err(err.error);
+    }
+    Ok(true)
+}
+
 pub fn home_dir() -> Result<PathBuf, String> {
     env::var_os("HOME")
         .map(PathBuf::from)

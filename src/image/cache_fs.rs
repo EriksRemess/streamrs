@@ -29,8 +29,15 @@ pub fn write_cached_png(cache_dir: &Path, cache_key: &str, image: &RgbaImage) ->
         return Some(path);
     }
 
-    let parent = path.parent()?;
-    fs::create_dir_all(parent).ok()?;
-    image.save(&path).ok()?;
+    save_png(&path, image).ok()?;
     Some(path)
+}
+
+pub fn save_png(path: &Path, image: &RgbaImage) -> image::ImageResult<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent)?;
+    let mut temp = tempfile::NamedTempFile::new_in(parent)?;
+    image.write_to(temp.as_file_mut(), image::ImageFormat::Png)?;
+    temp.persist(path).map_err(|err| err.error)?;
+    Ok(())
 }

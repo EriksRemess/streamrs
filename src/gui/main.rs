@@ -2,65 +2,37 @@ mod core;
 mod ui;
 
 pub(crate) use core::*;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{File, OpenOptions, TryLockError};
 use std::path::{Path, PathBuf};
 use ui::build_ui;
 
-struct GuiInstanceLock {
-    path: PathBuf,
-}
-
-impl Drop for GuiInstanceLock {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
-    }
-}
-
 fn gui_lock_path() -> PathBuf {
-    if let Ok(runtime_dir) = env::var("XDG_RUNTIME_DIR") {
-        PathBuf::from(runtime_dir).join("streamrs-gui.lock")
-    } else {
-        env::temp_dir().join("streamrs-gui.lock")
-    }
+    gtk::glib::user_runtime_dir().join("streamrs-gui.flock")
 }
 
-fn pid_is_running(pid: u32) -> bool {
-    Path::new(&format!("/proc/{pid}")).exists()
-}
-
-fn try_acquire_gui_lock(path: &Path) -> Result<GuiInstanceLock, String> {
-    match OpenOptions::new().write(true).create_new(true).open(path) {
-        Ok(mut file) => {
-            let pid = std::process::id();
-            file.write_all(pid.to_string().as_bytes()).map_err(|err| {
-                trf(
-                    "Failed to write GUI lock '{path}': {err}",
-                    &[
-                        ("path", path.display().to_string()),
-                        ("err", err.to_string()),
-                    ],
-                )
-            })?;
-            Ok(GuiInstanceLock {
-                path: path.to_path_buf(),
-            })
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-            let stale_pid = fs::read_to_string(path)
-                .ok()
-                .and_then(|value| value.trim().parse::<u32>().ok())
-                .filter(|pid| !pid_is_running(*pid));
-            if stale_pid.is_some() {
-                let _ = fs::remove_file(path);
-                return try_acquire_gui_lock(path);
-            }
-            Err(trf(
-                "Another streamrs-gui instance is already running (lock '{path}').",
-                &[("path", path.display().to_string())],
-            ))
-        }
-        Err(err) => Err(trf(
+fn try_acquire_gui_lock(path: &Path) -> Result<File, String> {
+    // Keep one stable inode. Closing the file releases the lock, including after a crash.
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path)
+        .map_err(|err| {
+            trf(
+                "Failed to create GUI lock '{path}': {err}",
+                &[
+                    ("path", path.display().to_string()),
+                    ("err", err.to_string()),
+                ],
+            )
+        })?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(TryLockError::WouldBlock) => Err(trf(
+            "Another streamrs-gui instance is already running (lock '{path}').",
+            &[("path", path.display().to_string())],
+        )),
+        Err(TryLockError::Error(err)) => Err(trf(
             "Failed to create GUI lock '{path}': {err}",
             &[
                 ("path", path.display().to_string()),
@@ -92,4 +64,19 @@ pub(crate) fn run() {
     app.connect_activate(build_ui);
 
     let _ = app.run_with_args(&env::args().collect::<Vec<_>>());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn abandoned_empty_lock_recovers_and_excludes_a_second_owner() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gui.flock");
+        std::fs::write(&path, "").unwrap();
+        let owner = try_acquire_gui_lock(&path).unwrap();
+        assert!(try_acquire_gui_lock(&path).is_err());
+        drop(owner);
+        drop(try_acquire_gui_lock(&path).unwrap());
+    }
 }

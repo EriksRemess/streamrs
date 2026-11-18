@@ -1,5 +1,4 @@
 use super::super::*;
-use adw::prelude::*;
 
 fn selected_profile_name(widgets: &EditorWidgets) -> Option<String> {
     let selected = widgets.profile_dropdown.selected() as usize;
@@ -194,8 +193,8 @@ pub(crate) fn wire_management_signals(
         let key_pictures_for_select = key_pictures.clone();
         let editor_syncing_for_select = editor_syncing.clone();
         widgets.profile_dropdown.connect_selected_notify(move |_| {
-            if let Some(profile) = selected_profile_name(&widgets_for_select) {
-                if let Err(err) = load_profile_into_ui(
+            if let Some(profile) = selected_profile_name(&widgets_for_select)
+                && let Err(err) = load_profile_into_ui(
                     &profile,
                     &state_for_select,
                     &current_page_for_select,
@@ -212,7 +211,6 @@ pub(crate) fn wire_management_signals(
                 ) {
                     announce_status(&widgets_for_select, &err);
                 }
-            }
         });
     }
 
@@ -680,12 +678,12 @@ pub(crate) fn wire_management_signals(
 
             button.connect_clicked(move |_| {
             let dialog = gtk::FileChooserNative::builder()
-                .title(&tr("Add icon"))
+                .title(tr("Add icon"))
                 .transient_for(&window_for_add_icon)
                 .modal(true)
                 .action(gtk::FileChooserAction::Open)
-                .accept_label(&tr("Add"))
-                .cancel_label(&tr("Cancel"))
+                .accept_label(tr("Add"))
+                .cancel_label(tr("Cancel"))
                 .build();
             let filter = gtk::FileFilter::new();
             filter.set_name(Some(&tr("Images")));

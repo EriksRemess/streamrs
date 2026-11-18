@@ -31,13 +31,6 @@ fn validate_config(path: &Path, config: &Config) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn load_config(path: &Path, profile: &str) -> Result<Config, String> {
-    let config = streamrs::config::streamrs_profile::load_config_for_profile(path, profile)?;
-    validate_config(path, &config)?;
-    Ok(config)
-}
-
-#[cfg(test)]
 pub(crate) fn parse_config(path: &Path, raw: &str) -> Result<Config, String> {
     let config: Config = streamrs::config::toml::parse_from_str(path, raw)?;
     validate_config(path, &config)?;

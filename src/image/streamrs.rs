@@ -36,8 +36,13 @@ fn encode_streamdeck_image(img: DynamicImage) -> Result<Vec<u8>, String> {
     let crop_size = min(width, height);
     let x_offset = (width - crop_size) / 2;
     let y_offset = (height - crop_size) / 2;
-    let mut img = crop_imm(&img, x_offset, y_offset, crop_size, crop_size).to_image();
-    img = resize(&rotate180(&img), 72, 72, Lanczos3);
+    let cropped = crop_imm(&img, x_offset, y_offset, crop_size, crop_size);
+    // JPEG has no alpha channel. Composite on the black key before resampling.
+    let rgb = RgbImage::from_fn(crop_size, crop_size, |x, y| {
+        let [r, g, b, a] = cropped.get_pixel(x, y).0;
+        image::Rgb([r, g, b].map(|c| ((u16::from(c) * u16::from(a) + 127) / 255) as u8))
+    });
+    let img = resize(&rotate180(&rgb), 72, 72, Lanczos3);
 
     let mut data = Vec::new();
     JpegEncoder::new_with_quality(&mut data, 100)

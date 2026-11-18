@@ -286,7 +286,7 @@ pub(crate) fn relayout_deck(
 }
 
 pub(crate) fn deck_background_temp_path() -> PathBuf {
-    env::temp_dir().join("streamrs-gui-deck-background.png")
+    rounded_icons_dir().join("deck-background.png")
 }
 
 pub(crate) fn write_deck_background_png(
@@ -313,7 +313,7 @@ pub(crate) fn write_deck_background_png(
     .ok()?;
 
     let output_path = deck_background_temp_path();
-    if rendered.save(&output_path).is_ok() {
+    if streamrs::image::cache_fs::save_png(&output_path, &rendered).is_ok() {
         Some(output_path)
     } else {
         None

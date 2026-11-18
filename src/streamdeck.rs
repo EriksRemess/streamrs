@@ -1,5 +1,5 @@
 use crate::paging::STREAMDECK_KEY_COUNT;
-use hidapi::{HidApi, HidDevice};
+use hidapi::{HidApi, HidDevice, HidResult};
 use std::cmp::min;
 
 pub fn get_device(
@@ -66,10 +66,26 @@ impl KeyState {
     }
 }
 
-pub fn read_key_state(device: &HidDevice, timeout_ms: i32) -> Result<Option<KeyState>, String> {
+pub enum InputReport {
+    Empty,
+    Ignored,
+    Keys(KeyState),
+}
+
+impl InputReport {
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        match KeyState::from_report(bytes) {
+            Some(keys) => Self::Keys(keys),
+            None => Self::Ignored,
+        }
+    }
+}
+
+pub fn read_input_report(device: &HidDevice, timeout_ms: i32) -> Result<InputReport, String> {
     let mut buf = [0u8; 32];
     match device.read_timeout(&mut buf, timeout_ms) {
-        Ok(size) => Ok(KeyState::from_report(&buf[..size])),
+        Ok(0) => Ok(InputReport::Empty),
+        Ok(size) => Ok(InputReport::from_bytes(&buf[..size])),
         Err(err) => {
             // SIGHUP used for config reload can interrupt a blocking HID read.
             // Treat EINTR as a transient event and keep the existing device session.
@@ -78,12 +94,19 @@ pub fn read_key_state(device: &HidDevice, timeout_ms: i32) -> Result<Option<KeyS
                 .to_ascii_lowercase()
                 .contains("interrupted system call")
             {
-                Ok(None)
+                Ok(InputReport::Ignored)
             } else {
                 Err(format!("Failed to read button state: {err}"))
             }
         }
     }
+}
+
+pub fn read_key_state(device: &HidDevice, timeout_ms: i32) -> Result<Option<KeyState>, String> {
+    Ok(match read_input_report(device, timeout_ms)? {
+        InputReport::Keys(keys) => Some(keys),
+        InputReport::Empty | InputReport::Ignored => None,
+    })
 }
 
 pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>, String> {
@@ -92,6 +115,17 @@ pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>,
 }
 
 pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<(), String> {
+    write_key_image(key, data, |report| device.write(report))
+}
+
+fn write_key_image(
+    key: u8,
+    data: &[u8],
+    mut write_report: impl FnMut(&[u8]) -> HidResult<usize>,
+) -> Result<(), String> {
+    if data.is_empty() {
+        return Err(format!("Cannot upload an empty image to button {key}"));
+    }
     let mut page_number = 0;
     let mut bytes_remaining = data.len();
     while bytes_remaining > 0 {
@@ -112,9 +146,14 @@ pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<()
         payload.extend_from_slice(&header);
         payload.extend_from_slice(&data[bytes_sent..bytes_sent + this_length]);
         payload.resize(1024, 0);
-        device
-            .write(&payload)
+        let written = write_report(&payload)
             .map_err(|err| format!("Failed to write image to button {key}: {err}"))?;
+        if written != payload.len() {
+            return Err(format!(
+                "Incomplete image report {page_number} for button {key}: wrote {written} of {} bytes",
+                payload.len()
+            ));
+        }
 
         bytes_remaining -= this_length;
         page_number += 1;
@@ -126,6 +165,18 @@ pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_image_write_stops_before_the_next_report() {
+        let image = [0xab; 3 * 1016];
+        let mut reports = 0;
+        let result = write_key_image(4, &image, |report| {
+            reports += 1;
+            Ok(if reports == 2 { 512 } else { report.len() })
+        });
+        assert!(result.is_err());
+        assert_eq!(reports, 2);
+    }
 
     #[test]
     fn overlapping_presses_survive_quiet_reads_and_release_independently() {
@@ -165,5 +216,9 @@ mod tests {
             other[index] = value;
             assert!(KeyState::from_report(&other).is_none());
         }
+    }
+    #[test]
+    fn empty_image_does_not_report_upload_success() {
+        assert!(write_key_image(0, &[], |_| panic!("no report expected")).is_err());
     }
 }

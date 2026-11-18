@@ -118,7 +118,7 @@ pub fn discover_profiles() -> Vec<String> {
     {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+            if path.extension().and_then(|ext| ext.to_str()) != Some("toml") || !path.is_file() {
                 continue;
             }
             let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
@@ -289,7 +289,9 @@ mod tests {
             fs::write(config_dir.join("blank.toml"), "brightness = 60\n")
                 .expect("blank profile fixture should be written");
 
+            fs::create_dir_all(config_dir.join("folder.toml")).unwrap();
             let profiles = discover_profiles();
+            assert!(!profiles.iter().any(|profile| profile == "folder"));
             assert!(profiles.iter().any(|profile| profile == DEFAULT_PROFILE));
             assert!(!profiles.iter().any(|profile| profile == BLANK_PROFILE));
         });

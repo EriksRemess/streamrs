@@ -1,5 +1,4 @@
 use super::super::*;
-use adw::prelude::*;
 
 const DROP_PREVIEW_SWAP_CLASS: &str = "key-drop-swap";
 const DROP_PREVIEW_BEFORE_CLASS: &str = "key-drop-before";

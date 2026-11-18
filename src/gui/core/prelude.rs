@@ -52,8 +52,7 @@ pub(crate) const DEFAULT_STATUS_INTERVAL_SECONDS: u64 = 1;
 pub(crate) const MIN_STATUS_INTERVAL_SECONDS: u64 = 1;
 pub(crate) const MAX_STATUS_INTERVAL_SECONDS: u64 = 60;
 
-pub(crate) const NAV_PREVIOUS_ICON: &str = "stream-deck-previous-page.png";
-pub(crate) const NAV_NEXT_ICON: &str = "stream-deck-next-page.png";
+pub(crate) use streamrs::paging::{PREVIOUS_PAGE_ICON as NAV_PREVIOUS_ICON, NEXT_PAGE_ICON as NAV_NEXT_ICON};
 
 pub(crate) const TEMPLATE_RENDER_WIDTH: u32 = 1560;
 pub(crate) const TEMPLATE_RENDER_HEIGHT: u32 = 1108;
