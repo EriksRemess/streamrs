@@ -9,6 +9,7 @@ use streamrs::config::streamrs_schema::blank_profile_config;
 
 #[derive(Debug)]
 pub(crate) struct CliArgs {
+    pub(crate) info: bool,
     pub(crate) debug: bool,
     pub(crate) profile: String,
     pub(crate) profile_explicit: bool,
@@ -20,7 +21,7 @@ pub(crate) struct CliArgs {
 
 pub(crate) fn print_usage(program: &str) {
     println!(
-        "Usage: {program} [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
+        "Usage: {program} [--info] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
     );
 }
 
@@ -32,6 +33,7 @@ fn parse_args_from(
     mut args: impl Iterator<Item = String>,
     default_profile: impl FnOnce() -> String,
 ) -> Result<CliArgs, String> {
+    let mut info = false;
     let mut debug = false;
     let mut profile = None;
     let mut config_path = None;
@@ -42,6 +44,7 @@ fn parse_args_from(
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--debug" => debug = true,
+            "--info" => info = true,
             "--profile" => {
                 let name = args
                     .next()
@@ -73,6 +76,9 @@ fn parse_args_from(
         }
     }
 
+    if info && init {
+        return Err("--info and --init cannot be combined".into());
+    }
     if force && !init {
         return Err("--force requires --init".to_string());
     }
@@ -89,6 +95,7 @@ fn parse_args_from(
         }
     });
     Ok(CliArgs {
+        info,
         debug,
         profile,
         profile_explicit,

@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-28 11:15+0000\n"
-"PO-Revision-Date: 2026-03-13 17:11+0000\n"
+"POT-Creation-Date: 2026-11-18 16:02+0000\n"
+"PO-Revision-Date: 2026-11-18 16:01+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -19,9 +19,8 @@ msgid "About streamrs"
 msgstr "About streamrs"
 
 #: src/gui/ui.rs
-#, fuzzy
 msgid "Action type"
-msgstr "Button type"
+msgstr "Action type"
 
 #: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Add"
@@ -99,9 +98,25 @@ msgstr "Clock"
 msgid "Clock background"
 msgstr "Clock background"
 
+#: src/gui/ui/device_info.rs
+msgid "Close"
+msgstr "Close"
+
 #: src/gui/ui.rs
 msgid "Contributors"
 msgstr "Contributors"
+
+#: src/streamdeck.rs
+msgid "Could not enumerate HID devices: {err}"
+msgstr "Could not enumerate HID devices: {err}"
+
+#: src/streamdeck.rs
+msgid "Could not open HID device {id}: {err}"
+msgstr "Could not open HID device {id}: {err}"
+
+#: src/gui/ui/device_info.rs
+msgid "Could not read device information."
+msgstr "Could not read device information."
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
@@ -111,6 +126,18 @@ msgstr "Created and loaded profile '{profile}'"
 msgid "Delete profile '{profile}' config? Shared icons are kept."
 msgstr "Delete profile '{profile}' config? Shared icons are kept."
 
+#: src/gui/ui.rs src/gui/ui/device_info.rs
+msgid "Device information"
+msgstr "Device information"
+
+#: src/streamdeck/info.rs
+msgid "Disabled"
+msgstr "Disabled"
+
+#: src/streamdeck/info.rs
+msgid "Display size"
+msgstr "Display size"
+
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
 msgstr "Failed to create '{path}': {err}"
@@ -118,6 +145,14 @@ msgstr "Failed to create '{path}': {err}"
 #: src/gui/main.rs
 msgid "Failed to create GUI lock '{path}': {err}"
 msgstr "Failed to create GUI lock '{path}': {err}"
+
+#: src/config/toml.rs
+msgid "Failed to parse config '{path}': {err}"
+msgstr "Failed to parse config '{path}': {err}"
+
+#: src/config/toml.rs
+msgid "Failed to read config '{path}': {err}"
+msgstr "Failed to read config '{path}': {err}"
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to remove '{path}': {err}"
@@ -143,9 +178,9 @@ msgstr "Failed to start streamrs daemon (systemctl failed: {err})"
 msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
 
-#: src/gui/main.rs
-msgid "Failed to write GUI lock '{path}': {err}"
-msgstr "Failed to write GUI lock '{path}': {err}"
+#: src/streamdeck/info.rs
+msgid "Firmware (AP1)"
+msgstr "Firmware (AP1)"
 
 #: src/gui/ui.rs
 msgid "Icon"
@@ -171,17 +206,29 @@ msgstr "Inserted button after target"
 msgid "Inserted button before target"
 msgstr "Inserted button before target"
 
+#: src/streamdeck/info.rs
+msgid "Key layout (rows × columns)"
+msgstr "Key layout (rows × columns)"
+
+#: src/streamdeck/info.rs
+msgid "Key size"
+msgstr "Key size"
+
 #: src/gui/ui.rs
 msgid "Keyboard shortcut"
-msgstr ""
+msgstr "Keyboard shortcut"
 
 #: src/gui/ui.rs
 msgid "Launch command"
-msgstr ""
+msgstr "Launch command"
 
 #: src/gui/ui/signals/management.rs
 msgid "Loaded profile '{profile}'"
 msgstr "Loaded profile '{profile}'"
+
+#: src/streamdeck/info.rs
+msgid "Loader firmware (LD)"
+msgstr "Loader firmware (LD)"
 
 #: src/gui/ui.rs
 msgid "Menu"
@@ -203,15 +250,19 @@ msgstr "Next"
 msgid "Next page"
 msgstr "Next page"
 
+#: src/streamdeck/info.rs
+msgid "No matching HID device ({id}, usage page {page}, usage {usage})"
+msgstr "No matching HID device ({id}, usage page {page}, usage {usage})"
+
 #: src/gui/ui/signals/management.rs
 msgid "No profile selected"
 msgstr "No profile selected"
 
 #: src/gui/ui.rs
 msgid "None"
-msgstr ""
+msgstr "None"
 
-#: src/gui/core/paging.rs src/gui/ui.rs src/gui/ui/signals/navigation.rs
+#: src/gui/core/paging.rs src/gui/ui.rs
 msgid "Page {current}/{total}"
 msgstr "Page {current}/{total}"
 
@@ -222,6 +273,14 @@ msgstr "Prev"
 #: src/gui/core/editor.rs
 msgid "Previous page"
 msgstr "Previous page"
+
+#: src/streamdeck/info.rs
+msgid "Primary firmware (AP2)"
+msgstr "Primary firmware (AP2)"
+
+#: src/streamdeck/info.rs
+msgid "Product"
+msgstr "Product"
 
 #: src/gui/ui.rs
 msgid "Profile"
@@ -242,6 +301,10 @@ msgstr "Profile name must contain letters or numbers"
 #: src/gui/ui.rs
 msgid "Project License"
 msgstr "Project License"
+
+#: src/gui/ui/device_info.rs
+msgid "Reading device information…"
+msgstr "Reading device information…"
 
 #: src/gui/ui.rs
 msgid "Regular"
@@ -311,6 +374,14 @@ msgstr "Saved {ordinal} button"
 msgid "Select icon..."
 msgstr "Select icon..."
 
+#: src/streamdeck/info.rs
+msgid "Serial number"
+msgstr "Serial number"
+
+#: src/streamdeck/info.rs
+msgid "Sleep timer"
+msgstr "Sleep timer"
+
 #: src/gui/ui.rs
 msgid "Start"
 msgstr "Start"
@@ -324,9 +395,8 @@ msgid "Status"
 msgstr "Status"
 
 #: src/gui/ui.rs
-#, fuzzy
 msgid "Status command"
-msgstr "Status command (optional)"
+msgstr "Status command"
 
 #: src/gui/ui.rs
 msgid "Status interval (seconds)"
@@ -352,6 +422,14 @@ msgstr "Swapped buttons"
 msgid "This slot is reserved for page navigation"
 msgstr "This slot is reserved for page navigation"
 
+#: src/streamdeck/info.rs
+msgid "USB ID"
+msgstr "USB ID"
+
+#: src/streamdeck/info.rs
+msgid "Unavailable"
+msgstr "Unavailable"
+
 #: src/gui/core/config_io.rs
 msgid "pkill exit status {status}"
 msgstr "pkill exit status {status}"
@@ -371,6 +449,9 @@ msgstr "systemctl exit status {status}"
 #: src/gui/core/config_io.rs
 msgid "systemctl failed: {err}"
 msgstr "systemctl failed: {err}"
+
+#~ msgid "Failed to write GUI lock '{path}': {err}"
+#~ msgstr "Failed to write GUI lock '{path}': {err}"
 
 #~ msgid "Clock background updated"
 #~ msgstr "Clock background updated"

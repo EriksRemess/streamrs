@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DOMAIN="streamrs"
-LOCALE_ROOT="po/locale"
+LOCALE_ROOT="${1:-po/locale}"
 
 if ! command -v msgfmt >/dev/null 2>&1; then
     echo "msgfmt is required to build translations. Install gettext and retry." >&2

@@ -106,6 +106,10 @@ Notes:
 - `streamrs --init --force` refreshes config and bundled images from package defaults
 - Runtime state such as persisted portal permission restore tokens is stored separately from editable profile config
 
+### Device information
+
+Run `streamrs --info` or open **Menu → Device information** in the GUI. Both show the matching deck’s USB ID, serial number, firmware versions and checksums, key and display dimensions, and hardware sleep timer. The query can run while the daemon is active. Use `--profile <name>` or `--config <path>` to select the HID identifiers for the CLI.
+
 ### CLI Basics
 
 Common `streamrs` flags:

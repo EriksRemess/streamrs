@@ -239,16 +239,12 @@ pub(crate) fn key_slots_for_deck(deck_svg_path: &Path) -> Vec<KeySlot> {
 }
 
 pub(crate) fn relayout_deck(
-    overlay: &Overlay,
-    deck_picture: &Picture,
+    (available_width, available_height): (i32, i32),
     key_layer: &Fixed,
     slots: &[KeySlot],
     key_buttons: &[Button],
     key_pictures: &[Picture],
 ) {
-    let available_width = overlay.allocated_width().max(1);
-    let available_height = overlay.allocated_height().max(1);
-
     let scale_x = available_width as f64 / PREVIEW_WIDTH as f64;
     let scale_y = available_height as f64 / PREVIEW_HEIGHT as f64;
     let scale = scale_x.min(scale_y).max(0.01);
@@ -257,16 +253,6 @@ pub(crate) fn relayout_deck(
     let deck_height = ((PREVIEW_HEIGHT as f64) * scale).round() as i32;
     let offset_x = ((available_width - deck_width) / 2).max(0);
     let offset_y = ((available_height - deck_height) / 2).max(0);
-
-    deck_picture.set_halign(Align::Fill);
-    deck_picture.set_valign(Align::Fill);
-    deck_picture.set_margin_start(0);
-    deck_picture.set_margin_top(0);
-
-    key_layer.set_halign(Align::Fill);
-    key_layer.set_valign(Align::Fill);
-    key_layer.set_margin_start(0);
-    key_layer.set_margin_top(0);
 
     for (index, button) in key_buttons.iter().enumerate() {
         let slot = slots[index];

@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-03-28 11:15+0000\n"
-"PO-Revision-Date: 2026-03-15 15:01+0000\n"
+"POT-Creation-Date: 2026-11-18 16:02+0000\n"
+"PO-Revision-Date: 2026-11-18 16:01+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -100,9 +100,25 @@ msgstr "Pulkstenis"
 msgid "Clock background"
 msgstr "Pulksteņa fons"
 
+#: src/gui/ui/device_info.rs
+msgid "Close"
+msgstr "Aizvērt"
+
 #: src/gui/ui.rs
 msgid "Contributors"
 msgstr "Līdzautori"
+
+#: src/streamdeck.rs
+msgid "Could not enumerate HID devices: {err}"
+msgstr "Neizdevās iegūt HID ierīču sarakstu: {err}"
+
+#: src/streamdeck.rs
+msgid "Could not open HID device {id}: {err}"
+msgstr "Neizdevās atvērt HID ierīci {id}: {err}"
+
+#: src/gui/ui/device_info.rs
+msgid "Could not read device information."
+msgstr "Neizdevās nolasīt informāciju par ierīci."
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
@@ -112,6 +128,18 @@ msgstr "Izveidots un ielādēts profils '{profile}'"
 msgid "Delete profile '{profile}' config? Shared icons are kept."
 msgstr "Dzēst profilu '{profile}'?"
 
+#: src/gui/ui.rs src/gui/ui/device_info.rs
+msgid "Device information"
+msgstr "Informācija par ierīci"
+
+#: src/streamdeck/info.rs
+msgid "Disabled"
+msgstr "Atspējots"
+
+#: src/streamdeck/info.rs
+msgid "Display size"
+msgstr "Displeja izmērs"
+
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
 msgstr "Neizdevās izveidot '{path}': {err}"
@@ -119,6 +147,14 @@ msgstr "Neizdevās izveidot '{path}': {err}"
 #: src/gui/main.rs
 msgid "Failed to create GUI lock '{path}': {err}"
 msgstr "Neizdevās izveidot GUI slēga failu '{path}': {err}"
+
+#: src/config/toml.rs
+msgid "Failed to parse config '{path}': {err}"
+msgstr "Neizdevās parsēt konfigurāciju '{path}': {err}"
+
+#: src/config/toml.rs
+msgid "Failed to read config '{path}': {err}"
+msgstr "Neizdevās nolasīt konfigurāciju '{path}': {err}"
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to remove '{path}': {err}"
@@ -145,9 +181,9 @@ msgstr "Neizdevās palaist streamrs dēmonu (systemctl kļūda: {err})"
 msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
 msgstr "Neizdevās apturēt streamrs dēmonu ({systemctl_err}; {pkill_err})"
 
-#: src/gui/main.rs
-msgid "Failed to write GUI lock '{path}': {err}"
-msgstr "Neizdevās ierakstīt GUI slēga failu '{path}': {err}"
+#: src/streamdeck/info.rs
+msgid "Firmware (AP1)"
+msgstr "Aparātprogrammatūra (AP1)"
 
 #: src/gui/ui.rs
 msgid "Icon"
@@ -173,6 +209,14 @@ msgstr "Poga ievietota aiz mērķa pogas"
 msgid "Inserted button before target"
 msgstr "Poga ievietota pirms mērķa pogas"
 
+#: src/streamdeck/info.rs
+msgid "Key layout (rows × columns)"
+msgstr "Taustiņu izkārtojums (rindas × kolonnas)"
+
+#: src/streamdeck/info.rs
+msgid "Key size"
+msgstr "Taustiņa izmērs"
+
 #: src/gui/ui.rs
 msgid "Keyboard shortcut"
 msgstr "Tastatūras saīsne"
@@ -184,6 +228,10 @@ msgstr "Palaišanas komanda"
 #: src/gui/ui/signals/management.rs
 msgid "Loaded profile '{profile}'"
 msgstr "Ielādēts profils '{profile}'"
+
+#: src/streamdeck/info.rs
+msgid "Loader firmware (LD)"
+msgstr "Ielādētāja aparātprogrammatūra (LD)"
 
 #: src/gui/ui.rs
 msgid "Menu"
@@ -205,6 +253,12 @@ msgstr "Nāk."
 msgid "Next page"
 msgstr "Nākamā lapa"
 
+#: src/streamdeck/info.rs
+msgid "No matching HID device ({id}, usage page {page}, usage {usage})"
+msgstr ""
+"Nav atrasta atbilstoša HID ierīce ({id}, lietojuma lapa {page}, lietojums "
+"{usage})"
+
 #: src/gui/ui/signals/management.rs
 msgid "No profile selected"
 msgstr "Nav izvēlēts profils"
@@ -213,7 +267,7 @@ msgstr "Nav izvēlēts profils"
 msgid "None"
 msgstr "Nav"
 
-#: src/gui/core/paging.rs src/gui/ui.rs src/gui/ui/signals/navigation.rs
+#: src/gui/core/paging.rs src/gui/ui.rs
 msgid "Page {current}/{total}"
 msgstr "Lapa {current}/{total}"
 
@@ -224,6 +278,14 @@ msgstr "Iepr."
 #: src/gui/core/editor.rs
 msgid "Previous page"
 msgstr "Iepriekšējā lapa"
+
+#: src/streamdeck/info.rs
+msgid "Primary firmware (AP2)"
+msgstr "Galvenā aparātprogrammatūra (AP2)"
+
+#: src/streamdeck/info.rs
+msgid "Product"
+msgstr "Produkts"
 
 #: src/gui/ui.rs
 msgid "Profile"
@@ -244,6 +306,10 @@ msgstr "Profila nosaukumā jābūt burtiem vai cipariem"
 #: src/gui/ui.rs
 msgid "Project License"
 msgstr "Projekta licence"
+
+#: src/gui/ui/device_info.rs
+msgid "Reading device information…"
+msgstr "Nolasa informāciju par ierīci…"
 
 #: src/gui/ui.rs
 msgid "Regular"
@@ -313,6 +379,14 @@ msgstr "{ordinal} poga saglabāta"
 msgid "Select icon..."
 msgstr "Izvēlieties ikonu..."
 
+#: src/streamdeck/info.rs
+msgid "Serial number"
+msgstr "Sērijas numurs"
+
+#: src/streamdeck/info.rs
+msgid "Sleep timer"
+msgstr "Miega taimeris"
+
 #: src/gui/ui.rs
 msgid "Start"
 msgstr "Palaist"
@@ -326,9 +400,8 @@ msgid "Status"
 msgstr "Statuss"
 
 #: src/gui/ui.rs
-#, fuzzy
 msgid "Status command"
-msgstr "Statusa komanda (neobligāta)"
+msgstr "Statusa komanda"
 
 #: src/gui/ui.rs
 msgid "Status interval (seconds)"
@@ -354,6 +427,14 @@ msgstr "Pogas samainītas"
 msgid "This slot is reserved for page navigation"
 msgstr "Šī vieta ir rezervēta lapu navigācijai"
 
+#: src/streamdeck/info.rs
+msgid "USB ID"
+msgstr "USB ID"
+
+#: src/streamdeck/info.rs
+msgid "Unavailable"
+msgstr "Nav pieejams"
+
 #: src/gui/core/config_io.rs
 msgid "pkill exit status {status}"
 msgstr "pkill izejas statuss {status}"
@@ -373,6 +454,9 @@ msgstr "systemctl izejas statuss {status}"
 #: src/gui/core/config_io.rs
 msgid "systemctl failed: {err}"
 msgstr "systemctl neizdevās: {err}"
+
+#~ msgid "Failed to write GUI lock '{path}': {err}"
+#~ msgstr "Neizdevās ierakstīt GUI slēga failu '{path}': {err}"
 
 #~ msgid "Clock background updated"
 #~ msgstr "Pulksteņa fons atjaunināts"

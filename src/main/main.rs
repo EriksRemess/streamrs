@@ -822,6 +822,40 @@ fn advance_dynamic_keys(
     }
 }
 
+fn print_device_info(args: &init::CliArgs) -> Result<(), String> {
+    let default_path = streamrs::paths::default_config_path_for_profile(&args.profile);
+    let path = args.config_path.as_deref().unwrap_or(&default_path);
+    let config: Config = match std::fs::read_to_string(path) {
+        Ok(raw) => streamrs::config::toml::parse_from_str(path, &raw)?,
+        Err(err)
+            if err.kind() == std::io::ErrorKind::NotFound
+                && args.config_path.is_none()
+                && !args.profile_explicit =>
+        {
+            Config::default()
+        }
+        Err(err) => {
+            return Err(streamrs::i18n::trf(
+                "Failed to read config '{path}': {err}",
+                &[
+                    ("path", path.display().to_string()),
+                    ("err", err.to_string()),
+                ],
+            ));
+        }
+    };
+    let info = streamrs::streamdeck::info::DeviceInfo::read(
+        config.vendor_id,
+        config.product_id,
+        config.usage,
+        config.usage_page,
+    )?;
+    for (label, value) in info.rows(streamrs::i18n::tr) {
+        println!("{label}: {value}");
+    }
+    Ok(())
+}
+
 pub(crate) fn run() {
     let program = env::args().next().unwrap_or_else(|| "streamrs".to_string());
     let args = match parse_args() {
@@ -832,6 +866,14 @@ pub(crate) fn run() {
             std::process::exit(2);
         }
     };
+    if args.info {
+        streamrs::i18n::init_i18n();
+        if let Err(err) = print_device_info(&args) {
+            eprintln!("{err}");
+            std::process::exit(1);
+        }
+        return;
+    }
     install_reload_signal_handler();
 
     let profile_locked = args.config_path.is_some() || args.profile_explicit;

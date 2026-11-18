@@ -1,14 +1,30 @@
+use crate::i18n::trf;
 use serde::{Serialize, de::DeserializeOwned};
 use std::fs;
 use std::path::Path;
 
 pub fn read_to_string(path: &Path) -> Result<String, String> {
-    fs::read_to_string(path)
-        .map_err(|err| format!("Failed to read config '{}': {err}", path.display()))
+    fs::read_to_string(path).map_err(|err| {
+        trf(
+            "Failed to read config '{path}': {err}",
+            &[
+                ("path", path.display().to_string()),
+                ("err", err.to_string()),
+            ],
+        )
+    })
 }
 
 pub fn parse_from_str<T: DeserializeOwned>(path: &Path, raw: &str) -> Result<T, String> {
-    toml::from_str(raw).map_err(|err| format!("Failed to parse config '{}': {err}", path.display()))
+    toml::from_str(raw).map_err(|err| {
+        trf(
+            "Failed to parse config '{path}': {err}",
+            &[
+                ("path", path.display().to_string()),
+                ("err", err.to_string()),
+            ],
+        )
+    })
 }
 
 pub fn load_from_file<T: DeserializeOwned>(path: &Path) -> Result<T, String> {

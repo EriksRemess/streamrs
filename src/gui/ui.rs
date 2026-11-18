@@ -1,5 +1,6 @@
 use crate::gui::*;
 
+mod device_info;
 mod signal_wiring;
 use signal_wiring::wire_ui_handlers_and_present;
 
@@ -171,6 +172,7 @@ fn rebuild_window_menu(menu: &gtk::gio::Menu) {
     menu.append_section(Some(&tr("streamrs service")), &daemon_section);
 
     let app_section = gtk::gio::Menu::new();
+    app_section.append(Some(&tr("Device information")), Some("win.device-info"));
     app_section.append(Some(&tr("About streamrs")), Some("win.show-about"));
     menu.append_section(None, &app_section);
 }
@@ -395,33 +397,22 @@ pub(crate) fn build_ui(app: &Application) {
     left_panel.append(&deck_overlay);
 
     {
-        let deck_picture_for_layout = deck_picture.clone();
-        let key_layer_for_layout = key_layer.clone();
-        let slots_for_layout = slots.clone();
         let key_buttons_for_layout = key_buttons.clone();
         let key_pictures_for_layout = key_pictures.clone();
-        let last_size = Rc::new(Cell::new((0i32, 0i32)));
-        let last_size_for_tick = last_size.clone();
-
-        deck_overlay.add_tick_callback(move |overlay, _clock| {
-            let size = (overlay.allocated_width(), overlay.allocated_height());
-            if size.0 <= 0 || size.1 <= 0 {
-                return gtk::glib::ControlFlow::Continue;
-            }
-
-            if size != last_size_for_tick.get() {
-                last_size_for_tick.set(size);
+        let last_size = Cell::new((0, 0));
+        deck_overlay.connect_get_child_position(move |overlay, child| {
+            let key_layer = child.downcast_ref::<Fixed>()?;
+            let size = (overlay.width(), overlay.height());
+            if size.0 > 0 && size.1 > 0 && last_size.replace(size) != size {
                 relayout_deck(
-                    overlay,
-                    &deck_picture_for_layout,
-                    &key_layer_for_layout,
-                    &slots_for_layout,
+                    size,
+                    key_layer,
+                    &slots,
                     &key_buttons_for_layout,
                     &key_pictures_for_layout,
                 );
             }
-
-            gtk::glib::ControlFlow::Continue
+            None
         });
     }
 
@@ -611,6 +602,7 @@ pub(crate) fn build_ui(app: &Application) {
         });
     }
     window.add_action(&about_action);
+    device_info::register(&window, &state);
 
     let start_daemon_action = gtk::gio::SimpleAction::new("start-daemon", None);
     let stop_daemon_action = gtk::gio::SimpleAction::new("stop-daemon", None);

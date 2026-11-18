@@ -1,3 +1,6 @@
+pub mod info;
+
+use crate::i18n::trf;
 use crate::paging::STREAMDECK_KEY_COUNT;
 use hidapi::{HidApi, HidDevice, HidResult};
 use std::cmp::min;
@@ -8,24 +11,50 @@ pub fn get_device(
     usage: u16,
     usage_page: u16,
 ) -> Option<HidDevice> {
-    let api = HidApi::new().expect("Failed to create HID API");
-    for dev in api.device_list() {
-        if (
+    open_device(vendor_id, product_id, usage, usage_page).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        None
+    })
+}
+
+fn open_device(
+    vendor_id: u16,
+    product_id: u16,
+    usage: u16,
+    usage_page: u16,
+) -> Result<Option<HidDevice>, String> {
+    let api = HidApi::new().map_err(|err| {
+        trf(
+            "Could not enumerate HID devices: {err}",
+            &[("err", err.to_string())],
+        )
+    })?;
+    let mut last_error = None;
+    for dev in api.device_list().filter(|dev| {
+        (
             dev.vendor_id(),
             dev.product_id(),
             dev.usage(),
             dev.usage_page(),
         ) == (vendor_id, product_id, usage, usage_page)
-        {
-            match dev.open_device(&api) {
-                Ok(device) => {
-                    return Some(device);
-                }
-                Err(e) => eprintln!("Error: {:?}", e),
+    }) {
+        match dev.open_device(&api) {
+            Ok(device) => return Ok(Some(device)),
+            Err(err) => {
+                last_error = Some(trf(
+                    "Could not open HID device {id}: {err}",
+                    &[
+                        ("id", format!("{vendor_id:04x}:{product_id:04x}")),
+                        ("err", err.to_string()),
+                    ],
+                ))
             }
         }
     }
-    None
+    match last_error {
+        Some(err) => Err(err),
+        None => Ok(None),
+    }
 }
 
 pub fn set_brightness(device: &HidDevice, percentage: usize) -> Result<(), String> {
