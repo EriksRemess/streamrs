@@ -1,5 +1,6 @@
 use super::open_device;
-use crate::i18n::trf;
+use crate::i18n::{tr, trf};
+use hidapi::HidDevice;
 
 struct Geometry {
     rows: u8,
@@ -16,28 +17,110 @@ pub struct DeviceInfo {
     loader: Option<String>,
     ap1: Option<String>,
     geometry: Option<Geometry>,
-    sleep_seconds: Option<u32>,
+    pub sleep_timer: Option<SleepTimer>,
+}
+
+pub fn open_info_device(
+    vendor: u16,
+    product: u16,
+    usage: u16,
+    usage_page: u16,
+) -> Result<HidDevice, String> {
+    open_device(vendor, product, usage, usage_page)?.ok_or_else(|| {
+        trf(
+            "No matching HID device ({id}, usage page {page}, usage {usage})",
+            &[
+                ("id", format!("{vendor:04x}:{product:04x}")),
+                ("page", format!("{usage_page:#06x}")),
+                ("usage", format!("{usage:#06x}")),
+            ],
+        )
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SleepTimer(i32);
+
+impl SleepTimer {
+    pub fn from_minutes(minutes: u32) -> Option<Self> {
+        let seconds = i32::try_from(minutes).ok()?.checked_mul(60)?;
+        Some(Self(seconds))
+    }
+
+    pub fn whole_minutes(self) -> Option<u32> {
+        let seconds = self.0 as u32;
+        seconds.is_multiple_of(60).then_some(seconds / 60)
+    }
+
+    fn parse(data: &[u8]) -> Option<Self> {
+        let [4, a, b, c, d, ..] = *data else {
+            return None;
+        };
+        let seconds = i32::from_le_bytes([a, b, c, d]);
+        (seconds >= 0).then_some(Self(seconds))
+    }
+
+    fn read(device: &HidDevice) -> Option<Self> {
+        report(
+            &|buf| device.get_feature_report(buf).ok(),
+            0x0a,
+            Self::parse,
+        )
+    }
+
+    fn feature_report(self) -> [u8; 32] {
+        let mut data = [0; 32];
+        data[..2].copy_from_slice(&[0x03, 0x0d]);
+        data[2..6].copy_from_slice(&self.0.to_le_bytes());
+        data
+    }
+
+    pub fn apply(self, device: &HidDevice) -> Result<(), String> {
+        let current = Self::read(device).ok_or_else(|| tr("Could not read the sleep timer."))?;
+        if current == self {
+            return Ok(());
+        }
+        device
+            .send_feature_report(&self.feature_report())
+            .map_err(|err| {
+                trf(
+                    "Could not set the sleep timer: {err}",
+                    &[("err", err.to_string())],
+                )
+            })?;
+        self.confirm(|| Self::read(device), std::thread::sleep)
+    }
+
+    fn confirm(
+        self,
+        mut read: impl FnMut() -> Option<Self>,
+        mut wait: impl FnMut(std::time::Duration),
+    ) -> Result<(), String> {
+        // The MK.2 can return the previous value just after accepting a write.
+        for _ in 0..10 {
+            wait(std::time::Duration::from_millis(50));
+            if read() == Some(self) {
+                return Ok(());
+            }
+        }
+        Err(tr("The device did not confirm the new sleep timer."))
+    }
 }
 
 impl DeviceInfo {
     pub fn read(vendor: u16, product: u16, usage: u16, usage_page: u16) -> Result<Self, String> {
-        let device = open_device(vendor, product, usage, usage_page)?.ok_or_else(|| {
-            trf(
-                "No matching HID device ({id}, usage page {page}, usage {usage})",
-                &[
-                    ("id", format!("{vendor:04x}:{product:04x}")),
-                    ("page", format!("{usage_page:#06x}")),
-                    ("usage", format!("{usage:#06x}")),
-                ],
-            )
-        })?;
+        let device = open_info_device(vendor, product, usage, usage_page)?;
+        Ok(Self::from_device(&device, vendor, product))
+    }
+
+    pub fn from_device(device: &HidDevice, vendor: u16, product: u16) -> Self {
         let read = |buffer: &mut [u8]| device.get_feature_report(buffer).ok();
         let serial = report(&read, 0x06, |data| {
             let (&len, bytes) = data.split_first()?;
             ascii(bytes.get(..usize::from(len))?)
         })
         .or_else(|| device.get_serial_number_string().ok().flatten());
-        Ok(Self {
+        Self {
             product: device.get_product_string().ok().flatten(),
             usb_id: format!("{vendor:04x}:{product:04x}"),
             serial,
@@ -45,13 +128,8 @@ impl DeviceInfo {
             loader: report(&read, 0x04, firmware),
             ap1: report(&read, 0x07, firmware),
             geometry: report(&read, 0x08, geometry),
-            sleep_seconds: report(&read, 0x0a, |bytes| {
-                let [4, a, b, c, d, ..] = *bytes else {
-                    return None;
-                };
-                i32::from_le_bytes([a, b, c, d]).try_into().ok()
-            }),
-        })
+            sleep_timer: SleepTimer::read(device),
+        }
     }
 
     pub fn rows(&self, tr: impl Fn(&str) -> String) -> Vec<(String, String)> {
@@ -77,7 +155,7 @@ impl DeviceInfo {
             ),
             (
                 tr("Sleep timer"),
-                self.sleep_seconds.map(|secs| match secs {
+                self.sleep_timer.map(|timer| match timer.0 {
                     0 => tr("Disabled"),
                     secs => format!("{secs} s"),
                 }),
@@ -161,6 +239,30 @@ mod tests {
         assert_eq!(query(5, 13), None);
         assert_eq!(query(7, 32), None);
         assert_eq!(query(5, 0), None);
+    }
+
+    #[test]
+    fn sleep_timer_reports_use_signed_little_endian_seconds() {
+        let timer = SleepTimer::from_minutes(10).unwrap();
+        let mut expected = [0; 32];
+        expected[..6].copy_from_slice(&[3, 13, 88, 2, 0, 0]);
+        assert_eq!(timer.feature_report(), expected);
+        assert_eq!(SleepTimer::parse(&[4, 88, 2, 0, 0]), Some(timer));
+        assert_eq!(
+            SleepTimer::parse(&[4, 1, 0, 0, 0]).unwrap().whole_minutes(),
+            None
+        );
+        assert_eq!(SleepTimer::parse(&[4, 255, 255, 255, 255]), None);
+        assert_eq!(SleepTimer::parse(&[4, 0, 0]), None);
+        assert_eq!(SleepTimer::parse(&[3, 0, 0, 0, 0]), None);
+    }
+
+    #[test]
+    fn sleep_timer_waits_for_firmware_to_apply_the_change() {
+        let timer = SleepTimer(60);
+        let mut reads = [Some(SleepTimer(0)), None, Some(timer)].into_iter();
+        assert!(timer.confirm(|| reads.next().unwrap(), |_| {}).is_ok());
+        assert!(timer.confirm(|| Some(SleepTimer(0)), |_| {}).is_err());
     }
 
     #[test]

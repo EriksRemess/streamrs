@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:02+0000\n"
-"PO-Revision-Date: 2026-11-18 16:01+0000\n"
+"POT-Creation-Date: 2026-11-18 16:19+0000\n"
+"PO-Revision-Date: 2026-11-18 16:19+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -56,6 +56,10 @@ msgstr "Jau darbojas cits streamrs-gui eksemplārs (slēgs '{path}')."
 msgid "Appearance"
 msgstr "Izskats"
 
+#: src/gui/ui/device_info.rs
+msgid "Apply"
+msgstr "Pielietot"
+
 #: src/gui/ui.rs
 msgid "Behavior"
 msgstr "Uzvedība"
@@ -84,9 +88,13 @@ msgstr "Poga {index}"
 msgid "Calendar"
 msgstr "Kalendārs"
 
-#: src/gui/ui/signals/management.rs
+#: src/gui/ui/device_info.rs src/gui/ui/signals/management.rs
 msgid "Cancel"
 msgstr "Atcelt"
+
+#: src/gui/ui/device_info.rs
+msgid "Change sleep timer…"
+msgstr "Mainīt miega taimeri…"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Cleared selected button"
@@ -108,6 +116,10 @@ msgstr "Aizvērt"
 msgid "Contributors"
 msgstr "Līdzautori"
 
+#: src/gui/ui/device_info.rs
+msgid "Could not change the sleep timer."
+msgstr "Neizdevās mainīt miega taimeri."
+
 #: src/streamdeck.rs
 msgid "Could not enumerate HID devices: {err}"
 msgstr "Neizdevās iegūt HID ierīču sarakstu: {err}"
@@ -119,6 +131,14 @@ msgstr "Neizdevās atvērt HID ierīci {id}: {err}"
 #: src/gui/ui/device_info.rs
 msgid "Could not read device information."
 msgstr "Neizdevās nolasīt informāciju par ierīci."
+
+#: src/streamdeck/info.rs
+msgid "Could not read the sleep timer."
+msgstr "Neizdevās nolasīt miega taimera iestatījumu."
+
+#: src/streamdeck/info.rs
+msgid "Could not set the sleep timer: {err}"
+msgstr "Neizdevās iestatīt miega taimeri: {err}"
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
@@ -139,6 +159,10 @@ msgstr "Atspējots"
 #: src/streamdeck/info.rs
 msgid "Display size"
 msgstr "Displeja izmērs"
+
+#: src/gui/ui/device_info.rs
+msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
+msgstr "Ievadiet, pēc cik neaktivitātes minūtēm ierīce pāries miega režīmā. Lai atspējotu miega taimeri, ievadiet 0."
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
@@ -236,6 +260,10 @@ msgstr "Ielādētāja aparātprogrammatūra (LD)"
 #: src/gui/ui.rs
 msgid "Menu"
 msgstr "Izvēlne"
+
+#: src/gui/ui/device_info.rs
+msgid "Minutes"
+msgstr "Minūtes"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Navigation buttons cannot be deleted"
@@ -383,6 +411,10 @@ msgstr "Izvēlieties ikonu..."
 msgid "Serial number"
 msgstr "Sērijas numurs"
 
+#: src/gui/ui/device_info.rs
+msgid "Sleep after inactivity"
+msgstr "Miega režīms pēc neaktivitātes"
+
 #: src/streamdeck/info.rs
 msgid "Sleep timer"
 msgstr "Miega taimeris"
@@ -422,6 +454,10 @@ msgstr "Stream Deck priekšskatījums"
 #: src/gui/ui/signals/navigation.rs
 msgid "Swapped buttons"
 msgstr "Pogas samainītas"
+
+#: src/streamdeck/info.rs
+msgid "The device did not confirm the new sleep timer."
+msgstr "Ierīce neapstiprināja jauno miega taimera iestatījumu."
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "This slot is reserved for page navigation"

@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:02+0000\n"
-"PO-Revision-Date: 2026-11-18 16:01+0000\n"
+"POT-Creation-Date: 2026-11-18 16:19+0000\n"
+"PO-Revision-Date: 2026-11-18 16:19+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -54,6 +54,10 @@ msgstr "Another streamrs-gui instance is already running (lock '{path}')."
 msgid "Appearance"
 msgstr "Appearance"
 
+#: src/gui/ui/device_info.rs
+msgid "Apply"
+msgstr "Apply"
+
 #: src/gui/ui.rs
 msgid "Behavior"
 msgstr "Behavior"
@@ -82,9 +86,13 @@ msgstr "Button {index}"
 msgid "Calendar"
 msgstr "Calendar"
 
-#: src/gui/ui/signals/management.rs
+#: src/gui/ui/device_info.rs src/gui/ui/signals/management.rs
 msgid "Cancel"
 msgstr "Cancel"
+
+#: src/gui/ui/device_info.rs
+msgid "Change sleep timer…"
+msgstr "Change sleep timer…"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Cleared selected button"
@@ -106,6 +114,10 @@ msgstr "Close"
 msgid "Contributors"
 msgstr "Contributors"
 
+#: src/gui/ui/device_info.rs
+msgid "Could not change the sleep timer."
+msgstr "Could not change the sleep timer."
+
 #: src/streamdeck.rs
 msgid "Could not enumerate HID devices: {err}"
 msgstr "Could not enumerate HID devices: {err}"
@@ -117,6 +129,14 @@ msgstr "Could not open HID device {id}: {err}"
 #: src/gui/ui/device_info.rs
 msgid "Could not read device information."
 msgstr "Could not read device information."
+
+#: src/streamdeck/info.rs
+msgid "Could not read the sleep timer."
+msgstr "Could not read the sleep timer."
+
+#: src/streamdeck/info.rs
+msgid "Could not set the sleep timer: {err}"
+msgstr "Could not set the sleep timer: {err}"
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
@@ -137,6 +157,10 @@ msgstr "Disabled"
 #: src/streamdeck/info.rs
 msgid "Display size"
 msgstr "Display size"
+
+#: src/gui/ui/device_info.rs
+msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
+msgstr "Enter the number of minutes before the deck sleeps. Use 0 for never."
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
@@ -233,6 +257,10 @@ msgstr "Loader firmware (LD)"
 #: src/gui/ui.rs
 msgid "Menu"
 msgstr "Menu"
+
+#: src/gui/ui/device_info.rs
+msgid "Minutes"
+msgstr "Minutes"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Navigation buttons cannot be deleted"
@@ -378,6 +406,10 @@ msgstr "Select icon..."
 msgid "Serial number"
 msgstr "Serial number"
 
+#: src/gui/ui/device_info.rs
+msgid "Sleep after inactivity"
+msgstr "Sleep after inactivity"
+
 #: src/streamdeck/info.rs
 msgid "Sleep timer"
 msgstr "Sleep timer"
@@ -417,6 +449,10 @@ msgstr "Stream Deck preview"
 #: src/gui/ui/signals/navigation.rs
 msgid "Swapped buttons"
 msgstr "Swapped buttons"
+
+#: src/streamdeck/info.rs
+msgid "The device did not confirm the new sleep timer."
+msgstr "The device did not confirm the new sleep timer."
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "This slot is reserved for page navigation"

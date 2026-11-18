@@ -110,6 +110,14 @@ Notes:
 
 Run `streamrs --info` or open **Menu → Device information** in the GUI. Both show the matching deck’s USB ID, serial number, firmware versions and checksums, key and display dimensions, and hardware sleep timer. The query can run while the daemon is active. Use `--profile <name>` or `--config <path>` to select the HID identifiers for the CLI.
 
+### Sleep after inactivity
+
+Use `streamrs --sleep-after 10` to put the connected deck to sleep after ten idle minutes. Use `streamrs --sleep-after never` (or `0`) to disable the timer. In the GUI, open **Menu → Device information → Change sleep timer…**.
+
+The timer applies to the whole device immediately. You can change it while the daemon is running and check it with `streamrs --info`. The same `--profile` and `--config` options select the target device.
+
+On the MK.2 running firmware `1.02.000`, the deck sleeps with a clock key active. The first key press wakes the display. Press the key again to run its action.
+
 ### CLI Basics
 
 Common `streamrs` flags:

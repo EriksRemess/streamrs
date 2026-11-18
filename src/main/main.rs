@@ -822,7 +822,7 @@ fn advance_dynamic_keys(
     }
 }
 
-fn print_device_info(args: &init::CliArgs) -> Result<(), String> {
+fn run_device_command(args: &init::CliArgs) -> Result<(), String> {
     let default_path = streamrs::paths::default_config_path_for_profile(&args.profile);
     let path = args.config_path.as_deref().unwrap_or(&default_path);
     let config: Config = match std::fs::read_to_string(path) {
@@ -844,12 +844,20 @@ fn print_device_info(args: &init::CliArgs) -> Result<(), String> {
             ));
         }
     };
-    let info = streamrs::streamdeck::info::DeviceInfo::read(
+    let device = streamrs::streamdeck::info::open_info_device(
         config.vendor_id,
         config.product_id,
         config.usage,
         config.usage_page,
     )?;
+    if let Some(timer) = args.sleep_after {
+        return timer.apply(&device);
+    }
+    let info = streamrs::streamdeck::info::DeviceInfo::from_device(
+        &device,
+        config.vendor_id,
+        config.product_id,
+    );
     for (label, value) in info.rows(streamrs::i18n::tr) {
         println!("{label}: {value}");
     }
@@ -866,9 +874,9 @@ pub(crate) fn run() {
             std::process::exit(2);
         }
     };
-    if args.info {
+    if args.info || args.sleep_after.is_some() {
         streamrs::i18n::init_i18n();
-        if let Err(err) = print_device_info(&args) {
+        if let Err(err) = run_device_command(&args) {
             eprintln!("{err}");
             std::process::exit(1);
         }

@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 16:02+0000\n"
+"POT-Creation-Date: 2026-11-18 16:31+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -55,6 +55,10 @@ msgstr ""
 msgid "Appearance"
 msgstr ""
 
+#: src/gui/ui/device_info.rs
+msgid "Apply"
+msgstr ""
+
 #: src/gui/ui.rs
 msgid "Behavior"
 msgstr ""
@@ -83,8 +87,13 @@ msgstr ""
 msgid "Calendar"
 msgstr ""
 
+#: src/gui/ui/device_info.rs
 #: src/gui/ui/signals/management.rs
 msgid "Cancel"
+msgstr ""
+
+#: src/gui/ui/device_info.rs
+msgid "Change sleep timer…"
 msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs
@@ -107,6 +116,10 @@ msgstr ""
 msgid "Contributors"
 msgstr ""
 
+#: src/gui/ui/device_info.rs
+msgid "Could not change the sleep timer."
+msgstr ""
+
 #: src/streamdeck.rs
 msgid "Could not enumerate HID devices: {err}"
 msgstr ""
@@ -117,6 +130,14 @@ msgstr ""
 
 #: src/gui/ui/device_info.rs
 msgid "Could not read device information."
+msgstr ""
+
+#: src/streamdeck/info.rs
+msgid "Could not read the sleep timer."
+msgstr ""
+
+#: src/streamdeck/info.rs
+msgid "Could not set the sleep timer: {err}"
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
@@ -138,6 +159,10 @@ msgstr ""
 
 #: src/streamdeck/info.rs
 msgid "Display size"
+msgstr ""
+
+#: src/gui/ui/device_info.rs
+msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
@@ -234,6 +259,10 @@ msgstr ""
 
 #: src/gui/ui.rs
 msgid "Menu"
+msgstr ""
+
+#: src/gui/ui/device_info.rs
+msgid "Minutes"
 msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs
@@ -383,6 +412,10 @@ msgstr ""
 msgid "Serial number"
 msgstr ""
 
+#: src/gui/ui/device_info.rs
+msgid "Sleep after inactivity"
+msgstr ""
+
 #: src/streamdeck/info.rs
 msgid "Sleep timer"
 msgstr ""
@@ -421,6 +454,10 @@ msgstr ""
 
 #: src/gui/ui/signals/navigation.rs
 msgid "Swapped buttons"
+msgstr ""
+
+#: src/streamdeck/info.rs
+msgid "The device did not confirm the new sleep timer."
 msgstr ""
 
 #: src/gui/ui/signals/primary_actions.rs

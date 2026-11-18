@@ -6,10 +6,12 @@ use streamrs::config::current_profile::{
     save_current_profile_if_missing,
 };
 use streamrs::config::streamrs_schema::blank_profile_config;
+use streamrs::streamdeck::info::SleepTimer;
 
 #[derive(Debug)]
 pub(crate) struct CliArgs {
     pub(crate) info: bool,
+    pub(crate) sleep_after: Option<SleepTimer>,
     pub(crate) debug: bool,
     pub(crate) profile: String,
     pub(crate) profile_explicit: bool,
@@ -21,7 +23,7 @@ pub(crate) struct CliArgs {
 
 pub(crate) fn print_usage(program: &str) {
     println!(
-        "Usage: {program} [--info] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
+        "Usage: {program} [--info | --sleep-after <minutes|never>] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
     );
 }
 
@@ -34,6 +36,7 @@ fn parse_args_from(
     default_profile: impl FnOnce() -> String,
 ) -> Result<CliArgs, String> {
     let mut info = false;
+    let mut sleep_after = None;
     let mut debug = false;
     let mut profile = None;
     let mut config_path = None;
@@ -45,6 +48,18 @@ fn parse_args_from(
         match arg.as_str() {
             "--debug" => debug = true,
             "--info" => info = true,
+            "--sleep-after" => {
+                let value = args.next().ok_or("Missing value for --sleep-after")?;
+                let minutes = if value == "never" {
+                    Some(0)
+                } else {
+                    value.parse().ok()
+                };
+                sleep_after =
+                    Some(minutes.and_then(SleepTimer::from_minutes).ok_or(
+                        "--sleep-after requires whole minutes from 0 to 35791394, or never",
+                    )?);
+            }
             "--profile" => {
                 let name = args
                     .next()
@@ -76,6 +91,9 @@ fn parse_args_from(
         }
     }
 
+    if sleep_after.is_some() && (info || init) {
+        return Err("--sleep-after cannot be combined with --info or --init".into());
+    }
     if info && init {
         return Err("--info and --init cannot be combined".into());
     }
@@ -96,6 +114,7 @@ fn parse_args_from(
     });
     Ok(CliArgs {
         info,
+        sleep_after,
         debug,
         profile,
         profile_explicit,
@@ -356,6 +375,27 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("streamrs-init-tests-{name}-{id}"));
         fs::create_dir_all(&dir).expect("test directory should be creatable");
         dir
+    }
+
+    #[test]
+    fn sleep_after_accepts_whole_minutes_and_never_as_a_device_command() {
+        let parse =
+            |args: &[&str]| parse_args_from(args.iter().map(|s| s.to_string()), String::new);
+        for (arg, minutes) in [("never", 0), ("0", 0), ("10", 10), ("35791394", 35791394)] {
+            let args = parse(&["--sleep-after", arg, "--profile", "test"]).unwrap();
+            assert_eq!(args.sleep_after.unwrap().whole_minutes(), Some(minutes));
+            assert_eq!(args.profile, "test");
+        }
+        for args in [
+            &["--sleep-after"][..],
+            &["--sleep-after", "-1"],
+            &["--sleep-after", "1.5"],
+            &["--sleep-after", "35791395"],
+            &["--info", "--sleep-after", "never"],
+            &["--sleep-after", "1", "--init"],
+        ] {
+            assert!(parse(args).is_err(), "{args:?}");
+        }
     }
 
     #[test]
