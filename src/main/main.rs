@@ -67,7 +67,9 @@ use streamrs::config::streamrs_schema::{
 };
 use streamrs::paging::PagingLayout;
 use streamrs::process::{run_shell_status, send_keyboard_shortcut, wait_argv_command_success};
-use streamrs::streamdeck::{get_device, read_states, set_brightness, set_key_image_data};
+use streamrs::streamdeck::{
+    KeyState, get_device, read_key_state, set_brightness, set_key_image_data,
+};
 
 const KEY_COUNT: usize = streamrs::paging::STREAMDECK_KEY_COUNT;
 const MAX_KEYS_PER_PAGE: usize = KEY_COUNT;
@@ -155,6 +157,27 @@ struct PageState {
     button_actions: [Option<ButtonAction>; KEY_COUNT],
     dynamic_states: [Option<DynamicKeyState>; KEY_COUNT],
     status_states: [Option<StatusKeyState>; KEY_COUNT],
+    refresh_tx: mpsc::Sender<usize>,
+    refresh_rx: mpsc::Receiver<usize>,
+}
+
+impl PageState {
+    fn new() -> Self {
+        let (refresh_tx, refresh_rx) = mpsc::channel();
+        Self {
+            button_actions: Default::default(),
+            dynamic_states: Default::default(),
+            status_states: Default::default(),
+            refresh_tx,
+            refresh_rx,
+        }
+    }
+
+    fn apply_pending_refreshes(&mut self) {
+        while let Ok(index) = self.refresh_rx.try_recv() {
+            request_immediate_status_check(self, index);
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -504,11 +527,7 @@ fn set_page(
     page: usize,
     blank_image: &[u8],
 ) -> PageState {
-    let mut state = PageState {
-        button_actions: std::array::from_fn(|_| None),
-        dynamic_states: std::array::from_fn(|_| None),
-        status_states: std::array::from_fn(|_| None),
-    };
+    let mut state = PageState::new();
     let plan = plan_page_layout(config, status_cache, page);
 
     for warning in &plan.warnings {
@@ -797,10 +816,9 @@ pub(crate) fn run() {
     let mut total_pages = page_count(&config);
     let mut page_state: Option<PageState> = None;
     let mut last_reload_check = Instant::now();
-    let mut last_pressed_button = None;
+    let mut key_state = KeyState::default();
     let mut last_device_probe = Instant::now() - Duration::from_secs(1);
     let mut waiting_for_device_logged = false;
-    let (status_refresh_tx, status_refresh_rx) = mpsc::channel::<usize>();
 
     loop {
         if device.is_none() && last_device_probe.elapsed() >= Duration::from_millis(500) {
@@ -832,7 +850,7 @@ pub(crate) fn run() {
                     current_page,
                     &blank_image,
                 ));
-                last_pressed_button = None;
+                key_state = KeyState::default();
                 waiting_for_device_logged = false;
                 device = Some(connected_device);
             }
@@ -841,9 +859,7 @@ pub(crate) fn run() {
         let mut disconnected = false;
         let mut reload_due_to_device_issue = false;
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
-            while let Ok(key_index) = status_refresh_rx.try_recv() {
-                request_immediate_status_check(page_state_ref, key_index);
-            }
+            page_state_ref.apply_pending_refreshes();
 
             advance_dynamic_keys(
                 device_ref,
@@ -853,60 +869,59 @@ pub(crate) fn run() {
                 page_state_ref,
             );
 
-            match read_states(device_ref, 10) {
-                Ok(pressed_button) => {
-                    if pressed_button != last_pressed_button {
-                        if let Some(index) = pressed_button
-                            && let Some(action) = page_state_ref.button_actions[index].clone()
-                        {
-                            match action {
-                                ButtonAction::Launch(action) => {
-                                    watch_action_completion(
-                                        &action,
-                                        args.debug,
-                                        index,
-                                        &status_refresh_tx,
+            match read_key_state(device_ref, 10) {
+                Ok(None) => {}
+                Ok(Some(report)) => {
+                    let refresh_tx = page_state_ref.refresh_tx.clone();
+                    // Resolve simultaneous presses against the page that was visible at the time.
+                    let actions: Vec<_> = key_state
+                        .new_presses(Some(report))
+                        .filter_map(|index| {
+                            let action = page_state_ref.button_actions[index].clone()?;
+                            Some((index, action))
+                        })
+                        .collect();
+                    for (index, action) in actions {
+                        match action {
+                            ButtonAction::Launch(action) => {
+                                watch_action_completion(&action, args.debug, index, &refresh_tx);
+                            }
+                            ButtonAction::KeyboardShortcut(shortcut) => {
+                                if let Err(err) = send_shortcut(&shortcut) {
+                                    eprintln!("{err}");
+                                } else {
+                                    let _ = refresh_tx.send(index);
+                                }
+                            }
+                            ButtonAction::PreviousPage => {
+                                if current_page > 0 {
+                                    current_page -= 1;
+                                    *page_state_ref = set_page(
+                                        device_ref,
+                                        &config,
+                                        &image_dir,
+                                        &mut image_cache,
+                                        &status_cache,
+                                        current_page,
+                                        &blank_image,
                                     );
                                 }
-                                ButtonAction::KeyboardShortcut(shortcut) => {
-                                    if let Err(err) = send_shortcut(&shortcut) {
-                                        eprintln!("{err}");
-                                    } else {
-                                        request_immediate_status_check(page_state_ref, index);
-                                    }
-                                }
-                                ButtonAction::PreviousPage => {
-                                    if current_page > 0 {
-                                        current_page -= 1;
-                                        *page_state_ref = set_page(
-                                            device_ref,
-                                            &config,
-                                            &image_dir,
-                                            &mut image_cache,
-                                            &status_cache,
-                                            current_page,
-                                            &blank_image,
-                                        );
-                                    }
-                                }
-                                ButtonAction::NextPage => {
-                                    if current_page + 1 < total_pages {
-                                        current_page += 1;
-                                        *page_state_ref = set_page(
-                                            device_ref,
-                                            &config,
-                                            &image_dir,
-                                            &mut image_cache,
-                                            &status_cache,
-                                            current_page,
-                                            &blank_image,
-                                        );
-                                    }
+                            }
+                            ButtonAction::NextPage => {
+                                if current_page + 1 < total_pages {
+                                    current_page += 1;
+                                    *page_state_ref = set_page(
+                                        device_ref,
+                                        &config,
+                                        &image_dir,
+                                        &mut image_cache,
+                                        &status_cache,
+                                        current_page,
+                                        &blank_image,
+                                    );
                                 }
                             }
                         }
-
-                        last_pressed_button = pressed_button;
                     }
                 }
                 Err(err) => {
@@ -925,7 +940,6 @@ pub(crate) fn run() {
             eprintln!("Stream Deck disconnected");
             device = None;
             page_state = None;
-            last_pressed_button = None;
         }
 
         let signal_requested = take_reload_request();
@@ -1032,7 +1046,6 @@ pub(crate) fn run() {
                                         current_page,
                                         &blank_image,
                                     ));
-                                    last_pressed_button = None;
                                 }
 
                                 profile = reload_profile;

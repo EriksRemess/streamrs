@@ -578,13 +578,8 @@ fn page_layout_plan_uses_cached_status_for_initial_icon_and_poll_timing() {
     );
 }
 
-#[test]
-fn immediate_status_refresh_schedules_status_key_one_second_later() {
-    let mut state = PageState {
-        button_actions: std::array::from_fn(|_| None),
-        dynamic_states: std::array::from_fn(|_| None),
-        status_states: std::array::from_fn(|_| None),
-    };
+fn page_with_status_key() -> PageState {
+    let mut state = PageState::new();
     state.status_states[0] = Some(StatusKeyState {
         command: "echo ok".to_string(),
         icon_on: "on.png".to_string(),
@@ -595,8 +590,15 @@ fn immediate_status_refresh_schedules_status_key_one_second_later() {
         current_on: Some(false),
     });
 
+    state
+}
+
+#[test]
+fn immediate_status_refresh_schedules_status_key_one_second_later() {
+    let mut state = page_with_status_key();
     let before = Instant::now();
-    request_immediate_status_check(&mut state, 0);
+    state.refresh_tx.send(0).unwrap();
+    state.apply_pending_refreshes();
     let after = Instant::now();
 
     let scheduled = state.status_states[0]
@@ -605,6 +607,22 @@ fn immediate_status_refresh_schedules_status_key_one_second_later() {
         .next_check_at;
     assert!(scheduled >= before + Duration::from_secs(1));
     assert!(scheduled <= after + Duration::from_secs(1));
+}
+
+#[test]
+fn action_completion_after_navigation_does_not_refresh_the_reused_slot() {
+    let mut page = page_with_status_key();
+    let action_completion = page.refresh_tx.clone();
+    page = page_with_status_key();
+    let original_deadline = page.status_states[0].as_ref().unwrap().next_check_at;
+
+    assert!(action_completion.send(0).is_err());
+    page.apply_pending_refreshes();
+
+    assert_eq!(
+        page.status_states[0].as_ref().unwrap().next_check_at,
+        original_deadline
+    );
 }
 
 #[test]

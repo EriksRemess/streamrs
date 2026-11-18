@@ -1,3 +1,4 @@
+use crate::paging::STREAMDECK_KEY_COUNT;
 use hidapi::{HidApi, HidDevice};
 use std::cmp::min;
 
@@ -36,16 +37,39 @@ pub fn set_brightness(device: &HidDevice, percentage: usize) -> Result<(), Strin
     Ok(())
 }
 
-fn get_pressed_button(buf: &[u8]) -> Option<usize> {
-    buf.iter().position(|&x| x == 1)
+#[derive(Clone, Copy, Default)]
+pub struct KeyState(u16);
+
+impl KeyState {
+    fn from_report(report: &[u8]) -> Option<Self> {
+        let (header, keys) = report.split_at_checked(4)?;
+        if header != [0x01, 0x00, STREAMDECK_KEY_COUNT as u8, 0x00] {
+            return None;
+        }
+
+        let mut pressed = 0;
+        for (index, &value) in keys.get(..STREAMDECK_KEY_COUNT)?.iter().enumerate() {
+            match value {
+                0 => {}
+                1 => pressed |= 1 << index,
+                _ => return None,
+            }
+        }
+        Some(Self(pressed))
+    }
+
+    pub fn new_presses(&mut self, report: Option<Self>) -> impl Iterator<Item = usize> {
+        let current = report.unwrap_or(*self);
+        let pressed = current.0 & !self.0;
+        *self = current;
+        (0..STREAMDECK_KEY_COUNT).filter(move |index| pressed & (1 << index) != 0)
+    }
 }
 
-pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>, String> {
+pub fn read_key_state(device: &HidDevice, timeout_ms: i32) -> Result<Option<KeyState>, String> {
     let mut buf = [0u8; 32];
-    buf[0] = 19;
     match device.read_timeout(&mut buf, timeout_ms) {
-        Ok(size) if size > 0 => Ok(get_pressed_button(&buf[4..19])),
-        Ok(_) => Ok(None),
+        Ok(size) => Ok(KeyState::from_report(&buf[..size])),
         Err(err) => {
             // SIGHUP used for config reload can interrupt a blocking HID read.
             // Treat EINTR as a transient event and keep the existing device session.
@@ -60,6 +84,11 @@ pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>,
             }
         }
     }
+}
+
+pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>, String> {
+    let report = read_key_state(device, timeout_ms)?;
+    Ok(KeyState::default().new_presses(report).next())
 }
 
 pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<(), String> {
@@ -92,4 +121,49 @@ pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<()
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overlapping_presses_survive_quiet_reads_and_release_independently() {
+        let mut state = KeyState::default();
+        let mut report = [0; 4 + STREAMDECK_KEY_COUNT];
+        report[..4].copy_from_slice(&[1, 0, 15, 0]);
+        let mut presses = |bytes: &[u8]| {
+            state
+                .new_presses(KeyState::from_report(bytes))
+                .collect::<Vec<_>>()
+        };
+
+        report[4] = 1;
+        report[18] = 1;
+        assert_eq!(presses(&report), [0, 14]);
+        assert!(presses(&[]).is_empty());
+        report[8] = 1;
+        assert_eq!(presses(&report), [4]);
+        report[4] = 0;
+        assert!(presses(&report).is_empty());
+        report[4] = 1;
+        assert_eq!(presses(&report), [0]);
+        report[4..].fill(0);
+        assert!(presses(&report).is_empty());
+        report[18] = 1;
+        assert_eq!(presses(&report), [14]);
+    }
+
+    #[test]
+    fn only_complete_key_reports_change_the_snapshot() {
+        let mut report = [0; 32];
+        report[..4].copy_from_slice(&[1, 0, 15, 0]);
+        assert!(KeyState::from_report(&report).is_some());
+        assert!(KeyState::from_report(&report[..18]).is_none());
+        for (index, value) in [(0, 2), (1, 1), (2, 14), (3, 1), (4, 2)] {
+            let mut other = report;
+            other[index] = value;
+            assert!(KeyState::from_report(&other).is_none());
+        }
+    }
 }
