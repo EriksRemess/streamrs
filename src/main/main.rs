@@ -1,7 +1,6 @@
 #[cfg(test)]
 use chrono::FixedOffset;
 use chrono::{Duration as ChronoDuration, Local, LocalResult, TimeZone};
-use hidapi::HidDevice;
 #[cfg(test)]
 use image::codecs::gif::GifDecoder;
 #[cfg(test)]
@@ -66,9 +65,11 @@ use streamrs::config::streamrs_schema::{
 };
 use streamrs::image::wallpaper::{Wallpaper, device_jpeg};
 use streamrs::paging::{NEXT_PAGE_ICON, PREVIOUS_PAGE_ICON, PagingLayout};
-use streamrs::process::{run_shell_status, send_keyboard_shortcut, wait_argv_command_success};
+use streamrs::process::{
+    RunningStatusCheck, send_keyboard_shortcut_until_stopped, wait_argv_command_success,
+};
 use streamrs::streamdeck::{
-    InputReport, KeyState, get_device, read_input_report, set_brightness, set_key_image_data,
+    DeckDisplay, InputReport, KeyState, open_daemon_display, read_input_report, set_brightness,
 };
 
 const KEY_COUNT: usize = streamrs::paging::STREAMDECK_KEY_COUNT;
@@ -136,6 +137,7 @@ struct CalendarKeyState {
 }
 
 struct StatusKeyState {
+    running: Option<RunningStatusCheck>,
     command: String,
     icon_on: String,
     icon_off: String,
@@ -147,20 +149,29 @@ struct StatusKeyState {
 
 impl StatusKeyState {
     fn poll(&mut self, now: Instant, cache: &mut StatusCache) -> Option<bool> {
-        if now < self.next_check_at {
-            return None;
+        if let Some(check) = &mut self.running {
+            let result = match check.try_result() {
+                Ok(None) => return None,
+                Ok(Some(is_on)) => {
+                    cache.insert(self.command.clone(), is_on);
+                    Some(is_on)
+                }
+                Err(err) => {
+                    eprintln!("Failed waiting for status check '{}': {err}", self.command);
+                    None
+                }
+            };
+            self.running = None;
+            return result;
         }
-        self.next_check_at = now + self.check_interval;
-        match run_status_check(&self.command) {
-            Ok(is_on) => {
-                cache.insert(self.command.clone(), is_on);
-                Some(is_on)
-            }
-            Err(err) => {
-                eprintln!("{err}");
-                None
+        if now >= self.next_check_at {
+            self.next_check_at = now + self.check_interval;
+            match RunningStatusCheck::start(&self.command) {
+                Ok(check) => self.running = Some(check),
+                Err(err) => eprintln!("{err}"),
             }
         }
+        None
     }
 
     fn icon(&self, is_on: bool) -> &str {
@@ -454,26 +465,27 @@ type StatusCache = HashMap<String, bool>;
 
 static RELOAD_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-#[cfg(unix)]
-const SIGHUP_SIGNAL: i32 = 1;
+static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(unix)]
-extern "C" fn handle_reload_signal(_signal: i32) {
-    RELOAD_REQUESTED.store(true, Ordering::Relaxed);
+extern "C" fn handle_signal(signal: libc::c_int) {
+    if signal == libc::SIGHUP {
+        RELOAD_REQUESTED.store(true, Ordering::Relaxed);
+    } else {
+        STOP_REQUESTED.store(true, Ordering::Relaxed);
+    }
 }
 
 #[cfg(unix)]
-fn install_reload_signal_handler() {
-    unsafe extern "C" {
-        fn signal(signum: i32, handler: extern "C" fn(i32)) -> extern "C" fn(i32);
+fn install_signal_handlers() {
+    for signal in [libc::SIGHUP, libc::SIGINT, libc::SIGTERM] {
+        // SAFETY: The handler only sets an atomic flag.
+        unsafe { libc::signal(signal, handle_signal as *const () as libc::sighandler_t) };
     }
-
-    // SAFETY: Registering a simple signal handler that only stores to an AtomicBool.
-    let _ = unsafe { signal(SIGHUP_SIGNAL, handle_reload_signal) };
 }
 
 #[cfg(not(unix))]
-fn install_reload_signal_handler() {}
+fn install_signal_handlers() {}
 
 fn take_reload_request() -> bool {
     RELOAD_REQUESTED.swap(false, Ordering::Relaxed)
@@ -616,11 +628,7 @@ fn watch_action_completion(
 
 fn send_shortcut(shortcut: &str) -> Result<(), String> {
     eprintln!("Triggering keyboard shortcut action '{shortcut}'");
-    send_keyboard_shortcut(shortcut)
-}
-
-fn run_status_check(command: &str) -> Result<bool, String> {
-    run_shell_status(command)
+    send_keyboard_shortcut_until_stopped(shortcut, &STOP_REQUESTED)
 }
 
 fn request_immediate_status_check(state: &mut PageState, key_index: usize) {
@@ -782,6 +790,7 @@ fn prepare_page(config: &Config, status_cache: &StatusCache, page: usize) -> Pag
 
     state.pending_images = Vec::from_fn(KEY_COUNT, |key| {
         let status = plan.status_slots[key].take().map(|status| StatusKeyState {
+            running: None,
             command: status.command,
             icon_on: status.icon_on,
             icon_off: status.icon_off,
@@ -806,7 +815,7 @@ fn prepare_page(config: &Config, status_cache: &StatusCache, page: usize) -> Pag
 }
 
 fn advance_dynamic_keys(
-    device: &HidDevice,
+    device: &DeckDisplay,
     image_dir: &Path,
     image_cache: &mut ImageCache,
     status_cache: &mut StatusCache,
@@ -831,7 +840,7 @@ fn advance_dynamic_keys(
             && let Err(err) = status.display(is_on, |icon, background| {
                 let image = load_key_image_cached(image_dir, image_cache, icon, background)?;
                 apply_loaded_key_image(&mut state.dynamic_states[key], image, |data| {
-                    set_key_image_data(device, key as u8, data)
+                    device.set_key_image(key as u8, data)
                 })
             })
         {
@@ -848,7 +857,7 @@ fn advance_dynamic_keys(
                     }
 
                     if let Err(err) =
-                        animation.advance(now, |frame| set_key_image_data(device, key as u8, frame))
+                        animation.advance(now, |frame| device.set_key_image(key as u8, frame))
                     {
                         eprintln!("{err}");
                     }
@@ -866,7 +875,7 @@ fn advance_dynamic_keys(
                             clock.background_name.as_deref(),
                         ) {
                             Ok(image) => {
-                                if let Err(err) = set_key_image_data(device, key as u8, &image) {
+                                if let Err(err) = device.set_key_image(key as u8, &image) {
                                     eprintln!("{err}");
                                 } else {
                                     clock.current_text = next_text;
@@ -884,7 +893,7 @@ fn advance_dynamic_keys(
 
                     if let Err(err) = calendar.refresh(now, current_calendar_key(), || {
                         let image = render_calendar_icon()?;
-                        set_key_image_data(device, key as u8, &image)
+                        device.set_key_image(key as u8, &image)
                     }) {
                         eprintln!("{err}");
                     }
@@ -927,6 +936,9 @@ fn run_device_command(args: &init::CliArgs) -> Result<(), String> {
         config.usage,
         config.usage_page,
     )?;
+    if let Some(path) = &args.standby_image {
+        return streamrs::streamdeck::set_standby_image(&device, path);
+    }
     if let Some(timer) = args.sleep_after {
         return timer.apply(&device);
     }
@@ -951,7 +963,11 @@ pub(crate) fn run() {
             std::process::exit(2);
         }
     };
-    if args.info || args.sleep_after.is_some() || args.brightness.is_some() {
+    if args.info
+        || args.sleep_after.is_some()
+        || args.brightness.is_some()
+        || args.standby_image.is_some()
+    {
         streamrs::i18n::init_i18n();
         if let Err(err) = run_device_command(&args) {
             eprintln!("{err}");
@@ -959,7 +975,6 @@ pub(crate) fn run() {
         }
         return;
     }
-    install_reload_signal_handler();
 
     let profile_locked = args.config_path.is_some() || args.profile_explicit;
     let mut profile = args.profile.clone();
@@ -1002,6 +1017,7 @@ pub(crate) fn run() {
         }
     }
 
+    install_signal_handlers();
     let mut config_raw = String::new();
     let mut config = blank_profile_config();
 
@@ -1040,7 +1056,7 @@ pub(crate) fn run() {
         }
     };
 
-    let mut device: Option<HidDevice> = None;
+    let mut device: Option<DeckDisplay> = None;
     let mut margins = PanelMargins::PerKeyOnly;
     let mut current_page = 0usize;
     let mut total_pages = page_count(&config);
@@ -1050,7 +1066,7 @@ pub(crate) fn run() {
     let mut last_device_probe = Instant::now() - Duration::from_secs(1);
     let mut waiting_for_device_logged = false;
 
-    loop {
+    while !STOP_REQUESTED.load(Ordering::Relaxed) {
         if device.is_none() && last_device_probe.elapsed() >= Duration::from_millis(500) {
             last_device_probe = Instant::now();
             if !waiting_for_device_logged {
@@ -1058,14 +1074,19 @@ pub(crate) fn run() {
                 waiting_for_device_logged = true;
             }
 
-            if let Some(connected_device) = get_device(
+            let candidate = open_daemon_display(
                 config.vendor_id,
                 config.product_id,
                 config.usage,
                 config.usage_page,
-            ) {
+            );
+            if let Some(connected_device) = candidate.unwrap_or_else(|err| {
+                eprintln!("{err}");
+                None
+            }) {
                 eprintln!("Stream Deck connected");
-                if let Err(err) = set_brightness(&connected_device, config.brightness.clamp(0, 100))
+                if let Err(err) =
+                    set_brightness(connected_device.hid(), config.brightness.clamp(0, 100))
                 {
                     eprintln!("{err}");
                 }
@@ -1085,22 +1106,25 @@ pub(crate) fn run() {
             page_state_ref.draw_background(
                 &image_dir,
                 &mut margins,
-                |data| streamrs::streamdeck::set_panel_image_data(device_ref, data),
-                || streamrs::streamdeck::clear_lcd(device_ref),
+                |data| device_ref.set_panel_image(data),
+                || device_ref.clear_lcd(),
             );
             page_state_ref.draw_pending_images(
                 Instant::now(),
                 &image_dir,
                 &mut image_cache,
                 &blank_image,
-                |key, data| set_key_image_data(device_ref, key as u8, data),
+                |key, data| device_ref.set_key_image(key as u8, data),
             );
             let input = page_state_ref.process_input(
                 &mut key_state,
-                |timeout| read_input_report(device_ref, timeout),
+                |timeout| read_input_report(device_ref.hid(), timeout),
                 |page_state_ref, actions| {
                     let refresh_tx = page_state_ref.refresh_tx.clone();
                     for (index, action) in actions {
+                        if STOP_REQUESTED.load(Ordering::Relaxed) {
+                            break;
+                        }
                         match action {
                             ButtonAction::Launch(action) => {
                                 watch_action_completion(&action, args.debug, index, &refresh_tx);
@@ -1130,6 +1154,9 @@ pub(crate) fn run() {
                     }
                 },
             );
+            if STOP_REQUESTED.load(Ordering::Relaxed) {
+                break;
+            }
             if let Err(err) = input {
                 if err.to_ascii_lowercase().contains("device disconnected") {
                     eprintln!("Lost Stream Deck connection while reading button state");
@@ -1235,7 +1262,7 @@ pub(crate) fn run() {
 
                                 if let Some(device) = device.as_ref()
                                     && let Err(err) =
-                                        set_brightness(device, new_config.brightness.min(100))
+                                        set_brightness(device.hid(), new_config.brightness.min(100))
                                 {
                                     eprintln!("{err}");
                                 }
@@ -1289,5 +1316,11 @@ pub(crate) fn run() {
         }
 
         sleep(Duration::from_millis(10));
+    }
+    if let Some(device) = device
+        && margins != PanelMargins::PerKeyOnly
+        && let Err(err) = device.show_standby_image()
+    {
+        eprintln!("Could not show the standby image: {err}");
     }
 }

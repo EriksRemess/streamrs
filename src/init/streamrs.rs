@@ -12,6 +12,7 @@ use streamrs::streamdeck::info::SleepTimer;
 pub(crate) struct CliArgs {
     pub(crate) info: bool,
     pub(crate) brightness: Option<u8>,
+    pub(crate) standby_image: Option<PathBuf>,
     pub(crate) sleep_after: Option<SleepTimer>,
     pub(crate) debug: bool,
     pub(crate) profile: String,
@@ -24,7 +25,7 @@ pub(crate) struct CliArgs {
 
 pub(crate) fn print_usage(program: &str) {
     println!(
-        "Usage: {program} [--info | --brightness <0-100> | --sleep-after <minutes|never>] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
+        "Usage: {program} [--info | --brightness <0-100> | --sleep-after <minutes|never> | --standby-image <path>] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
     );
 }
 
@@ -39,6 +40,7 @@ fn parse_args_from(
     let mut info = false;
     let mut brightness = None;
     let mut sleep_after = None;
+    let mut standby_image = None;
     let mut debug = false;
     let mut profile = None;
     let mut config_path = None;
@@ -59,6 +61,13 @@ fn parse_args_from(
                         .filter(|v| *v <= 100)
                         .ok_or("--brightness requires a whole percentage from 0 to 100")?,
                 );
+            }
+            "--standby-image" => {
+                let path = args
+                    .next()
+                    .filter(|v| !v.is_empty() && !v.starts_with("--"))
+                    .ok_or("Missing image path for --standby-image")?;
+                standby_image = Some(PathBuf::from(path));
             }
             "--sleep-after" => {
                 let value = args.next().ok_or("Missing value for --sleep-after")?;
@@ -103,14 +112,18 @@ fn parse_args_from(
         }
     }
 
-    if brightness.is_some() && (info || sleep_after.is_some() || init) {
-        return Err("--brightness cannot be combined with --info, --sleep-after or --init".into());
-    }
-    if sleep_after.is_some() && (info || init) {
-        return Err("--sleep-after cannot be combined with --info or --init".into());
-    }
-    if info && init {
-        return Err("--info and --init cannot be combined".into());
+    let commands = [
+        info,
+        init,
+        brightness.is_some(),
+        sleep_after.is_some(),
+        standby_image.is_some(),
+    ];
+    if commands.into_iter().filter(|enabled| *enabled).count() > 1 {
+        return Err(
+            "Choose only one of --info, --init, --brightness, --sleep-after or --standby-image"
+                .into(),
+        );
     }
     if force && !init {
         return Err("--force requires --init".to_string());
@@ -131,6 +144,7 @@ fn parse_args_from(
         info,
         brightness,
         sleep_after,
+        standby_image,
         debug,
         profile,
         profile_explicit,

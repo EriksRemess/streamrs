@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 17:55+0000\n"
-"PO-Revision-Date: 2026-11-18 17:55+0000\n"
+"POT-Creation-Date: 2026-11-20 09:42+0000\n"
+"PO-Revision-Date: 2026-11-20 09:21+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -145,7 +145,8 @@ msgstr "Aizvērt"
 
 #: src/config/toml.rs
 msgid "Config '{path}' is busy. Try saving again."
-msgstr "Konfigurācija '{path}' pašlaik tiek lietota. Mēģiniet saglabāt vēlreiz."
+msgstr ""
+"Konfigurācija '{path}' pašlaik tiek lietota. Mēģiniet saglabāt vēlreiz."
 
 #: src/gui/ui.rs
 msgid "Contributors"
@@ -183,6 +184,10 @@ msgstr "Neizdevās nolasīt miega taimera iestatījumu."
 msgid "Could not set the sleep timer: {err}"
 msgstr "Neizdevās iestatīt miega taimeri: {err}"
 
+#: src/gui/ui/device_info.rs
+msgid "Could not upload the standby image."
+msgstr "Neizdevās augšupielādēt gaidstāves attēlu."
+
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Create a profile to set a page wallpaper."
 msgstr "Lai iestatītu lapas fona attēlu, izveidojiet profilu."
@@ -190,6 +195,12 @@ msgstr "Lai iestatītu lapas fona attēlu, izveidojiet profilu."
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
 msgstr "Izveidots un ielādēts profils '{profile}'"
+
+#: src/streamdeck.rs
+msgid "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
+msgstr ""
+"Pielāgotu gaidstāves attēlu var iestatīt standarta Stream Deck MK.2 "
+"(0fd9:0080) ierīcē."
 
 #: src/gui/ui/signals/management.rs
 msgid "Delete profile '{profile}' config? Shared icons are kept."
@@ -242,21 +253,16 @@ msgid "Failed to set brightness: {err}"
 msgstr "Neizdevās iestatīt spilgtumu: {err}"
 
 #: src/gui/core/config_io.rs
-msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
-msgstr ""
-"Neizdevās nosūtīt signālu streamrs dēmonam ({systemctl_err}; {pkill_err})"
+msgid "Failed to signal streamrs daemon: {err}"
+msgstr "Neizdevās nosūtīt signālu streamrs dēmonam: {err}"
 
 #: src/gui/core/config_io.rs
-msgid "Failed to start streamrs daemon (systemctl exit status {status})"
-msgstr "Neizdevās palaist streamrs dēmonu (systemctl izejas statuss {status})"
+msgid "Failed to start streamrs daemon: {err}"
+msgstr "Neizdevās palaist streamrs dēmonu: {err}"
 
 #: src/gui/core/config_io.rs
-msgid "Failed to start streamrs daemon (systemctl failed: {err})"
-msgstr "Neizdevās palaist streamrs dēmonu (systemctl kļūda: {err})"
-
-#: src/gui/core/config_io.rs
-msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
-msgstr "Neizdevās apturēt streamrs dēmonu ({systemctl_err}; {pkill_err})"
+msgid "Failed to stop streamrs daemon: {err}"
+msgstr "Neizdevās apturēt streamrs dēmonu: {err}"
 
 #: src/config/toml.rs
 msgid "Failed to write config '{path}': {err}"
@@ -278,7 +284,7 @@ msgstr "Ikona, kad statuss ir izslēgts"
 msgid "Icon when status is on"
 msgstr "Ikona, kad statuss ir ieslēgts"
 
-#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Images"
 msgstr "Attēli"
 
@@ -468,7 +474,7 @@ msgstr "Izmaiņas saglabātas"
 msgid "Saved {ordinal} button"
 msgstr "{ordinal} poga saglabāta"
 
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui.rs
 msgid "Select a local image file."
 msgstr "Izvēlieties lokālu attēla datni."
 
@@ -481,12 +487,24 @@ msgid "Serial number"
 msgstr "Sērijas numurs"
 
 #: src/gui/ui/device_info.rs
+msgid "Set standby image"
+msgstr "Iestatīt gaidstāves attēlu"
+
+#: src/gui/ui/device_info.rs
+msgid "Set standby image…"
+msgstr "Iestatīt gaidstāves attēlu…"
+
+#: src/gui/ui/device_info.rs
 msgid "Sleep after inactivity"
 msgstr "Miega režīms pēc neaktivitātes"
 
 #: src/streamdeck/info.rs
 msgid "Sleep timer"
 msgstr "Miega taimeris"
+
+#: src/gui/ui/device_info.rs
+msgid "Standby image sent to the deck."
+msgstr "Gaidstāves attēls nosūtīts uz ierīci."
 
 #: src/gui/ui.rs
 msgid "Start"
@@ -544,14 +562,6 @@ msgstr "Nav pieejams"
 msgid "Wallpaper for page {page}"
 msgstr "{page}. lapas fona attēls"
 
-#: src/gui/core/config_io.rs
-msgid "pkill exit status {status}"
-msgstr "pkill izejas statuss {status}"
-
-#: src/gui/core/config_io.rs
-msgid "pkill failed: {err}"
-msgstr "pkill neizdevās: {err}"
-
 #: src/gui/ui.rs
 msgid "streamrs service"
 msgstr "streamrs serviss"
@@ -563,6 +573,19 @@ msgstr "systemctl izejas statuss {status}"
 #: src/gui/core/config_io.rs
 msgid "systemctl failed: {err}"
 msgstr "systemctl neizdevās: {err}"
+
+#~ msgid "Failed to start streamrs daemon (systemctl exit status {status})"
+#~ msgstr ""
+#~ "Neizdevās palaist streamrs dēmonu (systemctl izejas statuss {status})"
+
+#~ msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+#~ msgstr "Neizdevās apturēt streamrs dēmonu ({systemctl_err}; {pkill_err})"
+
+#~ msgid "pkill exit status {status}"
+#~ msgstr "pkill izejas statuss {status}"
+
+#~ msgid "pkill failed: {err}"
+#~ msgstr "pkill neizdevās: {err}"
 
 #~ msgid "Failed to write GUI lock '{path}': {err}"
 #~ msgstr "Neizdevās ierakstīt GUI slēga failu '{path}': {err}"

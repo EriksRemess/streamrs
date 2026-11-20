@@ -53,18 +53,32 @@ pub(super) fn register(window: &ApplicationWindow, state: &Rc<RefCell<AppState>>
                         grid.attach(&title, 0, i as i32, 1, 1);
                         grid.attach(&value, 1, i as i32, 1, 1);
                     }
-                    if let Some(timer) = info.sleep_timer {
+                    let timer = info.sleep_timer;
+                    if timer.is_some() {
                         dialog.add_response("sleep", &tr("Change sleep timer…"));
-                        let device = Cell::new(Some(device));
-                        dialog.connect_response(Some("sleep"), move |_, _| {
-                            if let (Some(window), Some(device)) = (window.upgrade(), device.take())
-                            {
-                                gtk::glib::spawn_future_local(edit_sleep_timer(
-                                    window, device, timer,
-                                ));
-                            }
-                        });
                     }
+                    if streamrs::streamdeck::supports_standby_upload(vendor, product) {
+                        dialog.add_response("standby", &tr("Set standby image…"));
+                    }
+                    let device = Cell::new(Some(device));
+                    dialog.connect_response(None, move |_, response| {
+                        let (Some(window), Some(device)) = (window.upgrade(), device.take()) else {
+                            return;
+                        };
+                        match response {
+                            "sleep" => {
+                                if let Some(timer) = timer {
+                                    gtk::glib::spawn_future_local(edit_sleep_timer(
+                                        window, device, timer,
+                                    ));
+                                }
+                            }
+                            "standby" => {
+                                gtk::glib::spawn_future_local(edit_standby_image(window, device));
+                            }
+                            _ => {}
+                        }
+                    });
                     dialog.set_body("");
                     dialog.set_extra_child(Some(&grid));
                 }
@@ -123,6 +137,25 @@ async fn edit_sleep_timer(
         Err(_) => tr("Could not change the sleep timer."),
     };
     let dialog = adw::AlertDialog::new(Some(&tr("Sleep after inactivity")), Some(&error));
+    dialog.add_response("close", &tr("Close"));
+    dialog.present(Some(&window));
+}
+
+async fn edit_standby_image(window: ApplicationWindow, device: hidapi::HidDevice) {
+    let title = tr("Set standby image");
+    let result = match choose_image(&window, &title).await {
+        Ok(None) => return,
+        Ok(Some(path)) => gtk::gio::spawn_blocking(move || {
+            streamrs::streamdeck::set_standby_image(&device, &path)
+        })
+        .await
+        .unwrap_or_else(|_| Err(tr("Could not upload the standby image."))),
+        Err(err) => Err(err),
+    };
+    let message = result
+        .err()
+        .unwrap_or_else(|| tr("Standby image sent to the deck."));
+    let dialog = adw::AlertDialog::new(Some(&title), Some(&message));
     dialog.add_response("close", &tr("Close"));
     dialog.present(Some(&window));
 }

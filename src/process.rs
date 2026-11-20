@@ -19,7 +19,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use xkeysym::key as keysym;
@@ -82,21 +82,60 @@ pub fn wait_argv_command_success(command_line: &str, debug: bool) -> Result<bool
     Ok(status.success())
 }
 
-pub fn run_shell_status(command: &str) -> Result<bool, String> {
+fn shell_status_command(command: &str) -> Result<Command, String> {
     if command.trim().is_empty() {
         return Err("Status check command is empty".to_string());
     }
-
-    let status = Command::new("sh")
+    let mut shell = Command::new("sh");
+    shell
         .arg("-c")
         .arg(command)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|err| format!("Failed to run status check '{command}': {err}"))?;
+        .stderr(Stdio::null());
+    Ok(shell)
+}
 
-    Ok(status.success())
+pub fn run_shell_status(command: &str) -> Result<bool, String> {
+    shell_status_command(command)?
+        .status()
+        .map(|status| status.success())
+        .map_err(|err| format!("Failed to run status check '{command}': {err}"))
+}
+
+pub struct RunningStatusCheck(Child);
+
+impl RunningStatusCheck {
+    pub fn start(command: &str) -> Result<Self, String> {
+        let mut shell = shell_status_command(command)?;
+        #[cfg(unix)]
+        std::os::unix::process::CommandExt::process_group(&mut shell, 0);
+        shell
+            .spawn()
+            .map(Self)
+            .map_err(|err| format!("Failed to run status check '{command}': {err}"))
+    }
+
+    pub fn try_result(&mut self) -> std::io::Result<Option<bool>> {
+        Ok(self.0.try_wait()?.map(|status| status.success()))
+    }
+}
+
+impl Drop for RunningStatusCheck {
+    fn drop(&mut self) {
+        if matches!(self.0.try_wait(), Ok(None)) {
+            #[cfg(unix)]
+            {
+                // SAFETY: This unreaped child leads the private process group created in start().
+                if unsafe { libc::kill(-(self.0.id() as libc::pid_t), libc::SIGKILL) } == -1 {
+                    let _ = self.0.kill();
+                }
+            }
+            #[cfg(not(unix))]
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,11 +187,10 @@ struct StreamrsState {
 }
 
 impl PortalKeyboardBackend {
-    fn new() -> Result<Self, String> {
-        let connection =
-            gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE).map_err(|err| {
-                format!("Failed to connect to session bus for portal keyboard input: {err}")
-            })?;
+    fn new(cancel: &gio::Cancellable) -> Result<Self, String> {
+        let connection = gio::bus_get_sync(gio::BusType::Session, Some(cancel)).map_err(|err| {
+            format!("Failed to connect to session bus for portal keyboard input: {err}")
+        })?;
         let proxy = gio::DBusProxy::new_sync(
             &connection,
             gio::DBusProxyFlags::NONE,
@@ -160,7 +198,7 @@ impl PortalKeyboardBackend {
             Some(PORTAL_BUS_NAME),
             PORTAL_DESKTOP_PATH,
             PORTAL_REMOTE_DESKTOP_INTERFACE,
-            gio::Cancellable::NONE,
+            Some(cancel),
         )
         .map_err(|err| format!("Failed to create RemoteDesktop portal proxy: {err}"))?;
 
@@ -193,18 +231,19 @@ impl PortalKeyboardBackend {
             ("session_handle_token", session_token.to_variant()),
         ]);
 
-        let create_results = wait_for_portal_response(&connection, &create_request_path, || {
-            proxy
-                .call_sync(
-                    "CreateSession",
-                    Some(&(create_options.clone(),).to_variant()),
-                    gio::DBusCallFlags::NONE,
-                    -1,
-                    gio::Cancellable::NONE,
-                )
-                .map(|_| ())
-                .map_err(|err| format!("RemoteDesktop CreateSession failed: {err}"))
-        })?;
+        let create_results =
+            wait_for_portal_response(&connection, &create_request_path, cancel, || {
+                proxy
+                    .call_sync(
+                        "CreateSession",
+                        Some(&(create_options.clone(),).to_variant()),
+                        gio::DBusCallFlags::NONE,
+                        -1,
+                        Some(cancel),
+                    )
+                    .map(|_| ())
+                    .map_err(|err| format!("RemoteDesktop CreateSession failed: {err}"))
+            })?;
         let session_path = create_results
             .get("session_handle")
             .and_then(String::from_variant)
@@ -236,7 +275,7 @@ impl PortalKeyboardBackend {
             }
         }
 
-        wait_for_portal_response(&connection, &select_request_path, || {
+        wait_for_portal_response(&connection, &select_request_path, cancel, || {
             backend
                 .proxy
                 .call_sync(
@@ -244,7 +283,7 @@ impl PortalKeyboardBackend {
                     Some(&(backend.session_path.clone(), select_options.clone()).to_variant()),
                     gio::DBusCallFlags::NONE,
                     -1,
-                    gio::Cancellable::NONE,
+                    Some(cancel),
                 )
                 .map(|_| ())
                 .map_err(|err| format!("RemoteDesktop SelectDevices failed: {err}"))
@@ -254,26 +293,27 @@ impl PortalKeyboardBackend {
         let start_request_path = portal_request_path(&connection, &start_request_token)?;
         let start_options = portal_options(&[("handle_token", start_request_token.to_variant())]);
 
-        let start_results = wait_for_portal_response(&connection, &start_request_path, || {
-            backend
-                .proxy
-                .call_sync(
-                    "Start",
-                    Some(
-                        &(
-                            backend.session_path.clone(),
-                            EMPTY_WINDOW_ID,
-                            start_options.clone(),
-                        )
-                            .to_variant(),
-                    ),
-                    gio::DBusCallFlags::NONE,
-                    -1,
-                    gio::Cancellable::NONE,
-                )
-                .map(|_| ())
-                .map_err(|err| format!("RemoteDesktop Start failed: {err}"))
-        })?;
+        let start_results =
+            wait_for_portal_response(&connection, &start_request_path, cancel, || {
+                backend
+                    .proxy
+                    .call_sync(
+                        "Start",
+                        Some(
+                            &(
+                                backend.session_path.clone(),
+                                EMPTY_WINDOW_ID,
+                                start_options.clone(),
+                            )
+                                .to_variant(),
+                        ),
+                        gio::DBusCallFlags::NONE,
+                        -1,
+                        Some(cancel),
+                    )
+                    .map(|_| ())
+                    .map_err(|err| format!("RemoteDesktop Start failed: {err}"))
+            })?;
         if persistence_supported {
             match start_results
                 .get("restore_token")
@@ -288,11 +328,29 @@ impl PortalKeyboardBackend {
         Ok(backend)
     }
 
-    fn send_shortcut(&self, parsed: &ParsedShortcut) -> Result<(), ShortcutFailure> {
-        dispatch_key_sequence(parsed, |key, state| self.notify_key(key, state))
+    fn send_shortcut(
+        &self,
+        parsed: &ParsedShortcut,
+        request: &ShortcutRequest,
+    ) -> Result<(), ShortcutFailure> {
+        dispatch_key_sequence(parsed, |key, state| {
+            if state == PORTAL_KEY_PRESSED {
+                request.check()?;
+            }
+            self.notify_key(
+                key,
+                state,
+                (state == PORTAL_KEY_PRESSED).then_some(&request.cancel),
+            )
+        })
     }
 
-    fn notify_key(&self, key: ShortcutKey, state: u32) -> Result<(), String> {
+    fn notify_key(
+        &self,
+        key: ShortcutKey,
+        state: u32,
+        cancel: Option<&gio::Cancellable>,
+    ) -> Result<(), String> {
         let keysym = shortcut_key_to_keysym(key).ok_or_else(|| {
             format!("Keyboard shortcut key '{key:?}' is not supported by the portal backend")
         })?;
@@ -303,7 +361,7 @@ impl PortalKeyboardBackend {
                 Some(&(self.session_path.clone(), options, keysym, state).to_variant()),
                 gio::DBusCallFlags::NONE,
                 -1,
-                gio::Cancellable::NONE,
+                cancel,
             )
             .map(|_| ())
             .map_err(|err| format!("RemoteDesktop NotifyKeyboardKeysym failed: {err}"))
@@ -353,29 +411,99 @@ fn dispatch_key_sequence(
     })
 }
 
+fn close_portal_object(connection: &gio::DBusConnection, path: &str, interface: &str) {
+    let close =
+        gio::DBusMessage::new_method_call(Some(PORTAL_BUS_NAME), path, Some(interface), "Close");
+    close.set_flags(gio::DBusMessageFlags::NO_REPLY_EXPECTED);
+    let _ = connection.send_message(&close, gio::DBusSendMessageFlags::NONE);
+}
+
 impl Drop for PortalKeyboardBackend {
     fn drop(&mut self) {
-        let _ = self.proxy.connection().call_sync(
-            Some(PORTAL_BUS_NAME),
+        close_portal_object(
+            &self.proxy.connection(),
             self.session_path.as_str(),
             PORTAL_SESSION_INTERFACE,
-            "Close",
-            None::<&glib::Variant>,
-            None::<&glib::VariantTy>,
-            gio::DBusCallFlags::NONE,
-            -1,
-            gio::Cancellable::NONE,
         );
     }
 }
 
+struct ShortcutRequest {
+    cancel: gio::Cancellable,
+    stopping: &'static AtomicBool,
+}
+
+impl ShortcutRequest {
+    fn check(&self) -> Result<(), String> {
+        if self.stopping.load(Ordering::Relaxed) {
+            Err("Keyboard shortcut cancelled during shutdown".into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
 pub fn send_keyboard_shortcut(shortcut: &str) -> Result<(), String> {
+    static NEVER_STOP: AtomicBool = AtomicBool::new(false);
+    dispatch_shortcut(
+        shortcut,
+        &ShortcutRequest {
+            cancel: gio::Cancellable::new(),
+            stopping: &NEVER_STOP,
+        },
+    )
+}
+
+pub fn send_keyboard_shortcut_until_stopped(
+    shortcut: &str,
+    stopping: &'static AtomicBool,
+) -> Result<(), String> {
+    let shortcut = shortcut.to_owned();
+    run_interruptible_shortcut(stopping, move |request| {
+        dispatch_shortcut(&shortcut, request)
+    })
+}
+
+fn run_interruptible_shortcut(
+    stopping: &'static AtomicBool,
+    dispatch: impl FnOnce(&ShortcutRequest) -> Result<(), String> + Send + 'static,
+) -> Result<(), String> {
+    let cancel = gio::Cancellable::new();
+    let request = ShortcutRequest {
+        cancel: cancel.clone(),
+        stopping,
+    };
+    request.check()?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::Builder::new()
+        .name("keyboard-shortcut".into())
+        .spawn(move || {
+            let _ = tx.send(dispatch(&request));
+        })
+        .map_err(|err| err.to_string())?;
+    loop {
+        if stopping.load(Ordering::Relaxed) {
+            cancel.cancel();
+            // Give the backend a bounded opportunity to release any keys already held.
+            let _ = rx.recv_timeout(Duration::from_millis(100));
+            return Err("Keyboard shortcut cancelled during shutdown".into());
+        }
+        match rx.recv_timeout(Duration::from_millis(20)) {
+            Ok(result) => return result,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+}
+
+fn dispatch_shortcut(shortcut: &str, request: &ShortcutRequest) -> Result<(), String> {
+    request.check()?;
     let parsed = parse_keyboard_shortcut(shortcut)?;
     eprintln!("Sending keyboard shortcut '{shortcut}'");
     let mut portal_error = None;
 
     if should_try_portal_keyboard() {
-        match send_keyboard_shortcut_via_portal(&parsed) {
+        match send_keyboard_shortcut_via_portal(&parsed, request) {
             Ok(()) => {
                 eprintln!("Keyboard shortcut '{shortcut}' dispatched");
                 return Ok(());
@@ -388,7 +516,8 @@ pub fn send_keyboard_shortcut(shortcut: &str) -> Result<(), String> {
         }
     }
 
-    send_keyboard_shortcut_with_enigo(shortcut, &parsed).map_err(|err| {
+    request.check()?;
+    send_keyboard_shortcut_with_enigo(shortcut, &parsed, request).map_err(|err| {
         if let Some(portal_err) = portal_error {
             format!("Portal backend failed: {portal_err}; fallback backend failed: {err}")
         } else {
@@ -511,21 +640,24 @@ fn should_try_portal_keyboard() -> bool {
         && env::var_os("WAYLAND_DISPLAY").is_some()
 }
 
-fn send_keyboard_shortcut_via_portal(parsed: &ParsedShortcut) -> Result<(), ShortcutFailure> {
+fn send_keyboard_shortcut_via_portal(
+    parsed: &ParsedShortcut,
+    request: &ShortcutRequest,
+) -> Result<(), ShortcutFailure> {
     let cache = PORTAL_KEYBOARD_BACKEND.get_or_init(|| Mutex::new(None));
     let mut guard = cache
         .lock()
         .map_err(|_| "Portal keyboard backend mutex was poisoned".to_string())?;
 
     if guard.is_none() {
-        *guard = Some(PortalKeyboardBackend::new()?);
+        *guard = Some(PortalKeyboardBackend::new(&request.cancel)?);
     }
 
     let backend = guard
         .as_ref()
         .ok_or_else(|| "Portal keyboard backend cache was unexpectedly empty".to_string())?;
 
-    if let Err(err) = backend.send_shortcut(parsed) {
+    if let Err(err) = backend.send_shortcut(parsed, request) {
         *guard = None;
         return Err(err);
     }
@@ -536,12 +668,16 @@ fn send_keyboard_shortcut_via_portal(parsed: &ParsedShortcut) -> Result<(), Shor
 fn send_keyboard_shortcut_with_enigo(
     shortcut: &str,
     parsed: &ParsedShortcut,
+    request: &ShortcutRequest,
 ) -> Result<(), String> {
     catch_unwind(AssertUnwindSafe(|| {
         let mut enigo = Enigo::new(&Settings::default())
             .map_err(|err| format!("Failed to initialize keyboard input backend: {err}"))?;
 
         dispatch_key_sequence(parsed, |key, state| {
+            if state == PORTAL_KEY_PRESSED {
+                request.check()?;
+            }
             let key = shortcut_key_to_enigo(key).ok_or_else(|| {
                 format!("Keyboard shortcut key '{key:?}' is not supported by the fallback backend")
             })?;
@@ -806,9 +942,21 @@ fn portal_timeout(
     std::mem::DropGuard::new(source, |source| source.destroy())
 }
 
+fn quit_on_cancel(main_loop: &glib::MainLoop, cancel: &gio::Cancellable) -> impl Drop {
+    let context = main_loop.context();
+    let main_loop = main_loop.clone();
+    let cancellation = cancel.future();
+    let task = context.spawn_local(async move {
+        cancellation.await;
+        main_loop.quit();
+    });
+    std::mem::DropGuard::new(task, |task| task.abort())
+}
+
 fn wait_for_portal_response<F>(
     connection: &gio::DBusConnection,
     request_path: &str,
+    cancel: &gio::Cancellable,
     invoke: F,
 ) -> Result<HashMap<String, glib::Variant>, String>
 where
@@ -859,10 +1007,16 @@ where
             let response_for_timeout = Arc::clone(&response);
             let loop_for_timeout = main_loop.clone();
             let request_path_for_timeout = request_path.clone();
+            let connection_for_timeout = connection.clone();
             let _timeout = portal_timeout(&context, PORTAL_REQUEST_TIMEOUT, move || {
                 if let Ok(mut slot) = response_for_timeout.lock()
                     && slot.is_none()
                 {
+                    close_portal_object(
+                        &connection_for_timeout,
+                        &request_path_for_timeout,
+                        PORTAL_REQUEST_INTERFACE,
+                    );
                     *slot = Some(Err(format!(
                         "Timed out waiting for portal response on '{request_path_for_timeout}'"
                     )));
@@ -870,8 +1024,16 @@ where
                 loop_for_timeout.quit();
             });
 
-            invoke()?;
+            let _cancel_task = quit_on_cancel(&main_loop, cancel);
+            if let Err(err) = invoke() {
+                close_portal_object(connection, &request_path, PORTAL_REQUEST_INTERFACE);
+                return Err(err);
+            }
             main_loop.run();
+            if cancel.is_cancelled() {
+                close_portal_object(connection, &request_path, PORTAL_REQUEST_INTERFACE);
+                return Err("Portal keyboard request cancelled during shutdown".into());
+            }
             drop(subscription);
 
             response
@@ -934,6 +1096,26 @@ mod tests {
     fn empty_status_command_is_rejected() {
         let err = run_shell_status("   ").expect_err("blank status command should fail");
         assert!(err.contains("empty"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dropping_a_running_status_check_reaps_its_process() {
+        let mut check = RunningStatusCheck::start("exec sleep 30").unwrap();
+        let pid = check.0.id() as libc::pid_t;
+        assert_eq!(check.try_result().unwrap(), None);
+        // SAFETY: getpgid only queries this child's process group.
+        assert_eq!(unsafe { libc::getpgid(pid) }, pid);
+        drop(check);
+        // SAFETY: A null status pointer is allowed and WNOHANG makes this nonblocking.
+        assert_eq!(
+            unsafe { libc::waitpid(pid, std::ptr::null_mut(), libc::WNOHANG) },
+            -1
+        );
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ECHILD)
+        );
     }
 
     #[test]
@@ -1035,6 +1217,27 @@ mod tests {
             );
         });
     }
+    #[test]
+    fn shutdown_interrupts_pending_portal_loop_and_blocks_fallback() {
+        static STOP: AtomicBool = AtomicBool::new(false);
+        let (done, observed) = std::sync::mpsc::channel();
+        let result = run_interruptible_shortcut(&STOP, move |request| {
+            let context = glib::MainContext::new();
+            let main_loop = glib::MainLoop::new(Some(&context), false);
+            let _cancel = quit_on_cancel(&main_loop, &request.cancel);
+            STOP.store(true, Ordering::Relaxed);
+            main_loop.run();
+            done.send((request.cancel.is_cancelled(), request.check().is_err()))
+                .unwrap();
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert_eq!(
+            observed.recv_timeout(Duration::from_secs(2)).unwrap(),
+            (true, true)
+        );
+    }
+
     #[test]
     fn portal_timeout_runs_on_request_context_and_cancels_on_drop() {
         let context = glib::MainContext::new();

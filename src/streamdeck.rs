@@ -3,7 +3,8 @@ pub mod info;
 use crate::i18n::trf;
 use crate::paging::STREAMDECK_KEY_COUNT;
 use hidapi::{HidApi, HidDevice, HidResult};
-use std::cmp::min;
+use std::borrow::Borrow;
+use std::path::Path;
 
 pub fn get_device(
     vendor_id: u16,
@@ -23,6 +24,36 @@ fn open_device(
     usage: u16,
     usage_page: u16,
 ) -> Result<Option<HidDevice>, String> {
+    open_matching_device(vendor_id, product_id, usage, usage_page, |hid| {
+        Ok(Some(hid))
+    })
+}
+
+pub fn open_daemon_display(
+    vendor_id: u16,
+    product_id: u16,
+    usage: u16,
+    usage_page: u16,
+) -> Result<Option<DeckDisplay>, String> {
+    open_matching_device(vendor_id, product_id, usage, usage_page, |hid| {
+        let display = DeckDisplay::new(hid)?;
+        #[cfg(target_os = "linux")]
+        if !claim_daemon(&display.lock)
+            .map_err(|err| format!("Could not claim Stream Deck: {err}"))?
+        {
+            return Ok(None);
+        }
+        Ok(Some(display))
+    })
+}
+
+fn open_matching_device<T>(
+    vendor_id: u16,
+    product_id: u16,
+    usage: u16,
+    usage_page: u16,
+    prepare: impl Fn(HidDevice) -> Result<Option<T>, String>,
+) -> Result<Option<T>, String> {
     let api = HidApi::new().map_err(|err| {
         trf(
             "Could not enumerate HID devices: {err}",
@@ -39,7 +70,11 @@ fn open_device(
         ) == (vendor_id, product_id, usage, usage_page)
     }) {
         match dev.open_device(&api) {
-            Ok(device) => return Ok(Some(device)),
+            Ok(device) => match prepare(device) {
+                Ok(Some(device)) => return Ok(Some(device)),
+                Ok(None) => continue,
+                Err(err) => last_error = Some(err),
+            },
             Err(err) => {
                 last_error = Some(trf(
                     "Could not open HID device {id}: {err}",
@@ -58,11 +93,7 @@ fn open_device(
 }
 
 pub fn clear_lcd(device: &HidDevice) -> Result<(), String> {
-    let mut report = [0; 32];
-    report[..2].copy_from_slice(&[0x03, 0x05]);
-    device
-        .send_feature_report(&report)
-        .map_err(|err| err.to_string())
+    DeckDisplay::new(device)?.clear_lcd()
 }
 
 pub fn set_profile_brightness(
@@ -190,42 +221,168 @@ pub fn read_states(device: &HidDevice, timeout_ms: i32) -> Result<Option<usize>,
     Ok(KeyState::default().new_presses(report).next())
 }
 
+pub fn supports_standby_upload(vendor: u16, product: u16) -> bool {
+    (vendor, product) == (0x0fd9, 0x0080)
+}
+
+pub fn set_standby_image(device: &HidDevice, path: &Path) -> Result<(), String> {
+    let info = device.get_device_info().map_err(|err| err.to_string())?;
+    if !supports_standby_upload(info.vendor_id(), info.product_id()) {
+        return Err(crate::i18n::tr(
+            "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080).",
+        ));
+    }
+    let display = DeckDisplay::new(device)?;
+    let data = crate::image::wallpaper::Wallpaper::load(path)?.standby_jpeg()?;
+    display.upload(ImageTarget::Standby, &data)
+}
+
 pub fn set_key_image_data(device: &HidDevice, key: u8, data: &[u8]) -> Result<(), String> {
-    write_image(Some(key), data, |report| device.write(report))
+    DeckDisplay::new(device)?.set_key_image(key, data)
 }
 
 pub fn set_panel_image_data(device: &HidDevice, data: &[u8]) -> Result<(), String> {
-    write_image(None, data, |report| device.write(report))
+    DeckDisplay::new(device)?.set_panel_image(data)
+}
+
+#[derive(Clone, Copy)]
+enum ImageTarget {
+    Key(u8),
+    Panel,
+    Standby,
+}
+
+pub struct DeckDisplay<D = HidDevice> {
+    device: D,
+    #[cfg(target_os = "linux")]
+    lock: std::fs::File,
+}
+
+impl<D: Borrow<HidDevice>> DeckDisplay<D> {
+    pub fn new(device: D) -> Result<Self, String> {
+        #[cfg(target_os = "linux")]
+        let lock = {
+            use std::ffi::OsStr;
+            use std::os::unix::ffi::OsStrExt;
+            let info = device
+                .borrow()
+                .get_device_info()
+                .map_err(|err| err.to_string())?;
+            let path = Path::new(OsStr::from_bytes(info.path().to_bytes()));
+            std::fs::File::options()
+                .read(true)
+                .write(true)
+                .open(path)
+                .map_err(|err| format!("{}: {err}", path.display()))?
+        };
+        Ok(Self {
+            device,
+            #[cfg(target_os = "linux")]
+            lock,
+        })
+    }
+
+    pub fn hid(&self) -> &HidDevice {
+        self.device.borrow()
+    }
+
+    pub fn clear_lcd(&self) -> Result<(), String> {
+        self.display_command(0x05)
+    }
+
+    pub fn show_standby_image(&self) -> Result<(), String> {
+        self.display_command(0x02)
+    }
+
+    fn display_command(&self, command: u8) -> Result<(), String> {
+        #[cfg(target_os = "linux")]
+        let _guard = DisplayGuard::acquire(&self.lock)?;
+        let mut report = [0; 32];
+        report[..2].copy_from_slice(&[0x03, command]);
+        self.hid()
+            .send_feature_report(&report)
+            .map_err(|err| err.to_string())
+    }
+
+    pub fn set_key_image(&self, key: u8, data: &[u8]) -> Result<(), String> {
+        self.upload(ImageTarget::Key(key), data)
+    }
+
+    pub fn set_panel_image(&self, data: &[u8]) -> Result<(), String> {
+        self.upload(ImageTarget::Panel, data)
+    }
+
+    fn upload(&self, target: ImageTarget, data: &[u8]) -> Result<(), String> {
+        // Live images and the stored logo share a device buffer.
+        #[cfg(target_os = "linux")]
+        let _guard = DisplayGuard::acquire(&self.lock)?;
+        write_image(target, data, |report| self.hid().write(report))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn claim_daemon(file: &std::fs::File) -> std::io::Result<bool> {
+    use std::os::fd::AsRawFd;
+    // OFD record locks last until this file description closes and are independent of flock.
+    // SAFETY: Zero initializes the reserved fields and the lock starts at offset zero.
+    let mut lock: libc::flock = unsafe { std::mem::zeroed() };
+    lock.l_type = libc::F_WRLCK as _;
+    lock.l_whence = libc::SEEK_SET as _;
+    lock.l_len = 1;
+    // SAFETY: The descriptor and lock structure remain valid for the call.
+    if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_OFD_SETLK, &lock) } == 0 {
+        return Ok(true);
+    }
+    let err = std::io::Error::last_os_error();
+    match err.raw_os_error() {
+        Some(libc::EAGAIN | libc::EACCES) => Ok(false),
+        _ => Err(err),
+    }
+}
+
+#[cfg(target_os = "linux")]
+struct DisplayGuard<'a>(&'a std::fs::File);
+
+#[cfg(target_os = "linux")]
+impl<'a> DisplayGuard<'a> {
+    fn acquire(file: &'a std::fs::File) -> Result<Self, String> {
+        file.lock()
+            .map_err(|err| format!("Could not lock image transfer: {err}"))?;
+        Ok(Self(file))
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for DisplayGuard<'_> {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
 }
 
 fn write_image(
-    key: Option<u8>,
+    target: ImageTarget,
     data: &[u8],
     mut write_report: impl FnMut(&[u8]) -> HidResult<usize>,
 ) -> Result<(), String> {
     if data.is_empty() {
         return Err("Cannot upload an empty image".into());
     }
-    let mut page_number = 0;
-    let mut bytes_remaining = data.len();
-    while bytes_remaining > 0 {
-        let this_length = min(bytes_remaining, 1024 - 8);
-        let bytes_sent = page_number * (1024 - 8);
-        let header = [
-            0x02,
-            if key.is_some() { 0x07 } else { 0x08 },
-            key.unwrap_or(0),
-            if this_length == bytes_remaining { 1 } else { 0 },
-            (this_length & 0xFF) as u8,
-            (this_length >> 8) as u8,
-            (page_number & 0xFF) as u8,
-            (page_number >> 8) as u8,
-        ];
-
-        let mut payload = Vec::with_capacity(1024);
-        payload.extend_from_slice(&header);
-        payload.extend_from_slice(&data[bytes_sent..bytes_sent + this_length]);
-        payload.resize(1024, 0);
+    let chunks = data.chunks(1016);
+    let count = chunks.len();
+    if count > usize::from(u16::MAX) + 1 {
+        return Err("Too many image reports".into());
+    }
+    for (page_number, chunk) in chunks.enumerate() {
+        let page = (page_number as u16).to_le_bytes();
+        let len = (chunk.len() as u16).to_le_bytes();
+        let last = u8::from(page_number + 1 == count);
+        let mut payload = [0; 1024];
+        payload[..8].copy_from_slice(&match target {
+            ImageTarget::Key(key) => [2, 7, key, last, len[0], len[1], page[0], page[1]],
+            ImageTarget::Panel => [2, 8, 0, last, len[0], len[1], page[0], page[1]],
+            ImageTarget::Standby => [2, 9, 0, last, page[0], page[1], len[0], len[1]],
+        });
+        payload[8..8 + chunk.len()].copy_from_slice(chunk);
         let written = write_report(&payload)
             .map_err(|err| format!("Failed to write image report {page_number}: {err}"))?;
         if written != payload.len() {
@@ -234,9 +391,6 @@ fn write_image(
                 payload.len()
             ));
         }
-
-        bytes_remaining -= this_length;
-        page_number += 1;
     }
 
     Ok(())
@@ -246,10 +400,46 @@ fn write_image(
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn daemon_claim_survives_independent_transfers_and_releases_on_close() {
+        let path = tempfile::NamedTempFile::new().unwrap();
+        let owner = path.reopen().unwrap();
+        let contender = path.reopen().unwrap();
+        assert!(claim_daemon(&owner).unwrap());
+        assert!(!claim_daemon(&contender).unwrap());
+        let installer = path.reopen().unwrap();
+        installer.try_lock().unwrap();
+        drop(installer);
+        assert!(!claim_daemon(&contender).unwrap());
+        drop(owner);
+        assert!(claim_daemon(&contender).unwrap());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn retained_display_descriptor_serializes_transfers_after_path_removal() {
+        let path = tempfile::NamedTempFile::new().unwrap();
+        let daemon = path.reopen().unwrap();
+        let installer = path.reopen().unwrap();
+        path.close().unwrap();
+
+        for _ in 0..2 {
+            let guard = DisplayGuard::acquire(&daemon).unwrap();
+            assert!(matches!(
+                installer.try_lock(),
+                Err(std::fs::TryLockError::WouldBlock)
+            ));
+            drop(guard);
+            installer.try_lock().unwrap();
+            installer.unlock().unwrap();
+        }
+    }
+
     #[test]
     fn panel_reports_use_the_reserved_byte_and_terminate_on_the_last_chunk() {
         let mut chunks = Vec::new();
-        write_image(None, &[0x5a; 1017], |report| {
+        write_image(ImageTarget::Panel, &[0x5a; 1017], |report| {
             chunks.push(report.to_vec());
             Ok(report.len())
         })
@@ -262,10 +452,28 @@ mod tests {
     }
 
     #[test]
+    fn standby_reports_put_the_chunk_index_before_the_length() {
+        let mut reports = Vec::new();
+        write_image(ImageTarget::Standby, &[0x5a; 1016 * 2], |report| {
+            reports.push(report.to_vec());
+            Ok(report.len())
+        })
+        .unwrap();
+        assert_eq!(reports.len(), 2);
+        assert_eq!(&reports[0][..8], &[2, 9, 0, 0, 0, 0, 248, 3]);
+        assert_eq!(&reports[1][..8], &[2, 9, 0, 1, 1, 0, 248, 3]);
+        assert!(
+            reports
+                .iter()
+                .all(|r| r.len() == 1024 && r[8..].iter().all(|&b| b == 0x5a))
+        );
+    }
+
+    #[test]
     fn short_image_write_stops_before_the_next_report() {
         let image = [0xab; 3 * 1016];
         let mut reports = 0;
-        let result = write_image(Some(4), &image, |report| {
+        let result = write_image(ImageTarget::Key(4), &image, |report| {
             reports += 1;
             Ok(if reports == 2 { 512 } else { report.len() })
         });
@@ -314,6 +522,6 @@ mod tests {
     }
     #[test]
     fn empty_image_does_not_report_upload_success() {
-        assert!(write_image(Some(0), &[], |_| panic!("no report expected")).is_err());
+        assert!(write_image(ImageTarget::Key(0), &[], |_| panic!("no report expected")).is_err());
     }
 }

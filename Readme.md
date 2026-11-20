@@ -130,6 +130,12 @@ Use `streamrs --brightness 35` to save 35% brightness in the current profile and
 
 In the GUI, open **Menu → Brightness…**, adjust the slider and choose **Apply**.
 
+### Standby image
+
+On a standard MK.2 (USB ID `0fd9:0080`), run `streamrs --standby-image ~/Pictures/standby.png` or choose **Menu → Device information → Set standby image…**. streamrs center-crops the image to 480 × 272 and uploads it to device flash. The same image applies across profiles and the deck keeps it after the source file is removed.
+
+On a clean service stop or Ctrl+C, the daemon asks the deck to display its stored standby image. The factory logo works without any setup. The next daemon start redraws the active profile. If a second daemon starts, it waits for an available deck. You can upload a standby image while the daemon is running.
+
 ### Sleep after inactivity
 
 Use `streamrs --sleep-after 10` to put the connected deck to sleep after ten idle minutes. Use `streamrs --sleep-after never` (or `0`) to disable the timer. In the GUI, open **Menu → Device information → Change sleep timer…**.

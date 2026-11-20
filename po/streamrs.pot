@@ -1,10 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 18:08+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"POT-Creation-Date: 2026-11-20 09:47+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -183,12 +180,20 @@ msgstr ""
 msgid "Could not set the sleep timer: {err}"
 msgstr ""
 
+#: src/gui/ui/device_info.rs
+msgid "Could not upload the standby image."
+msgstr ""
+
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Create a profile to set a page wallpaper."
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
+msgstr ""
+
+#: src/streamdeck.rs
+msgid "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
 msgstr ""
 
 #: src/gui/ui/signals/management.rs
@@ -241,19 +246,15 @@ msgid "Failed to set brightness: {err}"
 msgstr ""
 
 #: src/gui/core/config_io.rs
-msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgid "Failed to signal streamrs daemon: {err}"
 msgstr ""
 
 #: src/gui/core/config_io.rs
-msgid "Failed to start streamrs daemon (systemctl exit status {status})"
+msgid "Failed to start streamrs daemon: {err}"
 msgstr ""
 
 #: src/gui/core/config_io.rs
-msgid "Failed to start streamrs daemon (systemctl failed: {err})"
-msgstr ""
-
-#: src/gui/core/config_io.rs
-msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+msgid "Failed to stop streamrs daemon: {err}"
 msgstr ""
 
 #: src/config/toml.rs
@@ -276,8 +277,8 @@ msgstr ""
 msgid "Icon when status is on"
 msgstr ""
 
+#: src/gui/ui.rs
 #: src/gui/ui/signals/management.rs
-#: src/gui/ui/signals/wallpaper.rs
 msgid "Images"
 msgstr ""
 
@@ -468,7 +469,7 @@ msgstr ""
 msgid "Saved {ordinal} button"
 msgstr ""
 
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui.rs
 msgid "Select a local image file."
 msgstr ""
 
@@ -481,11 +482,23 @@ msgid "Serial number"
 msgstr ""
 
 #: src/gui/ui/device_info.rs
+msgid "Set standby image"
+msgstr ""
+
+#: src/gui/ui/device_info.rs
+msgid "Set standby image…"
+msgstr ""
+
+#: src/gui/ui/device_info.rs
 msgid "Sleep after inactivity"
 msgstr ""
 
 #: src/streamdeck/info.rs
 msgid "Sleep timer"
+msgstr ""
+
+#: src/gui/ui/device_info.rs
+msgid "Standby image sent to the deck."
 msgstr ""
 
 #: src/gui/ui.rs
@@ -542,14 +555,6 @@ msgstr ""
 
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Wallpaper for page {page}"
-msgstr ""
-
-#: src/gui/core/config_io.rs
-msgid "pkill exit status {status}"
-msgstr ""
-
-#: src/gui/core/config_io.rs
-msgid "pkill failed: {err}"
 msgstr ""
 
 #: src/gui/ui.rs

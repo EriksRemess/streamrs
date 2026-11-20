@@ -34,9 +34,6 @@ escape_po() {
     printf '%s\n' 'msgstr ""'
     printf '%s\n' '"Project-Id-Version: streamrs\n"'
     printf '%s\n' "\"POT-Creation-Date: $(date -u +%Y-%m-%d\ %H:%M%z)\\n\""
-    printf '%s\n' '"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"'
-    printf '%s\n' '"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"'
-    printf '%s\n' '"Language-Team: LANGUAGE <LL@li.org>\n"'
     printf '%s\n' '"MIME-Version: 1.0\n"'
     printf '%s\n' '"Content-Type: text/plain; charset=UTF-8\n"'
     printf '%s\n' '"Content-Transfer-Encoding: 8bit\n"'

@@ -17,6 +17,20 @@ impl Wallpaper {
         Ok(Self(cover(image, 480, 272)))
     }
 
+    pub fn standby_jpeg(&self) -> Result<Vec<u8>, String> {
+        let rgb = DynamicImage::ImageRgba8(rotate180(&self.0)).into_rgb8();
+        for quality in [95, 85, 70, 50] {
+            let mut data = Vec::new();
+            JpegEncoder::new_with_quality(&mut data, quality)
+                .encode_image(&rgb)
+                .map_err(|err| err.to_string())?;
+            if let Some(data) = fit_standby_jpeg(data) {
+                return Ok(data);
+            }
+        }
+        Err("Standby image exceeds the MK.2 logo storage capacity".into())
+    }
+
     fn origin(slot: usize) -> (u32, u32) {
         (11 + 97 * (slot % 5) as u32, 5 + 97 * (slot / 5) as u32)
     }
@@ -38,6 +52,18 @@ impl Wallpaper {
         }
         device_jpeg(&panel)
     }
+}
+
+fn fit_standby_jpeg(mut data: Vec<u8>) -> Option<Vec<u8>> {
+    const SECTOR: usize = 4096;
+    if data.len() >= 47 * SECTOR {
+        return None;
+    }
+    // The MK.2 counts sectors before prepending its one-byte storage header.
+    if data.len().is_multiple_of(SECTOR) {
+        data.push(0);
+    }
+    Some(data)
 }
 
 pub fn device_jpeg(image: &RgbaImage) -> Result<Vec<u8>, String> {
@@ -92,6 +118,44 @@ fn cover(image: DynamicImage, width: u32, height: u32) -> RgbaImage {
 mod tests {
     use super::*;
     use image::{ImageEncoder, ImageFormat, Rgb, RgbImage};
+
+    #[test]
+    fn standby_transfer_preserves_the_end_marker_at_flash_sector_boundaries() {
+        for len in [4095, 4096, 4097, 8192, 47 * 4096 - 1, 47 * 4096] {
+            let mut jpeg = vec![0xab; len];
+            jpeg[len - 2..].copy_from_slice(&[0xff, 0xd9]);
+            let transfer = fit_standby_jpeg(jpeg.clone());
+            if len == 47 * 4096 {
+                assert!(transfer.is_none());
+                continue;
+            }
+            let transfer = transfer.unwrap();
+            // The firmware writes this many sectors, starting with a one-byte header.
+            let stored_payload = transfer.len().div_ceil(4096) * 4096 - 1;
+            assert!(
+                stored_payload >= jpeg.len(),
+                "lost end marker for {len} bytes"
+            );
+            assert_eq!(&transfer[..len], jpeg);
+            assert_eq!(transfer.len(), len + usize::from(len % 4096 == 0));
+        }
+    }
+
+    #[test]
+    fn standby_jpeg_covers_the_panel_and_uses_device_orientation() {
+        let image = RgbaImage::from_fn(480, 272, |x, _| {
+            if x < 240 {
+                Rgba([255, 0, 0, 255])
+            } else {
+                Rgba([0, 0, 255, 255])
+            }
+        });
+        let jpeg = Wallpaper(image).standby_jpeg().unwrap();
+        let decoded = image::load_from_memory(&jpeg).unwrap().into_rgb8();
+        assert_eq!(decoded.dimensions(), (480, 272));
+        assert!(decoded[(0, 0)][2] > 240);
+        assert!(decoded[(479, 271)][0] > 240);
+    }
 
     #[test]
     fn wallpaper_format_is_detected_from_its_contents() {

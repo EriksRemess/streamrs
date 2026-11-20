@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::gui::ui::choose_image;
 
 pub(crate) fn register_wallpaper_action(window: &ApplicationWindow, ctx: &UiCtx) {
     let action = gtk::gio::SimpleAction::new("page-wallpaper", None);
@@ -54,25 +55,9 @@ async fn edit_wallpaper(window: &ApplicationWindow, ctx: &UiCtx) -> Result<(), S
     let chosen = match dialog.choose_future(Some(window)).await.as_str() {
         "remove" => None,
         "choose" => {
-            let chooser = gtk::FileChooserNative::builder()
-                .title(&title)
-                .transient_for(window)
-                .modal(true)
-                .action(gtk::FileChooserAction::Open)
-                .build();
-            let filter = gtk::FileFilter::new();
-            filter.set_name(Some(&tr("Images")));
-            for mime in ["image/png", "image/jpeg", "image/webp"] {
-                filter.add_mime_type(mime);
-            }
-            chooser.add_filter(&filter);
-            if chooser.run_future().await != gtk::ResponseType::Accept {
+            let Some(path) = choose_image(window, &title).await? else {
                 return Ok(());
-            }
-            let path = chooser
-                .file()
-                .and_then(|f| f.path())
-                .ok_or_else(|| tr("Select a local image file."))?;
+            };
             Some(
                 gtk::gio::spawn_blocking(move || CachedWallpaper::load(path))
                     .await

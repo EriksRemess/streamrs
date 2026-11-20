@@ -583,6 +583,7 @@ fn page_layout_plan_uses_cached_status_for_initial_icon_and_poll_timing() {
 fn page_with_status_key() -> PageState {
     let mut state = PageState::new();
     state.status_states[0] = Some(StatusKeyState {
+        running: None,
         command: "echo ok".to_string(),
         icon_on: "on.png".to_string(),
         icon_off: "off.png".to_string(),
@@ -593,6 +594,23 @@ fn page_with_status_key() -> PageState {
     });
 
     state
+}
+
+#[test]
+fn pending_status_check_returns_control_to_the_deck_loop() {
+    let mut page = page_with_status_key();
+    let status = page.status_states[0].as_mut().unwrap();
+    status.command = "sleep 0.1 && exit 0".into();
+    let now = Instant::now();
+    status.next_check_at = now;
+    let mut cache = StatusCache::new();
+    assert_eq!(status.poll(now, &mut cache), None);
+    let deadline = now + Duration::from_secs(3);
+    while status.poll(now, &mut cache).is_none() {
+        assert!(Instant::now() < deadline, "status result was never collected");
+        sleep(Duration::from_millis(5));
+    }
+    assert_eq!(cache.get(&status.command), Some(&true));
 }
 
 #[test]

@@ -16,126 +16,144 @@ pub(crate) fn update_config(path: &Path, edit: impl FnOnce(&mut Config)) -> Resu
 
 pub(crate) use streamrs_profile::create_if_missing as create_config_if_missing;
 
-pub(crate) fn signal_daemon_reload() -> Result<(), String> {
-    let systemctl = std::process::Command::new("systemctl")
-        .args([
-            "--user",
-            "kill",
-            "-s",
-            "HUP",
-            "--kill-whom=main",
-            "streamrs.service",
-        ])
-        .status();
-    if let Ok(status) = &systemctl
-        && status.success()
+#[cfg(target_os = "linux")]
+fn is_daemon_command(cmdline: &[u8]) -> bool {
+    let mut args = cmdline
+        .strip_suffix(&[0])
+        .unwrap_or(cmdline)
+        .split(|&b| b == 0);
+    if args
+        .next()
+        .and_then(|program| program.rsplit(|&b| b == b'/').next())
+        != Some(b"streamrs")
     {
-        return Ok(());
+        return false;
     }
-
-    let pkill = std::process::Command::new("pkill")
-        .args(["-HUP", "-x", "streamrs"])
-        .status();
-    if let Ok(status) = &pkill
-        && status.success()
-    {
-        return Ok(());
+    while let Some(arg) = args.next() {
+        match arg {
+            b"--debug" => {}
+            b"--config" | b"--profile" if args.next().is_some() => {}
+            _ => return false,
+        }
     }
+    true
+}
 
-    let systemctl_err = match systemctl {
-        Ok(status) => trf(
+#[cfg(target_os = "linux")]
+fn catches_reload(status: &str) -> bool {
+    status
+        .lines()
+        .find_map(|line| line.strip_prefix("SigCgt:"))
+        .and_then(|mask| u64::from_str_radix(mask.trim(), 16).ok())
+        .is_some_and(|mask| mask & (1 << (libc::SIGHUP - 1)) != 0)
+}
+
+#[cfg(target_os = "linux")]
+fn matching_daemons(signal: Option<libc::c_int>) -> std::io::Result<bool> {
+    use rustix::process::{Pid, PidfdFlags, Signal, geteuid, pidfd_open, pidfd_send_signal};
+    use std::os::unix::fs::MetadataExt;
+
+    let mut found = false;
+    for entry in fs::read_dir("/proc")? {
+        let entry = entry?;
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|s| s.parse().ok())
+            .and_then(Pid::from_raw)
+        else {
+            continue;
+        };
+        let path = entry.path();
+        if !entry
+            .metadata()
+            .is_ok_and(|m| m.uid() == geteuid().as_raw())
+            || fs::read(path.join("comm")).as_deref().ok() != Some(b"streamrs\n")
+        {
+            continue;
+        }
+        // Pin the process before inspecting its arguments so PID reuse cannot redirect a signal.
+        let fd = match pidfd_open(pid, PidfdFlags::empty()) {
+            Ok(fd) => fd,
+            Err(rustix::io::Errno::SRCH) => continue,
+            Err(err) => return Err(err.into()),
+        };
+        if !fs::read(path.join("cmdline")).is_ok_and(|args| is_daemon_command(&args)) {
+            continue;
+        }
+        if let Some(signal) = signal {
+            // A starting daemon still has the default SIGHUP action. Its first config read
+            // follows handler installation, so it already sees the saved changes.
+            if signal == libc::SIGHUP {
+                let status = match fs::read_to_string(path.join("status")) {
+                    Ok(status) => status,
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+                    Err(err) => return Err(err),
+                };
+                if !catches_reload(&status) {
+                    found = true;
+                    continue;
+                }
+            }
+            match pidfd_send_signal(&fd, Signal::from_named_raw(signal).unwrap()) {
+                Ok(()) => {}
+                Err(rustix::io::Errno::SRCH) => continue,
+                Err(err) => return Err(err.into()),
+            }
+        }
+        found = true;
+    }
+    Ok(found)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn matching_daemons(_: Option<libc::c_int>) -> std::io::Result<bool> {
+    Ok(false)
+}
+
+fn service_command(args: &[&str]) -> Result<(), String> {
+    let status = std::process::Command::new("systemctl")
+        .arg("--user")
+        .args(args)
+        .arg("streamrs.service")
+        .status()
+        .map_err(|err| trf("systemctl failed: {err}", &[("err", err.to_string())]))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(trf(
             "systemctl exit status {status}",
             &[("status", status.to_string())],
-        ),
-        Err(err) => trf("systemctl failed: {err}", &[("err", err.to_string())]),
-    };
-    let pkill_err = match pkill {
-        Ok(status) => trf(
-            "pkill exit status {status}",
-            &[("status", status.to_string())],
-        ),
-        Err(err) => trf("pkill failed: {err}", &[("err", err.to_string())]),
-    };
-    Err(trf(
-        "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})",
-        &[("systemctl_err", systemctl_err), ("pkill_err", pkill_err)],
-    ))
+        ))
+    }
+}
+
+pub(crate) fn signal_daemon_reload() -> Result<(), String> {
+    let service_reload = || service_command(&["kill", "-s", "HUP", "--kill-whom=main"]);
+    match matching_daemons(Some(libc::SIGHUP)) {
+        Ok(true) => Ok(()),
+        Ok(false) => service_reload(),
+        Err(err) => service_reload().map_err(|service_err| format!("{service_err} ({err})")),
+    }
+    .map_err(|err| trf("Failed to signal streamrs daemon: {err}", &[("err", err)]))
 }
 
 pub(crate) fn daemon_running() -> bool {
-    if let Ok(status) = std::process::Command::new("systemctl")
-        .args(["--user", "is-active", "--quiet", "streamrs.service"])
-        .status()
-        && status.success()
-    {
-        return true;
-    }
-
-    if let Ok(status) = std::process::Command::new("pgrep")
-        .args(["-x", "streamrs"])
-        .status()
-        && status.success()
-    {
-        return true;
-    }
-
-    false
+    service_command(&["is-active", "--quiet"]).is_ok() || matching_daemons(None).unwrap_or(false)
 }
 
 pub(crate) fn set_daemon_running(should_run: bool) -> Result<(), String> {
     if should_run {
-        return match std::process::Command::new("systemctl")
-            .args(["--user", "start", "streamrs.service"])
-            .status()
-        {
-            Ok(status) if status.success() => Ok(()),
-            Ok(status) => Err(trf(
-                "Failed to start streamrs daemon (systemctl exit status {status})",
-                &[("status", status.to_string())],
-            )),
-            Err(err) => Err(trf(
-                "Failed to start streamrs daemon (systemctl failed: {err})",
-                &[("err", err.to_string())],
-            )),
-        };
+        return service_command(&["start"])
+            .map_err(|err| trf("Failed to start streamrs daemon: {err}", &[("err", err)]));
     }
-
-    let systemctl = std::process::Command::new("systemctl")
-        .args(["--user", "stop", "streamrs.service"])
-        .status();
-    if let Ok(status) = &systemctl
-        && status.success()
-    {
-        return Ok(());
+    let stopped = service_command(&["stop"]);
+    match matching_daemons(Some(libc::SIGTERM)) {
+        Ok(true) => Ok(()),
+        Ok(false) => stopped,
+        Err(err) => Err(err.to_string()),
     }
-
-    let pkill = std::process::Command::new("pkill")
-        .args(["-TERM", "-x", "streamrs"])
-        .status();
-    if let Ok(status) = &pkill
-        && status.success()
-    {
-        return Ok(());
-    }
-
-    let systemctl_err = match systemctl {
-        Ok(status) => trf(
-            "systemctl exit status {status}",
-            &[("status", status.to_string())],
-        ),
-        Err(err) => trf("systemctl failed: {err}", &[("err", err.to_string())]),
-    };
-    let pkill_err = match pkill {
-        Ok(status) => trf(
-            "pkill exit status {status}",
-            &[("status", status.to_string())],
-        ),
-        Err(err) => trf("pkill failed: {err}", &[("err", err.to_string())]),
-    };
-    Err(trf(
-        "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})",
-        &[("systemctl_err", systemctl_err), ("pkill_err", pkill_err)],
-    ))
+    .map_err(|err| trf("Failed to stop streamrs daemon: {err}", &[("err", err)]))
 }
 
 pub(crate) fn restart_daemon() -> Result<(), String> {
@@ -164,6 +182,38 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn reload_waits_for_the_daemons_signal_handler() {
+        assert!(!catches_reload(
+            "SigIgn:\t0000000000000001\nSigCgt:\t0000000000004000\n"
+        ));
+        assert!(catches_reload("SigCgt:\t0000000000004001\n"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn gui_signals_only_daemon_invocations() {
+        for args in [
+            &b"/usr/bin/streamrs\0"[..],
+            b"streamrs\0--debug\0--config\0my profile.toml\0",
+            b"streamrs\0--profile\0desk\0",
+        ] {
+            assert!(is_daemon_command(args));
+        }
+        for args in [
+            &b""[..],
+            b"other-process\0",
+            b"streamrs\0--init\0--force-images\0",
+            b"streamrs\0--config\0my profile.toml\0--standby-image\0logo.png\0",
+            b"streamrs\0--info\0",
+            b"streamrs\0--sleep-after\0never\0",
+            b"streamrs\0--brightness\x0050\0",
+        ] {
+            assert!(!is_daemon_command(args));
+        }
+    }
 
     fn test_temp_dir(name: &str) -> PathBuf {
         let id = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);

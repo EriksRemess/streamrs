@@ -771,6 +771,29 @@ pub(crate) fn build_ui(app: &Application) {
     );
 }
 
+async fn choose_image(window: &ApplicationWindow, title: &str) -> Result<Option<PathBuf>, String> {
+    let chooser = gtk::FileChooserNative::builder()
+        .title(title)
+        .transient_for(window)
+        .modal(true)
+        .action(gtk::FileChooserAction::Open)
+        .build();
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&tr("Images")));
+    for mime in ["image/png", "image/jpeg", "image/webp"] {
+        filter.add_mime_type(mime);
+    }
+    chooser.add_filter(&filter);
+    if chooser.run_future().await != gtk::ResponseType::Accept {
+        return Ok(None);
+    }
+    let path = chooser
+        .file()
+        .and_then(|f| f.path())
+        .ok_or_else(|| tr("Select a local image file."))?;
+    Ok(Some(path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

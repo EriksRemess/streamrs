@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-18 17:55+0000\n"
-"PO-Revision-Date: 2026-11-18 17:55+0000\n"
+"POT-Creation-Date: 2026-11-20 09:42+0000\n"
+"PO-Revision-Date: 2026-11-20 09:21+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -181,6 +181,10 @@ msgstr "Could not read the sleep timer."
 msgid "Could not set the sleep timer: {err}"
 msgstr "Could not set the sleep timer: {err}"
 
+#: src/gui/ui/device_info.rs
+msgid "Could not upload the standby image."
+msgstr "Could not upload the standby image."
+
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Create a profile to set a page wallpaper."
 msgstr "Create a profile to set a page wallpaper."
@@ -188,6 +192,10 @@ msgstr "Create a profile to set a page wallpaper."
 #: src/gui/ui/signals/management.rs
 msgid "Created and loaded profile '{profile}'"
 msgstr "Created and loaded profile '{profile}'"
+
+#: src/streamdeck.rs
+msgid "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
+msgstr "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
 
 #: src/gui/ui/signals/management.rs
 msgid "Delete profile '{profile}' config? Shared icons are kept."
@@ -238,20 +246,16 @@ msgid "Failed to set brightness: {err}"
 msgstr "Failed to set brightness: {err}"
 
 #: src/gui/core/config_io.rs
-msgid "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
-msgstr "Failed to signal streamrs daemon ({systemctl_err}; {pkill_err})"
+msgid "Failed to signal streamrs daemon: {err}"
+msgstr "Failed to signal streamrs daemon: {err}"
 
 #: src/gui/core/config_io.rs
-msgid "Failed to start streamrs daemon (systemctl exit status {status})"
-msgstr "Failed to start streamrs daemon (systemctl exit status {status})"
+msgid "Failed to start streamrs daemon: {err}"
+msgstr "Failed to start streamrs daemon: {err}"
 
 #: src/gui/core/config_io.rs
-msgid "Failed to start streamrs daemon (systemctl failed: {err})"
-msgstr "Failed to start streamrs daemon (systemctl failed: {err})"
-
-#: src/gui/core/config_io.rs
-msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
-msgstr "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+msgid "Failed to stop streamrs daemon: {err}"
+msgstr "Failed to stop streamrs daemon: {err}"
 
 #: src/config/toml.rs
 msgid "Failed to write config '{path}': {err}"
@@ -273,7 +277,7 @@ msgstr "Icon when status is off"
 msgid "Icon when status is on"
 msgstr "Icon when status is on"
 
-#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Images"
 msgstr "Images"
 
@@ -461,7 +465,7 @@ msgstr "Saved changes"
 msgid "Saved {ordinal} button"
 msgstr "Saved {ordinal} button"
 
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui.rs
 msgid "Select a local image file."
 msgstr "Select a local image file."
 
@@ -474,12 +478,24 @@ msgid "Serial number"
 msgstr "Serial number"
 
 #: src/gui/ui/device_info.rs
+msgid "Set standby image"
+msgstr "Set standby image"
+
+#: src/gui/ui/device_info.rs
+msgid "Set standby image…"
+msgstr "Set standby image…"
+
+#: src/gui/ui/device_info.rs
 msgid "Sleep after inactivity"
 msgstr "Sleep after inactivity"
 
 #: src/streamdeck/info.rs
 msgid "Sleep timer"
 msgstr "Sleep timer"
+
+#: src/gui/ui/device_info.rs
+msgid "Standby image sent to the deck."
+msgstr "Standby image sent to the deck."
 
 #: src/gui/ui.rs
 msgid "Start"
@@ -537,14 +553,6 @@ msgstr "Unavailable"
 msgid "Wallpaper for page {page}"
 msgstr "Wallpaper for page {page}"
 
-#: src/gui/core/config_io.rs
-msgid "pkill exit status {status}"
-msgstr "pkill exit status {status}"
-
-#: src/gui/core/config_io.rs
-msgid "pkill failed: {err}"
-msgstr "pkill failed: {err}"
-
 #: src/gui/ui.rs
 msgid "streamrs service"
 msgstr "streamrs service"
@@ -556,6 +564,18 @@ msgstr "systemctl exit status {status}"
 #: src/gui/core/config_io.rs
 msgid "systemctl failed: {err}"
 msgstr "systemctl failed: {err}"
+
+#~ msgid "Failed to start streamrs daemon (systemctl exit status {status})"
+#~ msgstr "Failed to start streamrs daemon (systemctl exit status {status})"
+
+#~ msgid "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+#~ msgstr "Failed to stop streamrs daemon ({systemctl_err}; {pkill_err})"
+
+#~ msgid "pkill exit status {status}"
+#~ msgstr "pkill exit status {status}"
+
+#~ msgid "pkill failed: {err}"
+#~ msgstr "pkill failed: {err}"
 
 #~ msgid "Failed to write GUI lock '{path}': {err}"
 #~ msgstr "Failed to write GUI lock '{path}': {err}"
