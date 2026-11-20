@@ -1068,6 +1068,51 @@ fn wallpaper_draws_empty_faces_and_preserves_configured_keys_on_both_upload_path
 }
 
 #[test]
+fn wallpaper_survives_the_first_key_write_after_standby() {
+    let dir = tempfile::tempdir().unwrap();
+    image::RgbImage::from_pixel(480, 272, image::Rgb([200, 0, 0]))
+        .save(dir.path().join("wall.png"))
+        .unwrap();
+    let mut button = test_key("blank.png");
+    button.action = Some("test".into());
+    let mut config = test_config_with_keys(vec![button]);
+    config.page_wallpapers.insert("1".into(), "wall.png".into());
+    let mut page = prepare_page(&config, &StatusCache::new(), 0);
+    let wallpaper_key = std::cell::Cell::new(0u8);
+    page.draw_background(
+        dir.path(),
+        &mut PanelMargins::on_connect(0x0fd9, 0x0080),
+        |jpeg| {
+            let panel = image::load_from_memory(jpeg).unwrap().to_rgb8();
+            wallpaper_key.set(panel[(335, 230)][0]); // Center of key 1 on the rotated panel.
+            Ok(())
+        },
+        || {
+            wallpaper_key.set(0);
+            Ok(())
+        },
+    );
+    let mut in_standby = true;
+    page.draw_pending_images(
+        Instant::now(),
+        dir.path(),
+        &mut ImageCache::new(),
+        &blank_image_data().unwrap(),
+        |slot, jpeg| {
+            if std::mem::take(&mut in_standby) {
+                wallpaper_key.set(0);
+            }
+            if slot == 1 {
+                let tile = image::load_from_memory(jpeg).unwrap().to_rgb8();
+                wallpaper_key.set(tile[(36, 36)][0]);
+            }
+            Ok(())
+        },
+    );
+    assert!(wallpaper_key.get() > 190);
+}
+
+#[test]
 fn transparent_icons_upload_identical_bytes_with_and_without_wallpaper() {
     let dir = tempfile::tempdir().unwrap();
     image::RgbImage::from_pixel(480, 272, image::Rgb([0, 0, 240]))

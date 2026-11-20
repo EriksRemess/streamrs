@@ -247,13 +247,16 @@ enum PageBackground {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PanelMargins {
     PerKeyOnly,
+    AfterStandby,
     Unknown,
     Black,
 }
 
 impl PanelMargins {
     fn on_connect(vendor: u16, product: u16) -> Self {
-        if vendor == 0x0fd9 && matches!(product, 0x0080 | 0x00a5 | 0x006d | 0x00b9) {
+        if vendor == 0x0fd9 && product == 0x0080 {
+            Self::AfterStandby
+        } else if vendor == 0x0fd9 && matches!(product, 0x00a5 | 0x006d | 0x00b9) {
             Self::Unknown
         } else {
             Self::PerKeyOnly
@@ -311,15 +314,19 @@ impl PageState {
                     if *margins == PanelMargins::PerKeyOnly {
                         return;
                     }
-                    *margins = PanelMargins::Unknown;
-                    match Wallpaper::panel_jpeg(&self.tiles).and_then(|jpeg| upload(&jpeg)) {
-                        Ok(()) => {
-                            self.panel_uploaded = true;
-                            return;
+                    // The MK.2 clears the LCD on its first key write after showing the logo.
+                    // Draw the initial wallpaper as individual tiles so that clear happens first.
+                    if *margins != PanelMargins::AfterStandby {
+                        *margins = PanelMargins::Unknown;
+                        match Wallpaper::panel_jpeg(&self.tiles).and_then(|jpeg| upload(&jpeg)) {
+                            Ok(()) => {
+                                self.panel_uploaded = true;
+                                return;
+                            }
+                            Err(err) => eprintln!(
+                                "Could not upload page wallpaper, drawing individual keys: {err}"
+                            ),
                         }
-                        Err(err) => eprintln!(
-                            "Could not upload page wallpaper, drawing individual keys: {err}"
-                        ),
                     }
                 }
                 Err(err) => eprintln!("Failed to load page wallpaper: {err}"),
@@ -327,7 +334,7 @@ impl PageState {
         }
 
         // Per-key writes cannot erase wallpaper pixels between the 72 × 72 tiles.
-        if *margins == PanelMargins::Unknown {
+        if matches!(*margins, PanelMargins::Unknown | PanelMargins::AfterStandby) {
             let cleared = clear().or_else(|err| {
                 eprintln!("LCD fill failed, trying a black panel image: {err}");
                 Wallpaper::panel_jpeg(&Default::default()).and_then(|data| upload(&data))
