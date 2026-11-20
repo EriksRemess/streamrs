@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 use streamrs::config::current_profile::{
@@ -6,11 +7,14 @@ use streamrs::config::current_profile::{
     save_current_profile_if_missing,
 };
 use streamrs::config::streamrs_schema::blank_profile_config;
-use streamrs::streamdeck::info::SleepTimer;
+use streamrs::i18n::{tr, trf};
+use streamrs::streamdeck::{DisplayFill, info::SleepTimer};
 
 #[derive(Debug)]
 pub(crate) struct CliArgs {
     pub(crate) info: bool,
+    pub(crate) fill: Option<DisplayFill>,
+    pub(crate) compare_firmware: Option<PathBuf>,
     pub(crate) brightness: Option<u8>,
     pub(crate) standby_image: Option<PathBuf>,
     pub(crate) sleep_after: Option<SleepTimer>,
@@ -23,21 +27,38 @@ pub(crate) struct CliArgs {
     pub(crate) force_images: bool,
 }
 
-pub(crate) fn print_usage(program: &str) {
+pub(crate) fn print_usage() {
+    let program = env::args_os().next().unwrap_or_else(|| "streamrs".into());
     println!(
-        "Usage: {program} [--info | --brightness <0-100> | --sleep-after <minutes|never> | --standby-image <path>] [--debug] [--profile <name>] [--config <path>] [--init] [--force] [--force-images]"
+        "{}",
+        trf(
+            "Usage: {program} [--info | --fill-lcd <RRGGBB> | --fill-key <1-15> <RRGGBB> | --compare-firmware <file.bin> | --brightness <0-100> | --sleep-after <minutes|never> | --standby-image <path> | --init [--force] [--force-images]] [--debug] [--profile <name>] [--config <path>]",
+            &[("program", program.to_string_lossy().into_owned())],
+        )
     );
 }
 
 pub(crate) fn parse_args() -> Result<CliArgs, String> {
-    parse_args_from(env::args().skip(1), resolve_default_profile)
+    parse_args_from(env::args_os().skip(1), resolve_default_profile)
+}
+
+fn parse_rgb(value: &OsStr) -> Result<[u8; 3], String> {
+    let text = value.to_string_lossy();
+    let hex = text.strip_prefix('#').unwrap_or(&text);
+    if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(tr("Color must contain six hexadecimal digits (RRGGBB)"));
+    }
+    let [_, r, g, b] = u32::from_str_radix(hex, 16).unwrap().to_be_bytes();
+    Ok([r, g, b])
 }
 
 fn parse_args_from(
-    mut args: impl Iterator<Item = String>,
+    mut args: impl Iterator<Item = OsString>,
     default_profile: impl FnOnce() -> String,
 ) -> Result<CliArgs, String> {
     let mut info = false;
+    let mut fill = None;
+    let mut compare_firmware = None;
     let mut brightness = None;
     let mut sleep_after = None;
     let mut standby_image = None;
@@ -49,66 +70,92 @@ fn parse_args_from(
     let mut force_images = false;
 
     while let Some(arg) = args.next() {
-        match arg.as_str() {
+        let option = arg.to_string_lossy();
+        let image_path = matches!(option.as_ref(), "--compare-firmware" | "--standby-image");
+        let mut value = || {
+            args.next()
+                .filter(|v| {
+                    !v.is_empty() && !(image_path && v.as_encoded_bytes().starts_with(b"--"))
+                })
+                .ok_or_else(|| {
+                    trf(
+                        "Missing value for {option}",
+                        &[("option", option.to_string())],
+                    )
+                })
+        };
+        match option.as_ref() {
             "--debug" => debug = true,
             "--info" => info = true,
+            "--fill-lcd" | "--fill-key" => {
+                if fill.is_some() {
+                    return Err(tr("Choose only one display fill per command"));
+                }
+                fill = Some(if option == "--fill-key" {
+                    let key = value()?
+                        .to_string_lossy()
+                        .parse()
+                        .map_err(|_| tr("Key number must be between 1 and 15."))?;
+                    DisplayFill::key(key, parse_rgb(&value()?)?)?
+                } else {
+                    DisplayFill::lcd(parse_rgb(&value()?)?)
+                });
+            }
+            "--compare-firmware" => {
+                if compare_firmware.is_some() {
+                    return Err(tr("Choose only one firmware image per command"));
+                }
+                compare_firmware = Some(PathBuf::from(value()?));
+            }
             "--brightness" => {
-                let value = args.next().ok_or("Missing value for --brightness")?;
                 brightness = Some(
-                    value
+                    value()?
+                        .to_string_lossy()
                         .parse::<u8>()
                         .ok()
                         .filter(|v| *v <= 100)
-                        .ok_or("--brightness requires a whole percentage from 0 to 100")?,
+                        .ok_or_else(|| {
+                            tr("--brightness requires a whole percentage from 0 to 100")
+                        })?,
                 );
             }
-            "--standby-image" => {
-                let path = args
-                    .next()
-                    .filter(|v| !v.is_empty() && !v.starts_with("--"))
-                    .ok_or("Missing image path for --standby-image")?;
-                standby_image = Some(PathBuf::from(path));
-            }
+            "--standby-image" => standby_image = Some(PathBuf::from(value()?)),
             "--sleep-after" => {
-                let value = args.next().ok_or("Missing value for --sleep-after")?;
-                let minutes = if value == "never" {
+                let duration = value()?;
+                let minutes = if duration == "never" {
                     Some(0)
                 } else {
-                    value.parse().ok()
+                    duration.to_string_lossy().parse().ok()
                 };
                 sleep_after =
-                    Some(minutes.and_then(SleepTimer::from_minutes).ok_or(
-                        "--sleep-after requires whole minutes from 0 to 35791394, or never",
-                    )?);
+                    Some(minutes.and_then(SleepTimer::from_minutes).ok_or_else(|| {
+                        tr("--sleep-after requires whole minutes from 0 to 35791394, or never")
+                    })?);
             }
             "--profile" => {
-                let name = args
-                    .next()
-                    .ok_or_else(|| "Missing value for --profile".to_string())?;
                 profile = Some(
-                    streamrs::config::current_profile::normalize_profile_name(&name).ok_or_else(
-                        || {
-                            "Profile name must contain only letters, numbers, '-' or '_'"
-                                .to_string()
-                        },
-                    )?,
+                    streamrs::config::current_profile::normalize_profile_name(
+                        &value()?.to_string_lossy(),
+                    )
+                    .ok_or_else(|| {
+                        tr("Profile name must contain only letters, numbers, '-' or '_'")
+                    })?,
                 );
             }
-            "--config" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "Missing value for --config".to_string())?;
-                config_path = Some(PathBuf::from(value));
-            }
+            "--config" => config_path = Some(PathBuf::from(value()?)),
             "--init" => init = true,
             "--force" => force = true,
             "--force-images" => force_images = true,
             "--help" | "-h" => {
-                let program = env::args().next().unwrap_or_else(|| "streamrs".to_string());
-                print_usage(&program);
+                print_usage();
                 std::process::exit(0);
             }
-            _ => return Err(format!("Unknown argument: {arg}")),
+            _ => {
+                return Err(trf(
+                    "Unknown argument: {arg}",
+                    &[("arg", option.into_owned())],
+                ));
+            }
         }
     }
 
@@ -118,18 +165,19 @@ fn parse_args_from(
         brightness.is_some(),
         sleep_after.is_some(),
         standby_image.is_some(),
+        fill.is_some(),
+        compare_firmware.is_some(),
     ];
     if commands.into_iter().filter(|enabled| *enabled).count() > 1 {
-        return Err(
-            "Choose only one of --info, --init, --brightness, --sleep-after or --standby-image"
-                .into(),
-        );
+        return Err(tr(
+            "Choose only one of --info, --init, --brightness, --sleep-after, --standby-image, --fill-lcd, --fill-key or --compare-firmware",
+        ));
     }
     if force && !init {
-        return Err("--force requires --init".to_string());
+        return Err(tr("--force requires --init"));
     }
     if force_images && !init {
-        return Err("--force-images requires --init".to_string());
+        return Err(tr("--force-images requires --init"));
     }
 
     let profile_explicit = profile.is_some();
@@ -142,6 +190,8 @@ fn parse_args_from(
     });
     Ok(CliArgs {
         info,
+        fill,
+        compare_firmware,
         brightness,
         sleep_after,
         standby_image,
@@ -412,9 +462,67 @@ mod tests {
     }
 
     #[test]
+    fn hardware_commands_validate_targets_colors_and_conflicts() {
+        let parse = |args: &[&str]| parse_args_from(args.iter().map(OsString::from), String::new);
+        assert_eq!(
+            parse(&["--fill-lcd", "#fF0080"]).unwrap().fill,
+            Some(DisplayFill::lcd([255, 0, 128]))
+        );
+        assert_eq!(
+            parse(&["--fill-key", "15", "112233"]).unwrap().fill,
+            Some(DisplayFill::key(15, [17, 34, 51]).unwrap())
+        );
+        assert!(
+            parse(&["--compare-firmware", "fw.bin", "--config", "desk.toml"])
+                .unwrap()
+                .compare_firmware
+                .is_some()
+        );
+        for args in [
+            &["--fill-key", "0", "112233"][..],
+            &["--fill-key", "16", "112233"],
+            &["--fill-key", "2"],
+            &["--fill-lcd", "+01234"],
+            &["--fill-lcd", "aabb"],
+            &["--fill-lcd", "112233", "--fill-key", "1", "aabbcc"],
+            &["--compare-firmware", "--info"],
+            &[
+                "--compare-firmware",
+                "one.bin",
+                "--compare-firmware",
+                "two.bin",
+            ],
+            &["--compare-firmware", "fw.bin", "--init"],
+            &["--fill-lcd", "ff00ff", "--info"],
+        ] {
+            assert!(parse(args).is_err(), "{args:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn device_commands_preserve_native_paths() {
+        use std::os::unix::ffi::OsStringExt;
+        let path = OsString::from_vec(b"image-\xff.bin".to_vec());
+        let config = OsString::from_vec(b"profile-\xfe.toml".to_vec());
+        let args = parse_args_from(
+            [
+                "--compare-firmware".into(),
+                path.clone(),
+                "--config".into(),
+                config.clone(),
+            ]
+            .into_iter(),
+            String::new,
+        )
+        .unwrap();
+        assert_eq!(args.compare_firmware.as_deref(), Some(Path::new(&path)));
+        assert_eq!(args.config_path.as_deref(), Some(Path::new(&config)));
+    }
+
+    #[test]
     fn brightness_requires_a_percentage_and_an_exclusive_device_command() {
-        let parse =
-            |args: &[&str]| parse_args_from(args.iter().map(|s| s.to_string()), String::new);
+        let parse = |args: &[&str]| parse_args_from(args.iter().map(OsString::from), String::new);
         for value in ["0", "35", "100"] {
             assert_eq!(
                 parse(&["--profile", "desk", "--brightness", value])
@@ -438,8 +546,7 @@ mod tests {
 
     #[test]
     fn sleep_after_accepts_whole_minutes_and_never_as_a_device_command() {
-        let parse =
-            |args: &[&str]| parse_args_from(args.iter().map(|s| s.to_string()), String::new);
+        let parse = |args: &[&str]| parse_args_from(args.iter().map(OsString::from), String::new);
         for (arg, minutes) in [("never", 0), ("0", 0), ("10", 10), ("35791394", 35791394)] {
             let args = parse(&["--sleep-after", arg, "--profile", "test"]).unwrap();
             assert_eq!(args.sleep_after.unwrap().whole_minutes(), Some(minutes));
@@ -551,7 +658,7 @@ mod tests {
     #[test]
     fn explicit_config_works_even_with_no_discovered_profiles() {
         let args = parse_args_from(
-            ["--config", "custom.toml"].map(String::from).into_iter(),
+            ["--config", "custom.toml"].map(OsString::from).into_iter(),
             || BLANK_PROFILE.into(),
         )
         .unwrap();
@@ -562,7 +669,9 @@ mod tests {
     fn invalid_profile_name_is_rejected_before_initialization() {
         assert!(
             parse_args_from(
-                ["--profile", "a/b", "--init"].map(String::from).into_iter(),
+                ["--profile", "a/b", "--init"]
+                    .map(OsString::from)
+                    .into_iter(),
                 || DEFAULT_PROFILE.into()
             )
             .is_err()

@@ -1,6 +1,7 @@
 use crate::gui::*;
 
 mod device_info;
+mod device_tools;
 mod signal_wiring;
 use signal_wiring::wire_ui_handlers_and_present;
 
@@ -175,6 +176,11 @@ fn rebuild_window_menu(menu: &gtk::gio::Menu) {
     app_section.append(Some(&tr("Page wallpaper…")), Some("win.page-wallpaper"));
     app_section.append(Some(&tr("Brightness…")), Some("win.brightness"));
     app_section.append(Some(&tr("Device information")), Some("win.device-info"));
+    app_section.append(Some(&tr("Test display color…")), Some("win.display-color"));
+    app_section.append(
+        Some(&tr("Compare firmware image…")),
+        Some("win.compare-firmware"),
+    );
     app_section.append(Some(&tr("About streamrs")), Some("win.show-about"));
     menu.append_section(None, &app_section);
 }
@@ -607,6 +613,7 @@ pub(crate) fn build_ui(app: &Application) {
     }
     window.add_action(&about_action);
     device_info::register(&window, &state);
+    device_tools::register(&window, &state);
 
     let start_daemon_action = gtk::gio::SimpleAction::new("start-daemon", None);
     let stop_daemon_action = gtk::gio::SimpleAction::new("stop-daemon", None);
@@ -772,25 +779,33 @@ pub(crate) fn build_ui(app: &Application) {
 }
 
 async fn choose_image(window: &ApplicationWindow, title: &str) -> Result<Option<PathBuf>, String> {
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&tr("Images")));
+    for mime in ["image/png", "image/jpeg", "image/webp"] {
+        filter.add_mime_type(mime);
+    }
+    choose_local_file(window, title, &filter).await
+}
+
+async fn choose_local_file(
+    window: &ApplicationWindow,
+    title: &str,
+    filter: &gtk::FileFilter,
+) -> Result<Option<PathBuf>, String> {
     let chooser = gtk::FileChooserNative::builder()
         .title(title)
         .transient_for(window)
         .modal(true)
         .action(gtk::FileChooserAction::Open)
         .build();
-    let filter = gtk::FileFilter::new();
-    filter.set_name(Some(&tr("Images")));
-    for mime in ["image/png", "image/jpeg", "image/webp"] {
-        filter.add_mime_type(mime);
-    }
-    chooser.add_filter(&filter);
+    chooser.add_filter(filter);
     if chooser.run_future().await != gtk::ResponseType::Accept {
         return Ok(None);
     }
     let path = chooser
         .file()
         .and_then(|f| f.path())
-        .ok_or_else(|| tr("Select a local image file."))?;
+        .ok_or_else(|| tr("Select a local file."))?;
     Ok(Some(path))
 }
 

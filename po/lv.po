@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-20 09:42+0000\n"
-"PO-Revision-Date: 2026-11-20 09:21+0000\n"
+"POT-Creation-Date: 2026-11-20 14:02+0000\n"
+"PO-Revision-Date: 2026-11-20 14:02+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -11,6 +11,22 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n != 0 ? 1 : "
 "2);\n"
+
+#: src/init/streamrs.rs
+msgid "--brightness requires a whole percentage from 0 to 100"
+msgstr "Opcijai --brightness norādiet veselus procentus no 0 līdz 100"
+
+#: src/init/streamrs.rs
+msgid "--force requires --init"
+msgstr "Opciju --force var lietot tikai kopā ar --init"
+
+#: src/init/streamrs.rs
+msgid "--force-images requires --init"
+msgstr "Opciju --force-images var lietot tikai kopā ar --init"
+
+#: src/init/streamrs.rs
+msgid "--sleep-after requires whole minutes from 0 to 35791394, or never"
+msgstr "Opcijai --sleep-after norādiet veselu minūšu skaitu no 0 līdz 35791394 vai vērtību never"
 
 #: src/gui/ui.rs
 msgid "A lightweight Rust Stream Deck toolkit for Linux."
@@ -56,7 +72,8 @@ msgstr "Jau darbojas cits streamrs-gui eksemplārs (slēgs '{path}')."
 msgid "Appearance"
 msgstr "Izskats"
 
-#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
+#: src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr "Pielietot"
 
@@ -106,7 +123,7 @@ msgstr "Poga {button} (lapa {page}, vieta {slot})"
 msgid "Button {button} (page {page}, slot {slot}) - Blank button"
 msgstr "Poga {button} (lapa {page}, vieta {slot}) - tukša poga"
 
-#: src/gui/ui.rs
+#: src/gui/ui.rs src/gui/ui/device_tools.rs
 msgid "Button {index}"
 msgstr "Poga {index}"
 
@@ -114,8 +131,9 @@ msgstr "Poga {index}"
 msgid "Calendar"
 msgstr "Kalendārs"
 
-#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
-#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
+#: src/gui/ui/signals/brightness.rs src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Atcelt"
 
@@ -126,6 +144,20 @@ msgstr "Mainīt miega taimeri…"
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Choose image…"
 msgstr "Izvēlēties attēlu…"
+
+#: src/init/streamrs.rs
+msgid "Choose only one display fill per command"
+msgstr "Vienā komandā var norādīt tikai vienu krāsas aizpildījumu"
+
+#: src/init/streamrs.rs
+msgid "Choose only one firmware image per command"
+msgstr "Vienā komandā var norādīt tikai vienu aparātprogrammatūras attēlu"
+
+#: src/init/streamrs.rs
+msgid ""
+"Choose only one of --info, --init, --brightness, --sleep-after, --standby-"
+"image, --fill-lcd, --fill-key or --compare-firmware"
+msgstr "Norādiet tikai vienu no opcijām --info, --init, --brightness, --sleep-after, --standby-image, --fill-lcd, --fill-key vai --compare-firmware"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Cleared selected button"
@@ -139,14 +171,34 @@ msgstr "Pulkstenis"
 msgid "Clock background"
 msgstr "Pulksteņa fons"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
 msgid "Close"
 msgstr "Aizvērt"
+
+#: src/init/streamrs.rs
+msgid "Color must contain six hexadecimal digits (RRGGBB)"
+msgstr "Norādiet krāsu ar sešiem heksadecimāliem cipariem (RRGGBB)"
+
+#: src/streamdeck/info.rs
+msgid "Color scheme code"
+msgstr "Krāsu shēmas kods"
+
+#: src/gui/ui/device_tools.rs
+msgid "Compare firmware image"
+msgstr "Salīdzināt aparātprogrammatūras attēlu"
+
+#: src/gui/ui.rs
+msgid "Compare firmware image…"
+msgstr "Salīdzināt aparātprogrammatūras attēlu…"
 
 #: src/config/toml.rs
 msgid "Config '{path}' is busy. Try saving again."
 msgstr ""
 "Konfigurācija '{path}' pašlaik tiek lietota. Mēģiniet saglabāt vēlreiz."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Conflicting AP2 version markers in the firmware image."
+msgstr "Aparātprogrammatūras attēlā ir atšķirīgas AP2 versiju atzīmes."
 
 #: src/gui/ui.rs
 msgid "Contributors"
@@ -175,6 +227,14 @@ msgstr "Neizdevās atvērt HID ierīci {id}: {err}"
 #: src/gui/ui/device_info.rs
 msgid "Could not read device information."
 msgstr "Neizdevās nolasīt informāciju par ierīci."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Could not read firmware image '{path}': {err}"
+msgstr "Neizdevās nolasīt aparātprogrammatūras attēlu '{path}': {err}"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Could not read the installed AP2 firmware."
+msgstr "Neizdevās nolasīt instalētās AP2 aparātprogrammatūras informāciju."
 
 #: src/streamdeck/info.rs
 msgid "Could not read the sleep timer."
@@ -206,6 +266,14 @@ msgstr ""
 msgid "Delete profile '{profile}' config? Shared icons are kept."
 msgstr "Dzēst profilu '{profile}'?"
 
+#: src/streamdeck/info.rs
+msgid "Demo frames"
+msgstr "Demonstrācijas kadri"
+
+#: src/gui/ui/device_tools.rs
+msgid "Device command failed."
+msgstr "Neizdevās izpildīt ierīces komandu."
+
 #: src/gui/ui.rs src/gui/ui/device_info.rs
 msgid "Device information"
 msgstr "Informācija par ierīci"
@@ -213,6 +281,15 @@ msgstr "Informācija par ierīci"
 #: src/streamdeck/info.rs
 msgid "Disabled"
 msgstr "Atspējots"
+
+#: src/gui/ui/device_tools.rs
+msgid "Display color"
+msgstr "Displeja krāsa"
+
+#: src/streamdeck.rs
+msgid "Display color fills require a supported 15-key Stream Deck."
+msgstr ""
+"Aizpildīšanai ar krāsu nepieciešams atbalstīts Stream Deck ar 15 taustiņiem."
 
 #: src/streamdeck/info.rs
 msgid "Display size"
@@ -223,6 +300,10 @@ msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
 msgstr ""
 "Ievadiet, pēc cik neaktivitātes minūtēm ierīce pāries miega režīmā. Lai "
 "atspējotu miega taimeri, ievadiet 0."
+
+#: src/gui/ui/device_tools.rs
+msgid "Entire display"
+msgstr "Viss displejs"
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
@@ -272,6 +353,40 @@ msgstr "Neizdevās ierakstīt konfigurāciju '{path}': {err}"
 msgid "Firmware (AP1)"
 msgstr "Aparātprogrammatūra (AP1)"
 
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image checksum does not match its header."
+msgstr ""
+"Aparātprogrammatūras attēla kontrolsumma neatbilst galvenē norādītajai."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image comparison requires a Stream Deck MK.2."
+msgstr ""
+"Aparātprogrammatūras attēla salīdzināšanai nepieciešams Stream Deck MK.2."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image exceeds the MK.2 image size limit."
+msgstr "Aparātprogrammatūras attēls pārsniedz MK.2 atļauto izmēru."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image has no AP2 version marker."
+msgstr "Aparātprogrammatūras attēlā nav AP2 versijas atzīmes."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image header is incomplete."
+msgstr "Aparātprogrammatūras attēla galvene ir nepilnīga."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image payload length does not match its header."
+msgstr "Aparātprogrammatūras attēla datu garums neatbilst galvenē norādītajam."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image target does not match this deck."
+msgstr "Aparātprogrammatūras attēls nav paredzēts šai ierīcei."
+
+#: src/gui/ui/device_tools.rs
+msgid "Firmware images"
+msgstr "Aparātprogrammatūras attēli"
+
 #: src/gui/ui.rs
 msgid "Icon"
 msgstr "Ikona"
@@ -283,6 +398,14 @@ msgstr "Ikona, kad statuss ir izslēgts"
 #: src/gui/ui.rs
 msgid "Icon when status is on"
 msgstr "Ikona, kad statuss ir ieslēgts"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Image AP2: {value}"
+msgstr "AP2 attēlā: {value}"
+
+#: src/streamdeck/info.rs
+msgid "Image BPP"
+msgstr "Attēla BPP"
 
 #: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Images"
@@ -296,9 +419,25 @@ msgstr "Poga ievietota aiz mērķa pogas"
 msgid "Inserted button before target"
 msgstr "Poga ievietota pirms mērķa pogas"
 
+#: src/streamdeck/firmware_image.rs
+msgid "Installed AP2: {value}"
+msgstr "Instalētā AP2 versija: {value}"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Invalid AP2 version marker in the firmware image."
+msgstr "Aparātprogrammatūras attēlā ir nederīga AP2 versijas atzīme."
+
+#: src/streamdeck/info.rs
+msgid "Key gallery images"
+msgstr "Attēli taustiņu galerijā"
+
 #: src/streamdeck/info.rs
 msgid "Key layout (rows × columns)"
 msgstr "Taustiņu izkārtojums (rindas × kolonnas)"
+
+#: src/init/streamrs.rs src/streamdeck.rs
+msgid "Key number must be between 1 and 15."
+msgstr "Taustiņa numuram jābūt no 1 līdz 15."
 
 #: src/streamdeck/info.rs
 msgid "Key size"
@@ -307,6 +446,10 @@ msgstr "Taustiņa izmērs"
 #: src/gui/ui.rs
 msgid "Keyboard shortcut"
 msgstr "Tastatūras saīsne"
+
+#: src/streamdeck/info.rs
+msgid "LCD gallery images"
+msgstr "Attēli displeja galerijā"
 
 #: src/gui/ui.rs
 msgid "Launch command"
@@ -327,6 +470,10 @@ msgstr "Izvēlne"
 #: src/gui/ui/device_info.rs
 msgid "Minutes"
 msgstr "Minūtes"
+
+#: src/init/streamrs.rs
+msgid "Missing value for {option}"
+msgstr "Opcijai {option} nav norādīta vērtība"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Navigation buttons cannot be deleted"
@@ -397,6 +544,10 @@ msgstr "Profila nosaukums"
 #: src/gui/ui/signals/management.rs
 msgid "Profile name must contain letters or numbers"
 msgstr "Profila nosaukumā jābūt burtiem vai cipariem"
+
+#: src/init/streamrs.rs
+msgid "Profile name must contain only letters, numbers, '-' or '_'"
+msgstr "Profila nosaukumā drīkst būt tikai burti, cipari, defises un pasvītrojuma zīmes"
 
 #: src/gui/ui.rs
 msgid "Project License"
@@ -474,9 +625,17 @@ msgstr "Izmaiņas saglabātas"
 msgid "Saved {ordinal} button"
 msgstr "{ordinal} poga saglabāta"
 
+#: src/gui/ui/device_tools.rs
+msgid "Select a key."
+msgstr "Izvēlieties taustiņu."
+
 #: src/gui/ui.rs
-msgid "Select a local image file."
-msgstr "Izvēlieties lokālu attēla datni."
+msgid "Select a local file."
+msgstr "Izvēlieties lokālu datni."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Select a regular firmware image file."
+msgstr "Izvēlieties parastu aparātprogrammatūras attēla datni."
 
 #: src/gui/core/icon_catalog.rs
 msgid "Select icon..."
@@ -542,9 +701,25 @@ msgstr "Stream Deck priekšskatījums"
 msgid "Swapped buttons"
 msgstr "Pogas samainītas"
 
+#: src/gui/ui/device_tools.rs
+msgid "Test display color"
+msgstr "Pārbaudīt displeja krāsu"
+
+#: src/gui/ui.rs
+msgid "Test display color…"
+msgstr "Pārbaudīt displeja krāsu…"
+
 #: src/streamdeck/info.rs
 msgid "The device did not confirm the new sleep timer."
 msgstr "Ierīce neapstiprināja jauno miega taimera iestatījumu."
+
+#: src/streamdeck/firmware_image.rs
+msgid "The image differs from the installed firmware."
+msgstr "Attēls atšķiras no instalētās aparātprogrammatūras."
+
+#: src/gui/ui/device_tools.rs
+msgid "The next redraw can replace this temporary color."
+msgstr "Nākamajā displeja pārzīmēšanas reizē šī pagaidu krāsa var mainīties."
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "This slot is reserved for page navigation"
@@ -557,6 +732,22 @@ msgstr "USB ID"
 #: src/streamdeck/info.rs
 msgid "Unavailable"
 msgstr "Nav pieejams"
+
+#: src/init/streamrs.rs
+msgid "Unknown argument: {arg}"
+msgstr "Nezināms arguments: {arg}"
+
+#: src/init/streamrs.rs
+msgid ""
+"Usage: {program} [--info | --fill-lcd <RRGGBB> | --fill-key <1-15> <RRGGBB> "
+"| --compare-firmware <file.bin> | --brightness <0-100> | --sleep-after "
+"<minutes|never> | --standby-image <path> | --init [--force] [--force-"
+"images]] [--debug] [--profile <name>] [--config <path>]"
+msgstr "Lietošana: {program} [--info | --fill-lcd <RRGGBB> | --fill-key <1-15> <RRGGBB> | --compare-firmware <datne.bin> | --brightness <0-100> | --sleep-after <minūtes|never> | --standby-image <ceļš> | --init [--force] [--force-images]] [--debug] [--profile <nosaukums>] [--config <ceļš>]"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Version and checksum match."
+msgstr "Versija un kontrolsumma sakrīt."
 
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Wallpaper for page {page}"

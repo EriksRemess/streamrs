@@ -108,7 +108,15 @@ Notes:
 
 ### Device information
 
-Run `streamrs --info` or open **Menu → Device information** in the GUI. Both show the matching deck’s USB ID, serial number, firmware versions and checksums, key and display dimensions, and hardware sleep timer. The query can run while the daemon is active. Use `--profile <name>` or `--config <path>` to select the HID identifiers for the CLI.
+Run `streamrs --info` or open **Menu → Device information** in the GUI. Both show the matching deck’s USB ID, serial number, firmware versions and checksums, key and display dimensions, and hardware sleep timer. They also show the reported image BPP, color scheme code, key and LCD gallery image counts, and demo frame count when the firmware supplies them. The query can run while the daemon is active. Use `--profile <name>` or `--config <path>` to select the HID identifiers for the CLI.
+
+### Compare a local firmware image
+
+Run `streamrs --compare-firmware 20GBA9901.bin` or open **Menu → Compare firmware image…**. This reads the connected MK.2’s primary (AP2) version and checksum and compares both with the local image. It checks the model identifier, payload length, and CRC-32 before reporting a result. The standard MK.2 and scissor-key MK.2 use different images. This comparison is read-only. The CLI exits successfully on a match and returns a nonzero status for a difference or an error.
+
+### Test a display color
+
+Use `streamrs --fill-lcd 224466` for the whole display, or `streamrs --fill-key 1 FF8000` for the top-left key. Numbers run from 1 to 15, left to right from the top row. Colors are six hexadecimal RGB digits. In the GUI, open **Menu → Test display color…** and choose the target and color. A whole-display fill also colors the gaps around the keys. A single-key fill changes only that key face. The fill is temporary and the daemon may redraw individual keys during the test. Changing pages restores the new page and its gaps. To redraw the current page immediately, run `systemctl --user kill --signal=HUP --kill-whom=main streamrs.service` with the rebuilt daemon running.
 
 ### Page wallpapers
 

@@ -1,14 +1,30 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-20 09:42+0000\n"
-"PO-Revision-Date: 2026-11-20 09:21+0000\n"
+"POT-Creation-Date: 2026-11-20 14:02+0000\n"
+"PO-Revision-Date: 2026-11-20 14:02+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: src/init/streamrs.rs
+msgid "--brightness requires a whole percentage from 0 to 100"
+msgstr "--brightness requires a whole percentage from 0 to 100"
+
+#: src/init/streamrs.rs
+msgid "--force requires --init"
+msgstr "--force requires --init"
+
+#: src/init/streamrs.rs
+msgid "--force-images requires --init"
+msgstr "--force-images requires --init"
+
+#: src/init/streamrs.rs
+msgid "--sleep-after requires whole minutes from 0 to 35791394, or never"
+msgstr "--sleep-after requires whole minutes from 0 to 35791394, or never"
 
 #: src/gui/ui.rs
 msgid "A lightweight Rust Stream Deck toolkit for Linux."
@@ -54,7 +70,8 @@ msgstr "Another streamrs-gui instance is already running (lock '{path}')."
 msgid "Appearance"
 msgstr "Appearance"
 
-#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
+#: src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr "Apply"
 
@@ -104,7 +121,7 @@ msgstr "Button {button} (page {page}, slot {slot})"
 msgid "Button {button} (page {page}, slot {slot}) - Blank button"
 msgstr "Button {button} (page {page}, slot {slot}) - Blank button"
 
-#: src/gui/ui.rs
+#: src/gui/ui.rs src/gui/ui/device_tools.rs
 msgid "Button {index}"
 msgstr "Button {index}"
 
@@ -112,8 +129,9 @@ msgstr "Button {index}"
 msgid "Calendar"
 msgstr "Calendar"
 
-#: src/gui/ui/device_info.rs src/gui/ui/signals/brightness.rs
-#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
+#: src/gui/ui/signals/brightness.rs src/gui/ui/signals/management.rs
+#: src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -124,6 +142,20 @@ msgstr "Change sleep timer…"
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Choose image…"
 msgstr "Choose image…"
+
+#: src/init/streamrs.rs
+msgid "Choose only one display fill per command"
+msgstr "Choose only one display fill per command"
+
+#: src/init/streamrs.rs
+msgid "Choose only one firmware image per command"
+msgstr "Choose only one firmware image per command"
+
+#: src/init/streamrs.rs
+msgid ""
+"Choose only one of --info, --init, --brightness, --sleep-after, --standby-"
+"image, --fill-lcd, --fill-key or --compare-firmware"
+msgstr "Choose only one of --info, --init, --brightness, --sleep-after, --standby-image, --fill-lcd, --fill-key or --compare-firmware"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Cleared selected button"
@@ -137,13 +169,33 @@ msgstr "Clock"
 msgid "Clock background"
 msgstr "Clock background"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
 msgid "Close"
 msgstr "Close"
+
+#: src/init/streamrs.rs
+msgid "Color must contain six hexadecimal digits (RRGGBB)"
+msgstr "Color must contain six hexadecimal digits (RRGGBB)"
+
+#: src/streamdeck/info.rs
+msgid "Color scheme code"
+msgstr "Color scheme code"
+
+#: src/gui/ui/device_tools.rs
+msgid "Compare firmware image"
+msgstr "Compare firmware image"
+
+#: src/gui/ui.rs
+msgid "Compare firmware image…"
+msgstr "Compare firmware image…"
 
 #: src/config/toml.rs
 msgid "Config '{path}' is busy. Try saving again."
 msgstr "Config '{path}' is busy. Try saving again."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Conflicting AP2 version markers in the firmware image."
+msgstr "Conflicting AP2 version markers in the firmware image."
 
 #: src/gui/ui.rs
 msgid "Contributors"
@@ -173,6 +225,14 @@ msgstr "Could not open HID device {id}: {err}"
 msgid "Could not read device information."
 msgstr "Could not read device information."
 
+#: src/streamdeck/firmware_image.rs
+msgid "Could not read firmware image '{path}': {err}"
+msgstr "Could not read firmware image '{path}': {err}"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Could not read the installed AP2 firmware."
+msgstr "Could not read the installed AP2 firmware."
+
 #: src/streamdeck/info.rs
 msgid "Could not read the sleep timer."
 msgstr "Could not read the sleep timer."
@@ -201,6 +261,14 @@ msgstr "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
 msgid "Delete profile '{profile}' config? Shared icons are kept."
 msgstr "Delete profile '{profile}' config? Shared icons are kept."
 
+#: src/streamdeck/info.rs
+msgid "Demo frames"
+msgstr "Demo frames"
+
+#: src/gui/ui/device_tools.rs
+msgid "Device command failed."
+msgstr "Device command failed."
+
 #: src/gui/ui.rs src/gui/ui/device_info.rs
 msgid "Device information"
 msgstr "Device information"
@@ -209,6 +277,14 @@ msgstr "Device information"
 msgid "Disabled"
 msgstr "Disabled"
 
+#: src/gui/ui/device_tools.rs
+msgid "Display color"
+msgstr "Display color"
+
+#: src/streamdeck.rs
+msgid "Display color fills require a supported 15-key Stream Deck."
+msgstr "Display color fills require a supported 15-key Stream Deck."
+
 #: src/streamdeck/info.rs
 msgid "Display size"
 msgstr "Display size"
@@ -216,6 +292,10 @@ msgstr "Display size"
 #: src/gui/ui/device_info.rs
 msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
 msgstr "Enter the number of minutes before the deck sleeps. Use 0 for never."
+
+#: src/gui/ui/device_tools.rs
+msgid "Entire display"
+msgstr "Entire display"
 
 #: src/gui/ui/signals/management.rs
 msgid "Failed to create '{path}': {err}"
@@ -265,6 +345,38 @@ msgstr "Failed to write config '{path}': {err}"
 msgid "Firmware (AP1)"
 msgstr "Firmware (AP1)"
 
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image checksum does not match its header."
+msgstr "Firmware image checksum does not match its header."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image comparison requires a Stream Deck MK.2."
+msgstr "Firmware image comparison requires a Stream Deck MK.2."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image exceeds the MK.2 image size limit."
+msgstr "Firmware image exceeds the MK.2 image size limit."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image has no AP2 version marker."
+msgstr "Firmware image has no AP2 version marker."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image header is incomplete."
+msgstr "Firmware image header is incomplete."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image payload length does not match its header."
+msgstr "Firmware image payload length does not match its header."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Firmware image target does not match this deck."
+msgstr "Firmware image target does not match this deck."
+
+#: src/gui/ui/device_tools.rs
+msgid "Firmware images"
+msgstr "Firmware images"
+
 #: src/gui/ui.rs
 msgid "Icon"
 msgstr "Icon"
@@ -276,6 +388,14 @@ msgstr "Icon when status is off"
 #: src/gui/ui.rs
 msgid "Icon when status is on"
 msgstr "Icon when status is on"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Image AP2: {value}"
+msgstr "Image AP2: {value}"
+
+#: src/streamdeck/info.rs
+msgid "Image BPP"
+msgstr "Image BPP"
 
 #: src/gui/ui.rs src/gui/ui/signals/management.rs
 msgid "Images"
@@ -289,9 +409,25 @@ msgstr "Inserted button after target"
 msgid "Inserted button before target"
 msgstr "Inserted button before target"
 
+#: src/streamdeck/firmware_image.rs
+msgid "Installed AP2: {value}"
+msgstr "Installed AP2: {value}"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Invalid AP2 version marker in the firmware image."
+msgstr "Invalid AP2 version marker in the firmware image."
+
+#: src/streamdeck/info.rs
+msgid "Key gallery images"
+msgstr "Key gallery images"
+
 #: src/streamdeck/info.rs
 msgid "Key layout (rows × columns)"
 msgstr "Key layout (rows × columns)"
+
+#: src/init/streamrs.rs src/streamdeck.rs
+msgid "Key number must be between 1 and 15."
+msgstr "Key number must be between 1 and 15."
 
 #: src/streamdeck/info.rs
 msgid "Key size"
@@ -300,6 +436,10 @@ msgstr "Key size"
 #: src/gui/ui.rs
 msgid "Keyboard shortcut"
 msgstr "Keyboard shortcut"
+
+#: src/streamdeck/info.rs
+msgid "LCD gallery images"
+msgstr "LCD gallery images"
 
 #: src/gui/ui.rs
 msgid "Launch command"
@@ -320,6 +460,10 @@ msgstr "Menu"
 #: src/gui/ui/device_info.rs
 msgid "Minutes"
 msgstr "Minutes"
+
+#: src/init/streamrs.rs
+msgid "Missing value for {option}"
+msgstr "Missing value for {option}"
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "Navigation buttons cannot be deleted"
@@ -388,6 +532,10 @@ msgstr "Profile name"
 #: src/gui/ui/signals/management.rs
 msgid "Profile name must contain letters or numbers"
 msgstr "Profile name must contain letters or numbers"
+
+#: src/init/streamrs.rs
+msgid "Profile name must contain only letters, numbers, '-' or '_'"
+msgstr "Profile name must contain only letters, numbers, '-' or '_'"
 
 #: src/gui/ui.rs
 msgid "Project License"
@@ -465,9 +613,17 @@ msgstr "Saved changes"
 msgid "Saved {ordinal} button"
 msgstr "Saved {ordinal} button"
 
+#: src/gui/ui/device_tools.rs
+msgid "Select a key."
+msgstr "Select a key."
+
 #: src/gui/ui.rs
-msgid "Select a local image file."
-msgstr "Select a local image file."
+msgid "Select a local file."
+msgstr "Select a local file."
+
+#: src/streamdeck/firmware_image.rs
+msgid "Select a regular firmware image file."
+msgstr "Select a regular firmware image file."
 
 #: src/gui/core/icon_catalog.rs
 msgid "Select icon..."
@@ -533,9 +689,25 @@ msgstr "Stream Deck preview"
 msgid "Swapped buttons"
 msgstr "Swapped buttons"
 
+#: src/gui/ui/device_tools.rs
+msgid "Test display color"
+msgstr "Test display color"
+
+#: src/gui/ui.rs
+msgid "Test display color…"
+msgstr "Test display color…"
+
 #: src/streamdeck/info.rs
 msgid "The device did not confirm the new sleep timer."
 msgstr "The device did not confirm the new sleep timer."
+
+#: src/streamdeck/firmware_image.rs
+msgid "The image differs from the installed firmware."
+msgstr "The image differs from the installed firmware."
+
+#: src/gui/ui/device_tools.rs
+msgid "The next redraw can replace this temporary color."
+msgstr "The next redraw can replace this temporary color."
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "This slot is reserved for page navigation"
@@ -548,6 +720,22 @@ msgstr "USB ID"
 #: src/streamdeck/info.rs
 msgid "Unavailable"
 msgstr "Unavailable"
+
+#: src/init/streamrs.rs
+msgid "Unknown argument: {arg}"
+msgstr "Unknown argument: {arg}"
+
+#: src/init/streamrs.rs
+msgid ""
+"Usage: {program} [--info | --fill-lcd <RRGGBB> | --fill-key <1-15> <RRGGBB> "
+"| --compare-firmware <file.bin> | --brightness <0-100> | --sleep-after "
+"<minutes|never> | --standby-image <path> | --init [--force] [--force-"
+"images]] [--debug] [--profile <name>] [--config <path>]"
+msgstr "Usage: {program} [--info | --fill-lcd <RRGGBB> | --fill-key <1-15> <RRGGBB> | --compare-firmware <file.bin> | --brightness <0-100> | --sleep-after <minutes|never> | --standby-image <path> | --init [--force] [--force-images]] [--debug] [--profile <name>] [--config <path>]"
+
+#: src/streamdeck/firmware_image.rs
+msgid "Version and checksum match."
+msgstr "Version and checksum match."
 
 #: src/gui/ui/signals/wallpaper.rs
 msgid "Wallpaper for page {page}"

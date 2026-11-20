@@ -1,3 +1,4 @@
+pub mod firmware_image;
 pub mod info;
 
 use crate::i18n::trf;
@@ -245,6 +246,51 @@ pub fn set_panel_image_data(device: &HidDevice, data: &[u8]) -> Result<(), Strin
     DeckDisplay::new(device)?.set_panel_image(data)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DisplayFill {
+    key: Option<u8>,
+    rgb: [u8; 3],
+}
+
+impl DisplayFill {
+    pub fn lcd(rgb: [u8; 3]) -> Self {
+        Self { key: None, rgb }
+    }
+
+    /// Key numbers are one-based, in reading order across the 15-key deck.
+    pub fn key(number: u8, rgb: [u8; 3]) -> Result<Self, String> {
+        if !(1..=STREAMDECK_KEY_COUNT as u8).contains(&number) {
+            return Err(crate::i18n::tr("Key number must be between 1 and 15."));
+        }
+        Ok(Self {
+            key: Some(number - 1),
+            rgb,
+        })
+    }
+
+    pub fn apply(self, device: &HidDevice) -> Result<(), String> {
+        let info = device.get_device_info().map_err(|err| err.to_string())?;
+        if info.vendor_id() != 0x0fd9
+            || !matches!(info.product_id(), 0x006d | 0x0080 | 0x00a5 | 0x00b9)
+        {
+            return Err(crate::i18n::tr(
+                "Display color fills require a supported 15-key Stream Deck.",
+            ));
+        }
+        DeckDisplay::new(device)?.fill(self)
+    }
+
+    fn report(self) -> [u8; 32] {
+        let mut report = [0; 32];
+        let [r, g, b] = self.rgb;
+        match self.key {
+            Some(key) => report[..6].copy_from_slice(&[3, 6, key, r, g, b]),
+            None => report[..5].copy_from_slice(&[3, 5, r, g, b]),
+        }
+        report
+    }
+}
+
 #[derive(Clone, Copy)]
 enum ImageTarget {
     Key(u8),
@@ -287,20 +333,24 @@ impl<D: Borrow<HidDevice>> DeckDisplay<D> {
     }
 
     pub fn clear_lcd(&self) -> Result<(), String> {
-        self.display_command(0x05)
+        self.fill(DisplayFill::lcd([0; 3]))
     }
 
     pub fn show_standby_image(&self) -> Result<(), String> {
-        self.display_command(0x02)
+        let mut report = [0; 32];
+        report[..2].copy_from_slice(&[3, 2]);
+        self.display_command(&report)
     }
 
-    fn display_command(&self, command: u8) -> Result<(), String> {
+    fn fill(&self, fill: DisplayFill) -> Result<(), String> {
+        self.display_command(&fill.report())
+    }
+
+    fn display_command(&self, report: &[u8; 32]) -> Result<(), String> {
         #[cfg(target_os = "linux")]
         let _guard = DisplayGuard::acquire(&self.lock)?;
-        let mut report = [0; 32];
-        report[..2].copy_from_slice(&[0x03, command]);
         self.hid()
-            .send_feature_report(&report)
+            .send_feature_report(report)
             .map_err(|err| err.to_string())
     }
 
@@ -434,6 +484,21 @@ mod tests {
             installer.try_lock().unwrap();
             installer.unlock().unwrap();
         }
+    }
+
+    #[test]
+    fn rgb_fills_use_distinct_layouts_and_one_based_key_numbers() {
+        let rgb = [0x12, 0x34, 0x56];
+        let mut panel = [0; 32];
+        panel[..5].copy_from_slice(&[3, 5, 0x12, 0x34, 0x56]);
+        assert_eq!(DisplayFill::lcd(rgb).report(), panel);
+        let mut key = [0; 32];
+        key[..6].copy_from_slice(&[3, 6, 0, 0x12, 0x34, 0x56]);
+        assert_eq!(DisplayFill::key(1, rgb).unwrap().report(), key);
+        key[2] = 14;
+        assert_eq!(DisplayFill::key(15, rgb).unwrap().report(), key);
+        assert!(DisplayFill::key(0, rgb).is_err());
+        assert!(DisplayFill::key(16, rgb).is_err());
     }
 
     #[test]

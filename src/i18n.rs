@@ -85,9 +85,33 @@ pub fn tr(msgid: &str) -> String {
 }
 
 pub fn trf(msgid: &str, replacements: &[(&str, String)]) -> String {
-    let mut rendered = tr(msgid);
-    for (key, value) in replacements {
-        rendered = rendered.replace(&format!("{{{key}}}"), value);
+    let template = tr(msgid);
+    let mut rendered = String::with_capacity(template.len());
+    for part in template.split_inclusive('}') {
+        if let Some((prefix, key)) = part.strip_suffix('}').and_then(|s| s.rsplit_once('{'))
+            && let Some((_, value)) = replacements.iter().find(|(name, _)| *name == key)
+        {
+            rendered.push_str(prefix);
+            rendered.push_str(value);
+        } else {
+            rendered.push_str(part);
+        }
     }
     rendered
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn replacements_preserve_literal_braces_in_values() {
+        assert_eq!(
+            trf(
+                "{path}: {err} ({path}) {unknown}",
+                &[("path", "file-{err}.bin".into()), ("err", "missing".into()),]
+            ),
+            "file-{err}.bin: missing (file-{err}.bin) {unknown}"
+        );
+    }
 }

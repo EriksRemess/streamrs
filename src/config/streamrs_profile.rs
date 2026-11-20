@@ -38,11 +38,24 @@ fn read_profile_text(path: &Path) -> std::io::Result<String> {
 }
 
 pub fn load_config_for_profile(path: &Path, profile: &str) -> Result<StreamrsConfig, String> {
-    let blank = profile == BLANK_PROFILE || profile_from_config_path(path) == BLANK_PROFILE;
+    let profile = if profile_from_config_path(path) == BLANK_PROFILE {
+        BLANK_PROFILE
+    } else {
+        profile
+    };
+    read_profile_config(path, profile, true)
+}
+
+pub fn read_profile_config(
+    path: &Path,
+    profile: &str,
+    allow_missing: bool,
+) -> Result<StreamrsConfig, String> {
+    let blank = profile == BLANK_PROFILE;
     match read_profile_text(path) {
         Ok(raw) if blank => Ok(blank_config_from_str(&raw)),
         Ok(raw) => super::toml::parse_from_str(path, &raw),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(if blank {
+        Err(err) if allow_missing && err.kind() == std::io::ErrorKind::NotFound => Ok(if blank {
             blank_profile_config()
         } else {
             StreamrsConfig::default()
@@ -126,6 +139,24 @@ pub fn save(path: &Path, config: &StreamrsConfig) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn device_config_uses_blank_defaults_and_requires_explicit_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("desk.toml");
+        assert!(read_profile_config(&path, "desk", false).is_err());
+        let defaults = read_profile_config(&path, "desk", true).unwrap();
+        std::fs::write(&path, "vendor_id = 1234\nbrightness = 34").unwrap();
+        let blank = read_profile_config(&path, BLANK_PROFILE, false).unwrap();
+        assert_eq!(
+            (blank.vendor_id, blank.brightness),
+            (defaults.vendor_id, 34)
+        );
+        assert_eq!(
+            read_profile_config(&path, "desk", false).unwrap().vendor_id,
+            1234
+        );
+    }
 
     #[test]
     fn special_files_are_rejected_before_parsing_a_profile() {

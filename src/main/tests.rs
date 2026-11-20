@@ -1015,7 +1015,7 @@ fn wallpaper_draws_empty_faces_and_preserves_configured_keys_on_both_upload_path
 
     for full_upload_succeeds in [true, false] {
         let mut page = prepare_page(&config, &StatusCache::new(), 0);
-        let mut margins = PanelMargins::Black;
+        let mut margins = PanelMode::FullPanel;
         page.draw_background(
             dir.path(),
             &mut margins,
@@ -1037,14 +1037,7 @@ fn wallpaper_draws_empty_faces_and_preserves_configured_keys_on_both_upload_path
                 Ok(())
             },
         );
-        assert_eq!(
-            margins,
-            if full_upload_succeeds {
-                PanelMargins::Unknown
-            } else {
-                PanelMargins::Black
-            }
-        );
+        assert_eq!(margins, PanelMode::FullPanel);
         let mut writes = 0;
         page.draw_pending_images(
             Instant::now(),
@@ -1081,7 +1074,7 @@ fn wallpaper_survives_the_first_key_write_after_standby() {
     let wallpaper_key = std::cell::Cell::new(0u8);
     page.draw_background(
         dir.path(),
-        &mut PanelMargins::on_connect(0x0fd9, 0x0080),
+        &mut PanelMode::on_connect(0x0fd9, 0x0080),
         |jpeg| {
             let panel = image::load_from_memory(jpeg).unwrap().to_rgb8();
             wallpaper_key.set(panel[(335, 230)][0]); // Center of key 1 on the rotated panel.
@@ -1124,7 +1117,7 @@ fn transparent_icons_upload_identical_bytes_with_and_without_wallpaper() {
     let mut config = test_config_with_keys(vec![test_key("icon.png")]);
     let upload = |config: &Config| {
         let mut page = prepare_page(config, &StatusCache::new(), 0);
-        page.draw_background(dir.path(), &mut PanelMargins::Black, |_| Ok(()), || Ok(()));
+        page.draw_background(dir.path(), &mut PanelMode::FullPanel, |_| Ok(()), || Ok(()));
         let mut first = Vec::new();
         page.draw_pending_images(
             Instant::now(),
@@ -1176,36 +1169,45 @@ fn page_navigation_selects_each_wallpaper_and_clears_unconfigured_pages() {
 }
 
 #[test]
-fn plain_pages_clear_unknown_margins_once_before_drawing_keys() {
-    let mut margins = PanelMargins::on_connect(0x0fd9, 0x0080);
-    let mut clears = 0;
-    let mut draw = |page: &mut PageState, margins: &mut PanelMargins| {
+fn a_new_plain_page_restores_the_margins_after_an_external_fill() {
+    use std::cell::Cell;
+
+    let blue = [0, 85, 204];
+    let gap_color = Cell::new(blue);
+    let mut margins = PanelMode::on_connect(0x0fd9, 0x0080);
+    let draw = |page: &mut PageState, margins: &mut PanelMode| {
         page.draw_background(
             Path::new("."),
             margins,
             |_| panic!("unexpected upload"),
             || {
-                clears += 1;
+                gap_color.set([0; 3]);
                 Ok(())
             },
         );
     };
     let mut page = PageState::new();
     draw(&mut page, &mut margins);
+    assert_eq!(gap_color.get(), [0; 3]);
+
+    gap_color.set(blue);
     draw(&mut page, &mut margins);
+    assert_eq!(gap_color.get(), blue);
     draw(&mut PageState::new(), &mut margins);
-    assert_eq!(margins, PanelMargins::Black);
+    assert_eq!(gap_color.get(), [0; 3]);
+
+    gap_color.set(blue);
     draw(
         &mut PageState::new(),
-        &mut PanelMargins::on_connect(0x0fd9, 0x0060),
+        &mut PanelMode::on_connect(0x0fd9, 0x0060),
     );
-    assert_eq!(clears, 1);
+    assert_eq!(gap_color.get(), blue);
 }
 
 #[test]
 fn missing_wallpaper_clears_a_previous_wallpapers_margins() {
     let dir = tempfile::tempdir().unwrap();
-    let mut margins = PanelMargins::Unknown;
+    let mut margins = PanelMode::FullPanel;
     let mut page = PageState::new();
     page.pending_background = Some(PageBackground::Wallpaper(
         "missing.png".into(),
@@ -1217,7 +1219,7 @@ fn missing_wallpaper_clears_a_previous_wallpapers_margins() {
         |_| panic!("unexpected upload"),
         || Ok(()),
     );
-    assert_eq!(margins, PanelMargins::Black);
+    assert_eq!(margins, PanelMode::FullPanel);
     assert!(page.tiles.iter().all(Option::is_none));
 }
 
@@ -1227,7 +1229,7 @@ fn failed_lcd_fill_tries_a_black_panel_before_drawing_individual_keys() {
     let config = test_config_with_keys(vec![test_key("blank.png")]);
     for upload_succeeds in [true, false] {
         let mut state = prepare_page(&config, &StatusCache::new(), 0);
-        let mut margins = PanelMargins::Unknown;
+        let mut margins = PanelMode::AfterStandby;
         let mut uploads = 0;
         state.draw_background(
             dir.path(),
@@ -1246,7 +1248,7 @@ fn failed_lcd_fill_tries_a_black_panel_before_drawing_individual_keys() {
             || Err("fill failed".into()),
         );
         assert_eq!(uploads, 1);
-        assert_eq!(margins == PanelMargins::Black, upload_succeeds);
+        assert_eq!(margins == PanelMode::FullPanel, upload_succeeds);
         let mut writes = 0;
         state.draw_pending_images(
             Instant::now(),

@@ -7,7 +7,6 @@ use image::codecs::gif::GifDecoder;
 use image::{AnimationDecoder, Frame as ImageFrame, RgbaImage};
 use std::cmp::min;
 use std::collections::HashMap;
-use std::env;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -245,19 +244,18 @@ enum PageBackground {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PanelMargins {
+enum PanelMode {
     PerKeyOnly,
     AfterStandby,
-    Unknown,
-    Black,
+    FullPanel,
 }
 
-impl PanelMargins {
+impl PanelMode {
     fn on_connect(vendor: u16, product: u16) -> Self {
         if vendor == 0x0fd9 && product == 0x0080 {
             Self::AfterStandby
         } else if vendor == 0x0fd9 && matches!(product, 0x00a5 | 0x006d | 0x00b9) {
-            Self::Unknown
+            Self::FullPanel
         } else {
             Self::PerKeyOnly
         }
@@ -299,7 +297,7 @@ impl PageState {
     fn draw_background(
         &mut self,
         image_dir: &Path,
-        margins: &mut PanelMargins,
+        panel_mode: &mut PanelMode,
         mut upload: impl FnMut(&[u8]) -> Result<(), String>,
         clear: impl FnOnce() -> Result<(), String>,
     ) {
@@ -311,13 +309,12 @@ impl PageState {
                 Ok(wallpaper) => {
                     self.tiles =
                         std::array::from_fn(|slot| slots[slot].then(|| wallpaper.key(slot)));
-                    if *margins == PanelMargins::PerKeyOnly {
+                    if *panel_mode == PanelMode::PerKeyOnly {
                         return;
                     }
                     // The MK.2 clears the LCD on its first key write after showing the logo.
                     // Draw the initial wallpaper as individual tiles so that clear happens first.
-                    if *margins != PanelMargins::AfterStandby {
-                        *margins = PanelMargins::Unknown;
+                    if *panel_mode != PanelMode::AfterStandby {
                         match Wallpaper::panel_jpeg(&self.tiles).and_then(|jpeg| upload(&jpeg)) {
                             Ok(()) => {
                                 self.panel_uploaded = true;
@@ -333,14 +330,14 @@ impl PageState {
             }
         }
 
-        // Per-key writes cannot erase wallpaper pixels between the 72 × 72 tiles.
-        if matches!(*margins, PanelMargins::Unknown | PanelMargins::AfterStandby) {
+        // A manual LCD fill can change the gaps between pages. Per-key writes never cover them.
+        if *panel_mode != PanelMode::PerKeyOnly {
             let cleared = clear().or_else(|err| {
                 eprintln!("LCD fill failed, trying a black panel image: {err}");
                 Wallpaper::panel_jpeg(&Default::default()).and_then(|data| upload(&data))
             });
             match cleared {
-                Ok(()) => *margins = PanelMargins::Black,
+                Ok(()) => *panel_mode = PanelMode::FullPanel,
                 Err(err) => eprintln!("Could not clear the LCD before drawing keys: {err}"),
             }
         }
@@ -918,31 +915,28 @@ fn run_device_command(args: &init::CliArgs) -> Result<(), String> {
         println!("{result}");
         return Ok(());
     }
-    let config: Config = match std::fs::read_to_string(path) {
-        Ok(raw) => streamrs::config::toml::parse_from_str(path, &raw)?,
-        Err(err)
-            if err.kind() == std::io::ErrorKind::NotFound
-                && args.config_path.is_none()
-                && !args.profile_explicit =>
-        {
-            Config::default()
-        }
-        Err(err) => {
-            return Err(streamrs::i18n::trf(
-                "Failed to read config '{path}': {err}",
-                &[
-                    ("path", path.display().to_string()),
-                    ("err", err.to_string()),
-                ],
-            ));
-        }
-    };
+    let config = streamrs::config::streamrs_profile::read_profile_config(
+        path,
+        &args.profile,
+        args.config_path.is_none() && !args.profile_explicit,
+    )?;
     let device = streamrs::streamdeck::info::open_info_device(
         config.vendor_id,
         config.product_id,
         config.usage,
         config.usage_page,
     )?;
+    if let Some(fill) = args.fill {
+        return fill.apply(&device);
+    }
+    if let Some(path) = &args.compare_firmware {
+        let comparison = streamrs::streamdeck::firmware_image::compare(&device, path)?;
+        if !comparison.matches() {
+            return Err(comparison.summary());
+        }
+        println!("{}", comparison.summary());
+        return Ok(());
+    }
     if let Some(path) = &args.standby_image {
         return streamrs::streamdeck::set_standby_image(&device, path);
     }
@@ -961,12 +955,12 @@ fn run_device_command(args: &init::CliArgs) -> Result<(), String> {
 }
 
 pub(crate) fn run() {
-    let program = env::args().next().unwrap_or_else(|| "streamrs".to_string());
+    streamrs::i18n::init_i18n();
     let args = match parse_args() {
         Ok(args) => args,
         Err(err) => {
             eprintln!("{err}");
-            print_usage(&program);
+            print_usage();
             std::process::exit(2);
         }
     };
@@ -974,8 +968,9 @@ pub(crate) fn run() {
         || args.sleep_after.is_some()
         || args.brightness.is_some()
         || args.standby_image.is_some()
+        || args.fill.is_some()
+        || args.compare_firmware.is_some()
     {
-        streamrs::i18n::init_i18n();
         if let Err(err) = run_device_command(&args) {
             eprintln!("{err}");
             std::process::exit(1);
@@ -1064,7 +1059,7 @@ pub(crate) fn run() {
     };
 
     let mut device: Option<DeckDisplay> = None;
-    let mut margins = PanelMargins::PerKeyOnly;
+    let mut panel_mode = PanelMode::PerKeyOnly;
     let mut current_page = 0usize;
     let mut total_pages = page_count(&config);
     let mut page_state: Option<PageState> = None;
@@ -1102,7 +1097,7 @@ pub(crate) fn run() {
                 page_state = Some(prepare_page(&config, &status_cache, current_page));
                 key_state = KeyState::default();
                 waiting_for_device_logged = false;
-                margins = PanelMargins::on_connect(config.vendor_id, config.product_id);
+                panel_mode = PanelMode::on_connect(config.vendor_id, config.product_id);
                 device = Some(connected_device);
             }
         }
@@ -1112,7 +1107,7 @@ pub(crate) fn run() {
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
             page_state_ref.draw_background(
                 &image_dir,
-                &mut margins,
+                &mut panel_mode,
                 |data| device_ref.set_panel_image(data),
                 || device_ref.clear_lcd(),
             );
@@ -1325,7 +1320,7 @@ pub(crate) fn run() {
         sleep(Duration::from_millis(10));
     }
     if let Some(device) = device
-        && margins != PanelMargins::PerKeyOnly
+        && panel_mode != PanelMode::PerKeyOnly
         && let Err(err) = device.show_standby_image()
     {
         eprintln!("Could not show the standby image: {err}");
