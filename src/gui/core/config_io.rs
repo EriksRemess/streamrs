@@ -40,16 +40,31 @@ fn is_daemon_command(cmdline: &[u8]) -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn catches_reload(status: &str) -> bool {
+fn catches_signal(status: &str, signal: libc::c_int) -> bool {
     status
         .lines()
         .find_map(|line| line.strip_prefix("SigCgt:"))
         .and_then(|mask| u64::from_str_radix(mask.trim(), 16).ok())
-        .is_some_and(|mask| mask & (1 << (libc::SIGHUP - 1)) != 0)
+        .is_some_and(|mask| mask & (1 << (signal - 1)) != 0)
 }
 
 #[cfg(target_os = "linux")]
-fn matching_daemons(signal: Option<libc::c_int>) -> std::io::Result<bool> {
+fn owns_deck(process: &Path, deck: &Path) -> bool {
+    let Ok(fds) = fs::read_dir(process.join("fd")) else {
+        return false;
+    };
+    fds.flatten().any(|fd| {
+        fs::read_link(fd.path()).is_ok_and(|path| path == deck)
+            && fs::read_to_string(process.join("fdinfo").join(fd.file_name())).is_ok_and(|info| {
+                info.lines().any(|line| {
+                    line.starts_with("lock:") && line.split_whitespace().nth(2) == Some("OFDLCK")
+                })
+            })
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn matching_daemons(signal: Option<libc::c_int>, deck: Option<&Path>) -> std::io::Result<bool> {
     use rustix::process::{Pid, PidfdFlags, Signal, geteuid, pidfd_open, pidfd_send_signal};
     use std::os::unix::fs::MetadataExt;
 
@@ -78,10 +93,12 @@ fn matching_daemons(signal: Option<libc::c_int>) -> std::io::Result<bool> {
             Err(rustix::io::Errno::SRCH) => continue,
             Err(err) => return Err(err.into()),
         };
-        if !fs::read(path.join("cmdline")).is_ok_and(|args| is_daemon_command(&args)) {
+        if !fs::read(path.join("cmdline")).is_ok_and(|args| is_daemon_command(&args))
+            || deck.is_some_and(|deck| !owns_deck(&path, deck))
+        {
             continue;
         }
-        if let Some(signal) = signal {
+        if let Some(mut signal) = signal {
             // A starting daemon still has the default SIGHUP action. Its first config read
             // follows handler installation, so it already sees the saved changes.
             if signal == libc::SIGHUP {
@@ -90,8 +107,10 @@ fn matching_daemons(signal: Option<libc::c_int>) -> std::io::Result<bool> {
                     Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
                     Err(err) => return Err(err),
                 };
-                if !catches_reload(&status) {
-                    found = true;
+                if deck.is_some() && catches_signal(&status, libc::SIGUSR1) {
+                    signal = libc::SIGUSR1;
+                } else if !catches_signal(&status, libc::SIGHUP) {
+                    found |= deck.is_none();
                     continue;
                 }
             }
@@ -107,7 +126,7 @@ fn matching_daemons(signal: Option<libc::c_int>) -> std::io::Result<bool> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn matching_daemons(_: Option<libc::c_int>) -> std::io::Result<bool> {
+fn matching_daemons(_: Option<libc::c_int>, _: Option<&Path>) -> std::io::Result<bool> {
     Ok(false)
 }
 
@@ -130,7 +149,7 @@ fn service_command(args: &[&str]) -> Result<(), String> {
 
 pub(crate) fn signal_daemon_reload() -> Result<(), String> {
     let service_reload = || service_command(&["kill", "-s", "HUP", "--kill-whom=main"]);
-    match matching_daemons(Some(libc::SIGHUP)) {
+    match matching_daemons(Some(libc::SIGHUP), None) {
         Ok(true) => Ok(()),
         Ok(false) => service_reload(),
         Err(err) => service_reload().map_err(|service_err| format!("{service_err} ({err})")),
@@ -138,8 +157,38 @@ pub(crate) fn signal_daemon_reload() -> Result<(), String> {
     .map_err(|err| trf("Failed to signal streamrs daemon: {err}", &[("err", err)]))
 }
 
+pub(crate) fn restore_color_preview(
+    display: streamrs::streamdeck::DeckDisplay,
+) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::ffi::OsStrExt;
+
+        if !display.try_claim()? {
+            let info = display
+                .hid()
+                .get_device_info()
+                .map_err(|err| err.to_string())?;
+            let deck = Path::new(std::ffi::OsStr::from_bytes(info.path().to_bytes()));
+            if matching_daemons(Some(libc::SIGHUP), Some(deck)).map_err(|err| err.to_string())? {
+                return Ok(());
+            }
+            // The daemon may have stopped while its descriptors were being inspected.
+            if !display.try_claim()? {
+                return Err(tr("Could not ask the daemon to redraw this deck."));
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    if daemon_running() {
+        return signal_daemon_reload();
+    }
+    display.show_standby_image()
+}
+
 pub(crate) fn daemon_running() -> bool {
-    service_command(&["is-active", "--quiet"]).is_ok() || matching_daemons(None).unwrap_or(false)
+    service_command(&["is-active", "--quiet"]).is_ok()
+        || matching_daemons(None, None).unwrap_or(false)
 }
 
 pub(crate) fn set_daemon_running(should_run: bool) -> Result<(), String> {
@@ -148,7 +197,7 @@ pub(crate) fn set_daemon_running(should_run: bool) -> Result<(), String> {
             .map_err(|err| trf("Failed to start streamrs daemon: {err}", &[("err", err)]));
     }
     let stopped = service_command(&["stop"]);
-    match matching_daemons(Some(libc::SIGTERM)) {
+    match matching_daemons(Some(libc::SIGTERM), None) {
         Ok(true) => Ok(()),
         Ok(false) => stopped,
         Err(err) => Err(err.to_string()),
@@ -186,10 +235,33 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn reload_waits_for_the_daemons_signal_handler() {
-        assert!(!catches_reload(
-            "SigIgn:\t0000000000000001\nSigCgt:\t0000000000004000\n"
+        assert!(!catches_signal(
+            "SigIgn:\t0000000000000001\nSigCgt:\t0000000000004000\n",
+            libc::SIGHUP
         ));
-        assert!(catches_reload("SigCgt:\t0000000000004001\n"));
+        assert!(catches_signal("SigCgt:\t0000000000004001\n", libc::SIGHUP));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn redraw_selects_the_daemon_with_a_claim_on_the_requested_deck() {
+        use std::os::unix::fs::symlink;
+
+        let proc = tempfile::tempdir().unwrap();
+        let path = proc.path();
+        fs::create_dir(path.join("fd")).unwrap();
+        fs::create_dir(path.join("fdinfo")).unwrap();
+        let deck = Path::new("/dev/hidraw3");
+        symlink(deck, path.join("fd/5")).unwrap();
+        fs::write(path.join("fdinfo/5"), "pos:\t0\n").unwrap();
+        assert!(!owns_deck(path, deck));
+        fs::write(
+            path.join("fdinfo/5"),
+            "lock:\t1: OFDLCK ADVISORY  WRITE -1 00:07:12 0 0\n",
+        )
+        .unwrap();
+        assert!(owns_deck(path, deck));
+        assert!(!owns_deck(path, Path::new("/dev/hidraw4")));
     }
 
     #[cfg(target_os = "linux")]

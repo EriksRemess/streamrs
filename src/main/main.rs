@@ -469,12 +469,16 @@ type StatusCache = HashMap<String, bool>;
 
 static RELOAD_REQUESTED: AtomicBool = AtomicBool::new(false);
 
+static REDRAW_REQUESTED: AtomicBool = AtomicBool::new(false);
+
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 #[cfg(unix)]
 extern "C" fn handle_signal(signal: libc::c_int) {
     if signal == libc::SIGHUP {
         RELOAD_REQUESTED.store(true, Ordering::Relaxed);
+    } else if signal == libc::SIGUSR1 {
+        REDRAW_REQUESTED.store(true, Ordering::Relaxed);
     } else {
         STOP_REQUESTED.store(true, Ordering::Relaxed);
     }
@@ -482,7 +486,7 @@ extern "C" fn handle_signal(signal: libc::c_int) {
 
 #[cfg(unix)]
 fn install_signal_handlers() {
-    for signal in [libc::SIGHUP, libc::SIGINT, libc::SIGTERM] {
+    for signal in [libc::SIGHUP, libc::SIGUSR1, libc::SIGINT, libc::SIGTERM] {
         // SAFETY: The handler only sets an atomic flag.
         unsafe { libc::signal(signal, handle_signal as *const () as libc::sighandler_t) };
     }
@@ -1105,6 +1109,9 @@ pub(crate) fn run() {
         let mut disconnected = false;
         let mut reload_due_to_device_issue = false;
         if let (Some(device_ref), Some(page_state_ref)) = (device.as_ref(), page_state.as_mut()) {
+            if REDRAW_REQUESTED.swap(false, Ordering::Relaxed) {
+                *page_state_ref = prepare_page(&config, &status_cache, current_page);
+            }
             page_state_ref.draw_background(
                 &image_dir,
                 &mut panel_mode,

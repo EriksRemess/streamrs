@@ -112,11 +112,11 @@ Run `streamrs --info` or open **Menu → Device information** in the GUI. Both s
 
 ### Compare a local firmware image
 
-Run `streamrs --compare-firmware 20GBA9901.bin` or open **Menu → Compare firmware image…**. This reads the connected MK.2’s primary (AP2) version and checksum and compares both with the local image. It checks the model identifier, payload length, and CRC-32 before reporting a result. The standard MK.2 and scissor-key MK.2 use different images. This comparison is read-only. The CLI exits successfully on a match and returns a nonzero status for a difference or an error.
+Run `streamrs --compare-firmware 20GBA9901.bin` or open **Menu → Device information → Compare firmware image…**. This reads the connected MK.2’s primary (AP2) version and checksum and compares both with the local image. It checks the model identifier, payload length, and CRC-32 before reporting a result. The standard MK.2 and scissor-key MK.2 use different images. This comparison is read-only. The CLI exits successfully on a match and returns a nonzero status for a difference or an error.
 
 ### Test a display color
 
-Use `streamrs --fill-lcd 224466` for the whole display, or `streamrs --fill-key 1 FF8000` for the top-left key. Numbers run from 1 to 15, left to right from the top row. Colors are six hexadecimal RGB digits. In the GUI, open **Menu → Test display color…** and choose the target and color. A whole-display fill also colors the gaps around the keys. A single-key fill changes only that key face. The fill is temporary and the daemon may redraw individual keys during the test. Changing pages restores the new page and its gaps. To redraw the current page immediately, run `systemctl --user kill --signal=HUP --kill-whom=main streamrs.service` with the rebuilt daemon running.
+Use `streamrs --fill-lcd 224466` for the whole display, or `streamrs --fill-key 1 FF8000` for the top-left key. Numbers run from 1 to 15, left to right from the top row. Colors are six hexadecimal RGB digits. In the GUI, open **Menu → Test display color…**, choose a target and color, and press **Apply**. You can try several colors in the same dialog. **Cancel**, Escape, or closing the dialog ends the test and redraws the active page, or shows the stored standby image when the daemon is stopped. A whole-display fill also colors the gaps around the keys. A single-key fill changes only that key face. The fill is temporary and the daemon may redraw individual keys during the test. Changing pages restores the new page and its gaps. After a CLI fill, to redraw the current page immediately, run `systemctl --user kill --signal=HUP --kill-whom=main streamrs.service` with the rebuilt daemon running.
 
 ### Page wallpapers
 
@@ -140,13 +140,13 @@ In the GUI, open **Menu → Brightness…**, adjust the slider and choose **Appl
 
 ### Standby image
 
-On a standard MK.2 (USB ID `0fd9:0080`), run `streamrs --standby-image ~/Pictures/standby.png` or choose **Menu → Device information → Set standby image…**. streamrs center-crops the image to 480 × 272 and uploads it to device flash. The same image applies across profiles and the deck keeps it after the source file is removed.
+On a standard MK.2 (USB ID `0fd9:0080`), run `streamrs --standby-image ~/Pictures/standby.png` or choose **Menu → Set standby image…**. streamrs center-crops the image to 480 × 272 and uploads it to device flash. The same image applies across profiles and the deck keeps it after the source file is removed.
 
 On a clean service stop or Ctrl+C, the daemon asks the deck to display its stored standby image. The factory logo works without any setup. The next daemon start redraws the active profile. If a second daemon starts, it waits for an available deck. You can upload a standby image while the daemon is running.
 
 ### Sleep after inactivity
 
-Use `streamrs --sleep-after 10` to put the connected deck to sleep after ten idle minutes. Use `streamrs --sleep-after never` (or `0`) to disable the timer. In the GUI, open **Menu → Device information → Change sleep timer…**.
+Use `streamrs --sleep-after 10` to put the connected deck to sleep after ten idle minutes. Use `streamrs --sleep-after never` (or `0`) to disable the timer. In the GUI, open **Menu → Change sleep timer…**.
 
 The timer applies to the whole device immediately. You can change it while the daemon is running and check it with `streamrs --info`. The same `--profile` and `--config` options select the target device.
 

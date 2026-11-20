@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-20 14:02+0000\n"
-"PO-Revision-Date: 2026-11-20 14:02+0000\n"
+"POT-Creation-Date: 2026-11-20 14:44+0000\n"
+"PO-Revision-Date: 2026-11-20 14:44+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: Latvian\n"
 "Language: lv\n"
@@ -72,10 +72,13 @@ msgstr "Jau darbojas cits streamrs-gui eksemplārs (slēgs '{path}')."
 msgid "Appearance"
 msgstr "Izskats"
 
-#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
-#: src/gui/ui/signals/brightness.rs
+#: src/gui/ui/device_tools.rs src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr "Pielietot"
+
+#: src/gui/ui/device_tools.rs
+msgid "Apply previews the color. Cancel restores the display."
+msgstr "Ar pogu “Pielietot” var izmēģināt krāsu. Ar pogu “Atcelt” var atjaunot displeja iepriekšējo izskatu."
 
 #: src/gui/ui.rs
 msgid "Behavior"
@@ -131,13 +134,12 @@ msgstr "Poga {index}"
 msgid "Calendar"
 msgstr "Kalendārs"
 
-#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
-#: src/gui/ui/signals/brightness.rs src/gui/ui/signals/management.rs
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui/device_tools.rs src/gui/ui/signals/brightness.rs
+#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Atcelt"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui.rs
 msgid "Change sleep timer…"
 msgstr "Mainīt miega taimeri…"
 
@@ -183,11 +185,11 @@ msgstr "Norādiet krāsu ar sešiem heksadecimāliem cipariem (RRGGBB)"
 msgid "Color scheme code"
 msgstr "Krāsu shēmas kods"
 
-#: src/gui/ui/device_tools.rs
+#: src/gui/ui/device_info.rs
 msgid "Compare firmware image"
 msgstr "Salīdzināt aparātprogrammatūras attēlu"
 
-#: src/gui/ui.rs
+#: src/gui/ui/device_info.rs
 msgid "Compare firmware image…"
 msgstr "Salīdzināt aparātprogrammatūras attēlu…"
 
@@ -204,11 +206,15 @@ msgstr "Aparātprogrammatūras attēlā ir atšķirīgas AP2 versiju atzīmes."
 msgid "Contributors"
 msgstr "Līdzautori"
 
+#: src/gui/core/config_io.rs
+msgid "Could not ask the daemon to redraw this deck."
+msgstr "Neizdevās nosūtīt servisam pieprasījumu pārzīmēt šīs ierīces displeju."
+
 #: src/gui/ui/signals/brightness.rs
 msgid "Could not change brightness."
 msgstr "Neizdevās mainīt spilgtumu."
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Could not change the sleep timer."
 msgstr "Neizdevās mainīt miega taimeri."
 
@@ -236,7 +242,7 @@ msgstr "Neizdevās nolasīt aparātprogrammatūras attēlu '{path}': {err}"
 msgid "Could not read the installed AP2 firmware."
 msgstr "Neizdevās nolasīt instalētās AP2 aparātprogrammatūras informāciju."
 
-#: src/streamdeck/info.rs
+#: src/gui/ui/device_tools.rs src/streamdeck/info.rs
 msgid "Could not read the sleep timer."
 msgstr "Neizdevās nolasīt miega taimera iestatījumu."
 
@@ -244,7 +250,7 @@ msgstr "Neizdevās nolasīt miega taimera iestatījumu."
 msgid "Could not set the sleep timer: {err}"
 msgstr "Neizdevās iestatīt miega taimeri: {err}"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Could not upload the standby image."
 msgstr "Neizdevās augšupielādēt gaidstāves attēlu."
 
@@ -256,7 +262,7 @@ msgstr "Lai iestatītu lapas fona attēlu, izveidojiet profilu."
 msgid "Created and loaded profile '{profile}'"
 msgstr "Izveidots un ielādēts profils '{profile}'"
 
-#: src/streamdeck.rs
+#: src/gui/ui/device_tools.rs src/streamdeck.rs
 msgid "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
 msgstr ""
 "Pielāgotu gaidstāves attēlu var iestatīt standarta Stream Deck MK.2 "
@@ -270,13 +276,17 @@ msgstr "Dzēst profilu '{profile}'?"
 msgid "Demo frames"
 msgstr "Demonstrācijas kadri"
 
-#: src/gui/ui/device_tools.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
 msgid "Device command failed."
 msgstr "Neizdevās izpildīt ierīces komandu."
 
 #: src/gui/ui.rs src/gui/ui/device_info.rs
 msgid "Device information"
 msgstr "Informācija par ierīci"
+
+#: src/gui/ui.rs
+msgid "Diagnostics"
+msgstr "Diagnostika"
 
 #: src/streamdeck/info.rs
 msgid "Disabled"
@@ -291,11 +301,15 @@ msgid "Display color fills require a supported 15-key Stream Deck."
 msgstr ""
 "Aizpildīšanai ar krāsu nepieciešams atbalstīts Stream Deck ar 15 taustiņiem."
 
+#: src/gui/ui.rs
+msgid "Display settings"
+msgstr "Displeja iestatījumi"
+
 #: src/streamdeck/info.rs
 msgid "Display size"
 msgstr "Displeja izmērs"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
 msgstr ""
 "Ievadiet, pēc cik neaktivitātes minūtēm ierīce pāries miega režīmā. Lai "
@@ -383,7 +397,7 @@ msgstr "Aparātprogrammatūras attēla datu garums neatbilst galvenē norādīta
 msgid "Firmware image target does not match this deck."
 msgstr "Aparātprogrammatūras attēls nav paredzēts šai ierīcei."
 
-#: src/gui/ui/device_tools.rs
+#: src/gui/ui/device_info.rs
 msgid "Firmware images"
 msgstr "Aparātprogrammatūras attēli"
 
@@ -467,7 +481,7 @@ msgstr "Ielādētāja aparātprogrammatūra (LD)"
 msgid "Menu"
 msgstr "Izvēlne"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Minutes"
 msgstr "Minūtes"
 
@@ -645,15 +659,15 @@ msgstr "Izvēlieties ikonu..."
 msgid "Serial number"
 msgstr "Sērijas numurs"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Set standby image"
 msgstr "Iestatīt gaidstāves attēlu"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui.rs
 msgid "Set standby image…"
 msgstr "Iestatīt gaidstāves attēlu…"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Sleep after inactivity"
 msgstr "Miega režīms pēc neaktivitātes"
 
@@ -661,7 +675,7 @@ msgstr "Miega režīms pēc neaktivitātes"
 msgid "Sleep timer"
 msgstr "Miega taimeris"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Standby image sent to the deck."
 msgstr "Gaidstāves attēls nosūtīts uz ierīci."
 
@@ -716,10 +730,6 @@ msgstr "Ierīce neapstiprināja jauno miega taimera iestatījumu."
 #: src/streamdeck/firmware_image.rs
 msgid "The image differs from the installed firmware."
 msgstr "Attēls atšķiras no instalētās aparātprogrammatūras."
-
-#: src/gui/ui/device_tools.rs
-msgid "The next redraw can replace this temporary color."
-msgstr "Nākamajā displeja pārzīmēšanas reizē šī pagaidu krāsa var mainīties."
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "This slot is reserved for page navigation"

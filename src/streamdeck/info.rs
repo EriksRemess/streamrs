@@ -65,7 +65,7 @@ impl SleepTimer {
         (seconds >= 0).then_some(Self(seconds))
     }
 
-    fn read(device: &HidDevice) -> Option<Self> {
+    pub fn read(device: &HidDevice) -> Option<Self> {
         report(
             &|buf| device.get_feature_report(buf).ok(),
             0x0a,

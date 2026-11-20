@@ -15,6 +15,10 @@ fn target(vendor: u16, product: u16) -> Option<&'static str> {
     }
 }
 
+pub fn supports_device(vendor: u16, product: u16) -> bool {
+    target(vendor, product).is_some()
+}
+
 pub struct FirmwareComparison {
     installed: FirmwareVersion,
     image: FirmwareVersion,

@@ -1878,11 +1878,12 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "streamrs"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "chrono",
  "crc32fast",
  "enigo",
+ "futures-channel",
  "gtk4",
  "hidapi",
  "image",

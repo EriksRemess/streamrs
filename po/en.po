@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: streamrs\n"
-"POT-Creation-Date: 2026-11-20 14:02+0000\n"
-"PO-Revision-Date: 2026-11-20 14:02+0000\n"
+"POT-Creation-Date: 2026-11-20 14:44+0000\n"
+"PO-Revision-Date: 2026-11-20 14:44+0000\n"
 "Last-Translator: Ēriks Remess <eriks@remess.lv>\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -70,10 +70,13 @@ msgstr "Another streamrs-gui instance is already running (lock '{path}')."
 msgid "Appearance"
 msgstr "Appearance"
 
-#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
-#: src/gui/ui/signals/brightness.rs
+#: src/gui/ui/device_tools.rs src/gui/ui/signals/brightness.rs
 msgid "Apply"
 msgstr "Apply"
+
+#: src/gui/ui/device_tools.rs
+msgid "Apply previews the color. Cancel restores the display."
+msgstr "Apply previews the color. Cancel restores the display."
 
 #: src/gui/ui.rs
 msgid "Behavior"
@@ -129,13 +132,12 @@ msgstr "Button {index}"
 msgid "Calendar"
 msgstr "Calendar"
 
-#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
-#: src/gui/ui/signals/brightness.rs src/gui/ui/signals/management.rs
-#: src/gui/ui/signals/wallpaper.rs
+#: src/gui/ui/device_tools.rs src/gui/ui/signals/brightness.rs
+#: src/gui/ui/signals/management.rs src/gui/ui/signals/wallpaper.rs
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui.rs
 msgid "Change sleep timer…"
 msgstr "Change sleep timer…"
 
@@ -181,11 +183,11 @@ msgstr "Color must contain six hexadecimal digits (RRGGBB)"
 msgid "Color scheme code"
 msgstr "Color scheme code"
 
-#: src/gui/ui/device_tools.rs
+#: src/gui/ui/device_info.rs
 msgid "Compare firmware image"
 msgstr "Compare firmware image"
 
-#: src/gui/ui.rs
+#: src/gui/ui/device_info.rs
 msgid "Compare firmware image…"
 msgstr "Compare firmware image…"
 
@@ -201,11 +203,15 @@ msgstr "Conflicting AP2 version markers in the firmware image."
 msgid "Contributors"
 msgstr "Contributors"
 
+#: src/gui/core/config_io.rs
+msgid "Could not ask the daemon to redraw this deck."
+msgstr "Could not ask the daemon to redraw this deck."
+
 #: src/gui/ui/signals/brightness.rs
 msgid "Could not change brightness."
 msgstr "Could not change brightness."
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Could not change the sleep timer."
 msgstr "Could not change the sleep timer."
 
@@ -233,7 +239,7 @@ msgstr "Could not read firmware image '{path}': {err}"
 msgid "Could not read the installed AP2 firmware."
 msgstr "Could not read the installed AP2 firmware."
 
-#: src/streamdeck/info.rs
+#: src/gui/ui/device_tools.rs src/streamdeck/info.rs
 msgid "Could not read the sleep timer."
 msgstr "Could not read the sleep timer."
 
@@ -241,7 +247,7 @@ msgstr "Could not read the sleep timer."
 msgid "Could not set the sleep timer: {err}"
 msgstr "Could not set the sleep timer: {err}"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Could not upload the standby image."
 msgstr "Could not upload the standby image."
 
@@ -253,7 +259,7 @@ msgstr "Create a profile to set a page wallpaper."
 msgid "Created and loaded profile '{profile}'"
 msgstr "Created and loaded profile '{profile}'"
 
-#: src/streamdeck.rs
+#: src/gui/ui/device_tools.rs src/streamdeck.rs
 msgid "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
 msgstr "Custom standby images require a standard Stream Deck MK.2 (0fd9:0080)."
 
@@ -265,13 +271,17 @@ msgstr "Delete profile '{profile}' config? Shared icons are kept."
 msgid "Demo frames"
 msgstr "Demo frames"
 
-#: src/gui/ui/device_tools.rs
+#: src/gui/ui/device_info.rs src/gui/ui/device_tools.rs
 msgid "Device command failed."
 msgstr "Device command failed."
 
 #: src/gui/ui.rs src/gui/ui/device_info.rs
 msgid "Device information"
 msgstr "Device information"
+
+#: src/gui/ui.rs
+msgid "Diagnostics"
+msgstr "Diagnostics"
 
 #: src/streamdeck/info.rs
 msgid "Disabled"
@@ -285,11 +295,15 @@ msgstr "Display color"
 msgid "Display color fills require a supported 15-key Stream Deck."
 msgstr "Display color fills require a supported 15-key Stream Deck."
 
+#: src/gui/ui.rs
+msgid "Display settings"
+msgstr "Display settings"
+
 #: src/streamdeck/info.rs
 msgid "Display size"
 msgstr "Display size"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Enter the number of minutes before the deck sleeps. Use 0 for never."
 msgstr "Enter the number of minutes before the deck sleeps. Use 0 for never."
 
@@ -373,7 +387,7 @@ msgstr "Firmware image payload length does not match its header."
 msgid "Firmware image target does not match this deck."
 msgstr "Firmware image target does not match this deck."
 
-#: src/gui/ui/device_tools.rs
+#: src/gui/ui/device_info.rs
 msgid "Firmware images"
 msgstr "Firmware images"
 
@@ -457,7 +471,7 @@ msgstr "Loader firmware (LD)"
 msgid "Menu"
 msgstr "Menu"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Minutes"
 msgstr "Minutes"
 
@@ -633,15 +647,15 @@ msgstr "Select icon..."
 msgid "Serial number"
 msgstr "Serial number"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Set standby image"
 msgstr "Set standby image"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui.rs
 msgid "Set standby image…"
 msgstr "Set standby image…"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Sleep after inactivity"
 msgstr "Sleep after inactivity"
 
@@ -649,7 +663,7 @@ msgstr "Sleep after inactivity"
 msgid "Sleep timer"
 msgstr "Sleep timer"
 
-#: src/gui/ui/device_info.rs
+#: src/gui/ui/device_tools.rs
 msgid "Standby image sent to the deck."
 msgstr "Standby image sent to the deck."
 
@@ -704,10 +718,6 @@ msgstr "The device did not confirm the new sleep timer."
 #: src/streamdeck/firmware_image.rs
 msgid "The image differs from the installed firmware."
 msgstr "The image differs from the installed firmware."
-
-#: src/gui/ui/device_tools.rs
-msgid "The next redraw can replace this temporary color."
-msgstr "The next redraw can replace this temporary color."
 
 #: src/gui/ui/signals/primary_actions.rs
 msgid "This slot is reserved for page navigation"

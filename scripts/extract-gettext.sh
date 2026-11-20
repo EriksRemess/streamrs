@@ -61,5 +61,13 @@ if [ -s "$sorted_tmp" ]; then
     fi
 fi
 
+# Keep the existing timestamp and references until a message is added or removed.
+if [ -f "$output" ]; then
+    msgcomm --unique --omit-header "$output" "$pot_tmp" > "$refs_tmp"
+    if [ ! -s "$refs_tmp" ]; then
+        exit 0
+    fi
+fi
+
 mkdir -p "$(dirname "$output")"
 mv "$pot_tmp" "$output"

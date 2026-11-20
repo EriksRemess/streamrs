@@ -172,17 +172,21 @@ fn rebuild_window_menu(menu: &gtk::gio::Menu) {
     daemon_section.append(Some(&tr("Restart")), Some("win.restart-daemon"));
     menu.append_section(Some(&tr("streamrs service")), &daemon_section);
 
-    let app_section = gtk::gio::Menu::new();
-    app_section.append(Some(&tr("Page wallpaper…")), Some("win.page-wallpaper"));
-    app_section.append(Some(&tr("Brightness…")), Some("win.brightness"));
-    app_section.append(Some(&tr("Device information")), Some("win.device-info"));
-    app_section.append(Some(&tr("Test display color…")), Some("win.display-color"));
-    app_section.append(
-        Some(&tr("Compare firmware image…")),
-        Some("win.compare-firmware"),
-    );
-    app_section.append(Some(&tr("About streamrs")), Some("win.show-about"));
-    menu.append_section(None, &app_section);
+    let display = gtk::gio::Menu::new();
+    display.append(Some(&tr("Brightness…")), Some("win.brightness"));
+    display.append(Some(&tr("Page wallpaper…")), Some("win.page-wallpaper"));
+    display.append(Some(&tr("Set standby image…")), Some("win.standby-image"));
+    display.append(Some(&tr("Change sleep timer…")), Some("win.sleep-timer"));
+    menu.append_section(Some(&tr("Display settings")), &display);
+
+    let diagnostics = gtk::gio::Menu::new();
+    diagnostics.append(Some(&tr("Device information")), Some("win.device-info"));
+    diagnostics.append(Some(&tr("Test display color…")), Some("win.display-color"));
+    menu.append_section(Some(&tr("Diagnostics")), &diagnostics);
+
+    let about = gtk::gio::Menu::new();
+    about.append(Some(&tr("About streamrs")), Some("win.show-about"));
+    menu.append_section(None, &about);
 }
 
 fn sync_daemon_actions(

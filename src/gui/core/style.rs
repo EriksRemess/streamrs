@@ -2,7 +2,7 @@ use super::*;
 
 pub(crate) fn install_css() {
     let css_template = r#"
-.streamrs-root { padding: $SPACINGpx; }
+.streamrs-root { padding: $SPACINGpx; padding-top: calc($SPACINGpx - 6px); }
 headerbar.window-titlebar {
     background: transparent;
     background-image: none;
@@ -48,6 +48,12 @@ headerbar.window-titlebar {
 }
 .main-split > separator:active {
     background: alpha(@accent_color, 0.35);
+}
+.inspector-scroller > undershoot.top {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.32), transparent 14px);
+}
+.inspector-scroller > undershoot.bottom {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.32), transparent 14px);
 }
 .inspector-scroller scrollbar.vertical,
 .inspector-scroller scrollbar.vertical slider {

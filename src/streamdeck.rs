@@ -39,9 +39,7 @@ pub fn open_daemon_display(
     open_matching_device(vendor_id, product_id, usage, usage_page, |hid| {
         let display = DeckDisplay::new(hid)?;
         #[cfg(target_os = "linux")]
-        if !claim_daemon(&display.lock)
-            .map_err(|err| format!("Could not claim Stream Deck: {err}"))?
-        {
+        if !display.try_claim()? {
             return Ok(None);
         }
         Ok(Some(display))
@@ -269,15 +267,7 @@ impl DisplayFill {
     }
 
     pub fn apply(self, device: &HidDevice) -> Result<(), String> {
-        let info = device.get_device_info().map_err(|err| err.to_string())?;
-        if info.vendor_id() != 0x0fd9
-            || !matches!(info.product_id(), 0x006d | 0x0080 | 0x00a5 | 0x00b9)
-        {
-            return Err(crate::i18n::tr(
-                "Display color fills require a supported 15-key Stream Deck.",
-            ));
-        }
-        DeckDisplay::new(device)?.fill(self)
+        DeckDisplay::new(device)?.apply_fill(self)
     }
 
     fn report(self) -> [u8; 32] {
@@ -330,6 +320,27 @@ impl<D: Borrow<HidDevice>> DeckDisplay<D> {
 
     pub fn hid(&self) -> &HidDevice {
         self.device.borrow()
+    }
+
+    /// Holds the daemon claim on this deck until the display handle is dropped.
+    #[cfg(target_os = "linux")]
+    pub fn try_claim(&self) -> Result<bool, String> {
+        claim_daemon(&self.lock).map_err(|err| format!("Could not claim Stream Deck: {err}"))
+    }
+
+    pub fn apply_fill(&self, fill: DisplayFill) -> Result<(), String> {
+        let info = self
+            .hid()
+            .get_device_info()
+            .map_err(|err| err.to_string())?;
+        if info.vendor_id() != 0x0fd9
+            || !matches!(info.product_id(), 0x006d | 0x0080 | 0x00a5 | 0x00b9)
+        {
+            return Err(crate::i18n::tr(
+                "Display color fills require a supported 15-key Stream Deck.",
+            ));
+        }
+        self.fill(fill)
     }
 
     pub fn clear_lcd(&self) -> Result<(), String> {

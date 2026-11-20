@@ -1,5 +1,8 @@
 use super::*;
-use streamrs::streamdeck::info::{DeviceInfo, SleepTimer, open_info_device};
+use streamrs::streamdeck::{
+    firmware_image,
+    info::{DeviceInfo, open_info_device},
+};
 
 pub(super) fn register(window: &ApplicationWindow, state: &Rc<RefCell<AppState>>) {
     let action = gtk::gio::SimpleAction::new("device-info", None);
@@ -53,32 +56,16 @@ pub(super) fn register(window: &ApplicationWindow, state: &Rc<RefCell<AppState>>
                         grid.attach(&title, 0, i as i32, 1, 1);
                         grid.attach(&value, 1, i as i32, 1, 1);
                     }
-                    let timer = info.sleep_timer;
-                    if timer.is_some() {
-                        dialog.add_response("sleep", &tr("Change sleep timer…"));
-                    }
-                    if streamrs::streamdeck::supports_standby_upload(vendor, product) {
-                        dialog.add_response("standby", &tr("Set standby image…"));
-                    }
-                    let device = Cell::new(Some(device));
-                    dialog.connect_response(None, move |_, response| {
-                        let (Some(window), Some(device)) = (window.upgrade(), device.take()) else {
-                            return;
-                        };
-                        match response {
-                            "sleep" => {
-                                if let Some(timer) = timer {
-                                    gtk::glib::spawn_future_local(edit_sleep_timer(
-                                        window, device, timer,
-                                    ));
-                                }
+                    if firmware_image::supports_device(vendor, product) {
+                        dialog.add_response("compare", &tr("Compare firmware image…"));
+                        let device = Cell::new(Some(device));
+                        dialog.connect_response(Some("compare"), move |_, _| {
+                            if let (Some(window), Some(device)) = (window.upgrade(), device.take())
+                            {
+                                gtk::glib::spawn_future_local(compare_firmware(window, device));
                             }
-                            "standby" => {
-                                gtk::glib::spawn_future_local(edit_standby_image(window, device));
-                            }
-                            _ => {}
-                        }
-                    });
+                        });
+                    }
                     dialog.set_body("");
                     dialog.set_extra_child(Some(&grid));
                 }
@@ -90,71 +77,20 @@ pub(super) fn register(window: &ApplicationWindow, state: &Rc<RefCell<AppState>>
     window.add_action(&action);
 }
 
-async fn edit_sleep_timer(
-    window: ApplicationWindow,
-    device: hidapi::HidDevice,
-    current: SleepTimer,
-) {
-    let dialog = adw::AlertDialog::new(
-        Some(&tr("Sleep after inactivity")),
-        Some(&tr(
-            "Enter the number of minutes before the deck sleeps. Use 0 for never.",
-        )),
-    );
-    dialog.add_response("cancel", &tr("Cancel"));
-    dialog.add_response("apply", &tr("Apply"));
-    dialog.set_close_response("cancel");
-    dialog.set_default_response(Some("apply"));
-    dialog.set_response_appearance("apply", ResponseAppearance::Suggested);
-    dialog.set_response_enabled("apply", false);
-
-    let entry = gtk::Entry::builder()
-        .input_purpose(gtk::InputPurpose::Digits)
-        .placeholder_text(tr("Minutes"))
-        .activates_default(true)
-        .build();
-    if let Some(minutes) = current.whole_minutes() {
-        entry.set_text(&minutes.to_string());
-    }
-    let weak = dialog.downgrade();
-    entry.connect_changed(move |entry| {
-        if let Some(dialog) = weak.upgrade() {
-            let value = entry.text().parse().ok().and_then(SleepTimer::from_minutes);
-            dialog.set_response_enabled("apply", value.is_some_and(|timer| timer != current));
-        }
-    });
-    dialog.set_extra_child(Some(&entry));
-    if dialog.choose_future(Some(&window)).await != "apply" {
-        return;
-    }
-    let Some(timer) = entry.text().parse().ok().and_then(SleepTimer::from_minutes) else {
-        return;
-    };
-    let result = gtk::gio::spawn_blocking(move || timer.apply(&device)).await;
-    let error = match result {
-        Ok(Ok(())) => return,
-        Ok(Err(err)) => err,
-        Err(_) => tr("Could not change the sleep timer."),
-    };
-    let dialog = adw::AlertDialog::new(Some(&tr("Sleep after inactivity")), Some(&error));
-    dialog.add_response("close", &tr("Close"));
-    dialog.present(Some(&window));
-}
-
-async fn edit_standby_image(window: ApplicationWindow, device: hidapi::HidDevice) {
-    let title = tr("Set standby image");
-    let result = match choose_image(&window, &title).await {
+async fn compare_firmware(window: ApplicationWindow, device: hidapi::HidDevice) {
+    let title = tr("Compare firmware image");
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&tr("Firmware images")));
+    filter.add_suffix("bin");
+    let result = match choose_local_file(&window, &title, &filter).await {
         Ok(None) => return,
-        Ok(Some(path)) => gtk::gio::spawn_blocking(move || {
-            streamrs::streamdeck::set_standby_image(&device, &path)
-        })
-        .await
-        .unwrap_or_else(|_| Err(tr("Could not upload the standby image."))),
+        Ok(Some(path)) => gtk::gio::spawn_blocking(move || firmware_image::compare(&device, &path))
+            .await
+            .unwrap_or_else(|_| Err(tr("Device command failed.")))
+            .map(|comparison| comparison.summary()),
         Err(err) => Err(err),
     };
-    let message = result
-        .err()
-        .unwrap_or_else(|| tr("Standby image sent to the deck."));
+    let message = result.unwrap_or_else(|err| err);
     let dialog = adw::AlertDialog::new(Some(&title), Some(&message));
     dialog.add_response("close", &tr("Close"));
     dialog.present(Some(&window));
